@@ -73,7 +73,9 @@ def parse_args(test_args=None, subparsers=None):
     parser.add_argument('--save-path', default='model', type=str, 
                         help='Where to save training weights and logs (default: %(default)s)')
     parser.add_argument('--save-name', default='deepmased', type=str, 
-                        help='Prefix for name in the save-path (default: %(default)s)')  
+                        help='Prefix for name in the save-path (default: %(default)s)') 
+    parser.add_argument('--val-path', default=None, type=str, 
+                        help='Path to validation data (default: %(default)s)')
     parser.add_argument('--filters', default=8, type=int, 
                         help='N of filters for first conv layer. Then x2 (default: %(default)s)')
     parser.add_argument('--n-hid', default=50, type=int, 

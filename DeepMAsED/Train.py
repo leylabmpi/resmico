@@ -51,6 +51,17 @@ def main(args):
                                   pickle_only=args.pickle_only,
                                   force_overwrite=args.force_overwrite,
                                   n_procs=args.n_procs)
+    # Load and process validation data if given
+    if args.val_path:
+        x_val, y_val = Utils.load_features_tr(args.val_path,
+                                      max_len=args.max_len,
+                                      mode = config.mode, 
+                                      technology = args.technology,
+                                      pickle_only=args.pickle_only,
+                                      force_overwrite=args.force_overwrite,
+                                      n_procs=args.n_procs)
+        x_val = [item for sl in x_val for item in sl]
+        y_val = np.concatenate(y_val)
 
     # kfold cross validation
     if args.n_folds >= 0:
@@ -141,6 +152,13 @@ def main(args):
                                         use_multiprocessing=True,
                                         verbose=2,
                                         callbacks=[tb_logs, deepmased.reduce_lr])
+            if args.val_path:
+                deepmased.net.fit_generator(generator=dataGen,
+                                            validation_data=(x_val, y_val),
+                                            epochs=args.n_epochs, 
+                                            use_multiprocessing=True,
+                                            verbose=2,
+                                            callbacks=[tb_logs, deepmased.reduce_lr])
             
         logging.info('Saving trained model...')                   
         outfile = os.path.join(save_path, '_'.join([args.save_name, args.technology, 'model.h5']))
