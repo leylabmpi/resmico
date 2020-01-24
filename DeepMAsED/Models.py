@@ -30,13 +30,13 @@ class deepmased(object):
 
         self.net = Sequential()
 
-        self.net.add(Conv2D(self.filters, kernel_size=(2, self.n_features), 
+        self.net.add(Conv2D(self.filters, kernel_size=(3, self.n_features), 
                             input_shape=(self.max_len, self.n_features, 1),
                             activation='relu', padding='valid'))
         self.net.add(BatchNormalization(axis=-1))
 
         for i in range(1, self.n_conv):
-            self.net.add(Conv2D(2 ** i * self.filters, kernel_size=(2, 1), 
+            self.net.add(Conv2D(2 ** i * self.filters, kernel_size=(3, 1), 
                                 strides=2, 
                                 input_shape=(self.max_len, 1, 2 ** (i - 1) * self.filters), 
                                 activation='relu'))
@@ -55,11 +55,10 @@ class deepmased(object):
             self.net.add(Dense(1, activation='sigmoid'))
             self.net.add(Dropout(rate=self.dropout))
 
-            recall_0 = Utils.class_recall(0)
-            recall_1 = Utils.class_recall(1)
             self.net.compile(loss='binary_crossentropy',
                              optimizer=optimizer,
-                             metrics=[recall_0, recall_1])
+                             metrics=[Utils.class_recall_0, Utils.class_recall_1])
+            
         elif self.mode == 'edit':
             self.net.add(Dense(20, activation='relu'))
             self.net.add(Dropout(rate=dropout))

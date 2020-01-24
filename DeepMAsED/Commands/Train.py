@@ -68,14 +68,16 @@ def parse_args(test_args=None, subparsers=None):
     # args
     parser.add_argument('data_path',  metavar='data-path', type=str, 
                         help='Base path to the feature tables (see DESCRIPTION)')
-    parser.add_argument('--technology', default='all-asmbl', type=str, 
-                        help='Assembler name in the data_path. "all-asmbl" will use all assemblers (default: %(default)s)')    
+    parser.add_argument('--technology', default='all', type=str, 
+                        help='Assembler name in the data_path. "all" will use all assemblers (default: %(default)s)')    
     parser.add_argument('--save-path', default='model', type=str, 
                         help='Where to save training weights and logs (default: %(default)s)')
     parser.add_argument('--save-name', default='deepmased', type=str, 
                         help='Prefix for name in the save-path (default: %(default)s)') 
     parser.add_argument('--val-path', default=None, type=str, 
                         help='Path to validation data (default: %(default)s)')
+    parser.add_argument('--early-stop', action='store_true', default=False,
+                        help='Only pickle files (default: %(default)s)')
     parser.add_argument('--filters', default=8, type=int, 
                         help='N of filters for first conv layer. Then x2 (default: %(default)s)')
     parser.add_argument('--n-hid', default=50, type=int, 

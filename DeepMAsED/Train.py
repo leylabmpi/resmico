@@ -7,6 +7,8 @@ import _pickle as pickle
 ## 3rd party
 import numpy as np
 import keras
+from keras.callbacks import EarlyStopping
+from keras.callbacks import ModelCheckpoint
 from sklearn.metrics import confusion_matrix, roc_curve
 from sklearn.metrics import recall_score, roc_auc_score, average_precision_score
 from sklearn.preprocessing import StandardScaler
@@ -138,27 +140,41 @@ def main(args):
 #         y = np.array(y)[dwnsample]
 
         logging.info('Constructing model...')
+        deepmased = Models.deepmased(config)
         dataGen = Models.Generator(x, y, args.max_len, batch_size=64,
                                    norm_raw=bool(args.norm_raw))
-        deepmased = Models.deepmased(config)
         tb_logs = keras.callbacks.TensorBoard(log_dir=os.path.join(save_path, 'logs_final'), 
                                               histogram_freq=0, 
                                               write_graph=True, write_images=True)
         
-        logging.info('Training network...')
-        if config.mode in ['chimera', 'extensive']:             
+                     
+        if args.val_path:
+            logging.info('Training network with validation...')
+            dataGen_val = Models.Generator(x_val, y_val, args.max_len,
+                           batch_size=64,shuffle=False,norm_raw=bool(args.norm_raw),
+                           mean_tr=dataGen.mean, std_tr=dataGen.std)
+            list_callbacks = [tb_logs, 
+                              deepmased.reduce_lr,
+                              Utils.roc_callback(dataGen,dataGen_val)]
+            if args.early_stop:
+                es = EarlyStopping(monitor='val_loss', verbose=1, patience=9)
+                list_callbacks.append(es)
+                mc_file = os.path.join(save_path, '_'.join(['mc', args.save_name, args.technology, 'model.h5']))
+                mc = ModelCheckpoint(mc_file, monitor='val_loss', verbose=1, save_best_only=True)
+                list_callbacks.append(mc)
             deepmased.net.fit_generator(generator=dataGen,
+                                        validation_data=dataGen_val,
                                         epochs=args.n_epochs, 
                                         use_multiprocessing=True,
                                         verbose=2,
-                                        callbacks=[tb_logs, deepmased.reduce_lr])
-            if args.val_path:
-                deepmased.net.fit_generator(generator=dataGen,
-                                            validation_data=(x_val, y_val),
-                                            epochs=args.n_epochs, 
-                                            use_multiprocessing=True,
-                                            verbose=2,
-                                            callbacks=[tb_logs, deepmased.reduce_lr])
+                                        callbacks=list_callbacks)
+        else:
+            logging.info('Training network...')
+            deepmased.net.fit_generator(generator=dataGen,
+                        epochs=args.n_epochs, 
+                        use_multiprocessing=True,
+                        verbose=2,
+                        callbacks=[tb_logs, deepmased.reduce_lr])
             
         logging.info('Saving trained model...')                   
         outfile = os.path.join(save_path, '_'.join([args.save_name, args.technology, 'model.h5']))

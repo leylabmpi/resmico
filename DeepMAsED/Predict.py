@@ -28,9 +28,7 @@ def main(args):
     
     # Load and process data
     # Provide objective to load
-    recall_0 = Utils.class_recall(0)
-    recall_1 = Utils.class_recall(1)
-    custom_obj = {'metr' : recall_0}
+    custom_obj = {'class_recall_0':Utils.class_recall_0, 'class_recall_1': Utils.class_recall_1}
                 
     logging.info('Loading model...')
     ## pkl

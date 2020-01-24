@@ -11,9 +11,11 @@ from collections import defaultdict
 import multiprocessing as mp
 ## 3rd party
 from keras import backend as K
+from keras.callbacks import Callback
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import roc_auc_score
 import IPython
 ## application
 
@@ -60,7 +62,7 @@ def splitall(path):
             allparts.insert(0, parts[1])
     return allparts
 
-def _find_feature_files(data_path, filename, technology='all-asmbl'):
+def _find_feature_files(data_path, filename, technology='all'):
     """ 
     Finding feature files.
     Recursively looks for `filename` in `data_path`.
@@ -78,7 +80,7 @@ def _find_feature_files(data_path, filename, technology='all-asmbl'):
                 sim_rep = x[-2]     # simulation rep
                 asmbl = x[-1]       # assembler
                 # filter by techology (assembler)
-                if technology != 'all-asmbl' and asmbl != technology:
+                if technology != 'all' and asmbl != technology:
                     msg = 'Skipping file because assembler does'
                     msg += ' not match user-seleted assembler:'
                     msg += ' {} != {} for file "{}"'
@@ -648,6 +650,7 @@ def pickle_data_feat_only(features_in, features_out):
         
 def class_recall(label):
     """
+    Problem: name 'metr' doesn't allow to monitor two labels
     Custom metric for Keras, computes recall per class. 
 
     Inputs:
@@ -662,11 +665,66 @@ def class_recall(label):
         return class_acc
     return metr
 
+def class_recall_0(y_true, y_pred):
+    label=0
+    class_id_preds = K.cast(K.greater(y_pred, 0.5), 'int32')
+    y_true = K.cast(y_true, 'int32')
+    accuracy_mask = K.cast(K.equal(y_true, label), 'int32')
+    class_acc_tensor = K.cast(K.equal(y_true, class_id_preds), 'int32') * accuracy_mask
+    class_acc = K.sum(class_acc_tensor) / K.maximum(K.sum(accuracy_mask), 1)
+    return class_acc
+
+def class_recall_1(y_true, y_pred):
+    label=1
+    class_id_preds = K.cast(K.greater(y_pred, 0.5), 'int32')
+    y_true = K.cast(y_true, 'int32')
+    accuracy_mask = K.cast(K.equal(y_true, label), 'int32')
+    class_acc_tensor = K.cast(K.equal(y_true, class_id_preds), 'int32') * accuracy_mask
+    class_acc = K.sum(class_acc_tensor) / K.maximum(K.sum(accuracy_mask), 1)
+    return class_acc
+
 def explained_var(y_true, y_pred):
     """
     Custom metric for Keras, explained variance.  
     """
     return 1  - K.mean((y_true - y_pred) ** 2) / K.var(y_true)
+
+class roc_callback(Callback):
+    def __init__(self,train_gen,val_gen):
+        self.train_gen = train_gen
+        self.train_reports = []
+        self.val_gen = val_gen
+        self.val_reports = []      
+    
+    def on_train_begin(self, logs={}):
+        return
+ 
+    def on_train_end(self, logs={}):
+        return
+ 
+    def on_epoch_begin(self, epoch, logs={}):
+        return
+ 
+    def on_epoch_end(self, epoch, logs={}): 
+#        too time consuming
+#         y_pred = self.model.predict_generator(self.train_gen)
+#         y_true = self.train_gen.y
+#         roc_train = roc_auc_score(y_true[:len(y_pred)], y_pred) #change it when last batch is readed      
+#         self.train_reports.append(roc_train)
+        
+        y_pred_val = self.model.predict_generator(self.val_gen)
+        y_true_val = self.val_gen.y
+        roc_val = roc_auc_score(y_true_val[:len(y_pred_val)], y_pred_val)   #change it when last batch is readed    
+        self.val_reports.append(roc_val)
+#         print('\rroc-auc: %s - roc-auc_val: %s' % (str(round(roc_train,4)),str(round(roc_val,4))),end=100*' '+'\n')
+        print('\rroc-auc_val: %s' % (str(round(roc_val,4))),end=100*' '+'\n')
+        return 
+ 
+    def on_batch_begin(self, batch, logs={}):
+        return
+ 
+    def on_batch_end(self, batch, logs={}):
+        return 
 
 def reverse_dict(d):
     """Flip keys and values
