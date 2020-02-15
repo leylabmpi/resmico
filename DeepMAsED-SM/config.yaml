@@ -1,8 +1,14 @@
-# Input
+# Input table
 genomes_file: tests/data/genome_download_n10.tsv
 
-# Output location
+# Output directory
 output_dir: tests/output_n10/
+
+# Temporary output directory (/dev/shm/ for shared memory)
+tmp_dir: /tmp/
+
+# Email for notifications ("Skip" to skip)
+email: Skip
 
 # software parameters
 ## Use "Skip" to skip  steps. If no params for rule, use ""
@@ -13,9 +19,12 @@ params:
   reps: 2
   MGSIM:
     genome_download: ""
-    communities: --richness 1 #--shared-perc 80 --perm-perc 100
-    reads: --sr-seq-depth 1e6 --art-paired --art-mflen 250
-  keep_reads: False
+    community_richness:
+      - 1
+    reads: --art-paired --art-mflen 250 --art-sdev 10
+    read_depth:
+      - 1000000
+  keep_reads: True #False
   # coverage
   nonpareil: -T kmer
   nonpareil_summary: 1e9   # this is target seq. depth
@@ -28,8 +37,9 @@ params:
   # assessing assembly errors
   minimap2: ""
   metaquast: --min-identity 95 --extensive-mis-size 100 --no-icarus --max-ref-number 0
-  # mapping reads to contigs
+  # mapping reads to contigs  
   samtools: ""
+  keep_bam: True
   # creating DL features
   make_features: --window 4
   # state-of-the-art
@@ -42,5 +52,4 @@ params:
 pipeline:
   snakemake_folder: ./
   script_folder: ./bin/scripts/
-  temp_folder: /tmp/global2/
   rnd_seed: 9384

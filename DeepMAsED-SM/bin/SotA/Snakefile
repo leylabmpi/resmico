@@ -3,24 +3,31 @@ rule ALE:
     Running ALE on assemblies
     """
     input:
-        ref = asmbl_dir + '{rep}/{assembler}/contigs_filtered.fasta',
-        bam = map_dir + '{rep}/{assembler}.bam',
-        bai = map_dir + '{rep}/{assembler}.bam.bai'
+        ref = config['tmp_dir'] + \
+              '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta',
+        bam = config['tmp_dir'] + \
+              '{richness}/{rep}/{read_depth}/{assembler}.bam',
+        bai = config['tmp_dir'] + \
+              '{richness}/{rep}/{read_depth}/{assembler}.bam.bai'
     output:
-        txt = ale_dir + '{rep}/{assembler}/ALE_results.txt'
+        txt = ale_dir + \
+              '{richness}/{rep}/{read_depth}/{assembler}/ALE_results.txt'
     params:
         params = config['params']['ALE'],
         exe = config['pipeline']['script_folder'] + 'ALE'
     resources:
         time = lambda wildcards, attempt: attempt * 59 * 12,
+        n = lambda wildcards, threads: threads,
         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 7
     log:
-        log_dir + 'ALE/{rep}/{assembler}.log'
+        log_dir + 'ALE/{richness}/{rep}/{read_depth}/{assembler}.log'
     benchmark:
-        benchmark_dir + 'ALE/{rep}/{assembler}.txt'
+        benchmark_dir + 'ALE/{richness}/{rep}/{read_depth}/{assembler}.txt'
     shell:
         """
-        {params.exe} {params.params} {input.bam} {input.ref} {output.txt} 2> {log}
+        {params.exe} {params.params} \
+           {input.bam} {input.ref} {output.txt} \
+           2> {log} 1>&2
         """
 
 rule VALET:
@@ -28,29 +35,32 @@ rule VALET:
     Running VALET on assemblies
     """
     input:
-        ref = asmbl_dir + '{rep}/{assembler}/contigs_filtered.fasta',
-	read1 = config['tmp_dir'] + '{rep}/sim_reads/1/R1.fq',
-	read2 = config['tmp_dir'] + '{rep}/sim_reads/1/R2.fq'
+        ref = config['tmp_dir'] + \
+              '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta',
+    	read1 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/1/R1.fq',
+	read2 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/1/R2.fq'
     output:
-        sum = valet_dir + '{rep}/{assembler}/summary.tsv',
-        sbed = valet_dir + '{rep}/{assembler}/summary.bed',
-        ssbed = valet_dir + '{rep}/{assembler}/suspicious.bed',
-        cbed = valet_dir + '{rep}/{assembler}/coverage.bed',
-        bbed = valet_dir + '{rep}/{assembler}/breakpoints.bed'
+        sum = valet_dir + '{richness}/{rep}/{read_depth}/{assembler}/summary.tsv',
+        sbed = valet_dir + '{richness}/{rep}/{read_depth}/{assembler}/summary.bed',
+        ssbed = valet_dir + '{richness}/{rep}/{read_depth}/{assembler}/suspicious.bed',
+        cbed = valet_dir + '{richness}/{rep}/{read_depth}/{assembler}/coverage.bed',
+        bbed = valet_dir + '{richness}/{rep}/{read_depth}/{assembler}/breakpoints.bed'
     params:
         params = config['params']['VALET'],
-        tmp_dir = config['tmp_dir'] + 'VALET/{rep}/{assembler}/valet_out/reference/'
+        tmp_dir = config['tmp_dir'] + \
+                  'VALET/{richness}/{rep}/{read_depth}/{assembler}/valet_out/reference/'
     threads:
         8
     resources:
         time = lambda wildcards, attempt: attempt * 60 * 12,
+        n = lambda wildcards, threads: threads,
         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 2
     conda:
         '../envs/valet.yaml'
     log:
-        log_dir + 'VALET/{rep}/{assembler}.log'
+        log_dir + 'VALET/{richness}/{rep}/{read_depth}/{assembler}.log'
     benchmark:
-        benchmark_dir + 'VALET/{rep}/{assembler}.txt'
+        benchmark_dir + 'VALET/{richness}/{rep}/{read_depth}/{assembler}.txt'
     shell:
         """
         # tmp directory

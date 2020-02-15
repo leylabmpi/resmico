@@ -51,7 +51,7 @@ rule map_bowtie2_build:
         12
     resources:
         time = lambda wildcards, attempt: attempt * 59,
-        n = lambda wildcards, attempt: 12,
+        n = lambda wildcards, threads: threads,
 	mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 1
     conda:
         '../envs/bowtie2.yaml'
@@ -86,6 +86,7 @@ rule map_bowtie2:
         12
     resources:
         time = lambda wildcards, attempt: attempt * 59 * 12,
+        n = lambda wildcards, threads: threads,
         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 2
     log:
         bt2 = log_dir + 'map_bowtie2/{genome}/{sample}.log',    
@@ -118,6 +119,7 @@ rule map_bowtie2_index_bam:
         8
     resources:
         time = lambda wildcards, attempt: attempt ** 3 * 59,
+        n = lambda wildcards, threads: threads,
         mem_gb_pt = lambda wildcards, attempt: attempt * 2
     conda:
         '../envs/bowtie2.yaml'
@@ -169,6 +171,7 @@ rule bam_to_DL_features:
         12
     resources:
         time = lambda wildcards, attempt: attempt ** 2 * 60 * 8,
+        n = lambda wildcards, threads: threads,
         mem_gb_pt = lambda wildcards, attempt: int(round(attempt ** 2.5 * 2 + 1, 0))
     conda:
         '../envs/bowtie2.yaml'
@@ -192,7 +195,7 @@ rule features_compress:
     output:
         map_dir + '{genome}/{sample}/features.tsv.gz'
     resources:
-        time = lambda wildcards, attempt: attempt ** 3 * 59,
+        time = lambda wildcards, attempt: attempt ** 3 * 59,        
         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 * 8
     log:
         log_dir + 'features_compress/{genome}/{sample}.log'

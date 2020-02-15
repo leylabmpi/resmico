@@ -23,7 +23,7 @@ The tool is divided into two main parts:
   * A snakemake pipeline for:
     * generating DeepMAsED train/test datasets from reference genomes
     * creating feature tables from "real" assemblies (fasta + bam files)
-* **DeepMAsED-DL**
+* **DeepMAsED (DL)**
   * A python package for misassembly detection via deep learning
 
 
@@ -51,7 +51,7 @@ The tool is divided into two main parts:
 
 ### Creating feature tables for genomes (MAGs)
 
-Feature tables are fed to DeepMAsED-DL for misassembly classification.
+Feature tables are fed to DeepMAsED (DL) for misassembly classification.
 
 **Input:**
 
@@ -70,21 +70,33 @@ Feature tables are fed to DeepMAsED-DL for misassembly classification.
   * Config params on assemblers & parameters
   * Note: the same config is used for simulations and feature table creation
 
-#### Running locally 
+### Running locally 
 
 `snakemake --use-conda -j <NUMBER_OF_THREADS> --configfile <MY_CONFIG.yaml_FILE>`
 
-#### Running on SGE cluster 
+### Running on a cluster
 
-`./snakemake_sge.sh <MY_CONFIG.yaml_FILE> cluster.json <PATH_FOR_SGE_LOGS> <NUMBER_OF_PARALLEL_JOBS> [additional snakemake options]`
+You will need to setup a snakemake profile specific to your cluster setup.
+See the following for how:
 
-It should be rather easy to update the code to run on other cluster architectures.
-See the following resources for help:
-
+* [Ley Lab snakemake profiles](https://github.com/leylabmpi/snakemake_profiles)
 * [Snakemake docs on cluster config](https://snakemake.readthedocs.io/en/stable/snakefiles/configuration.html)
-* [Snakemake profiles](https://github.com/Snakemake-Profiles)
+* [Official snakemake profiles](https://github.com/Snakemake-Profiles)
 
-#### Output
+Note that the job submission script should include the following resources:
+
+* `time` = max job time in minutes
+* `n` = number of threads requested
+* `mem_gb_pt` = per-thread mem in gigabytes
+
+#### Running on SGE cluster
+
+The SGE profile in [Ley Lab snakemake profiles](https://github.com/leylabmpi/snakemake_profiles)
+should work without any modifications (read the README).
+
+You can use `./snakemake_sge.sh` for convenience
+
+### Output
 
 > Assuming output directory is `./output/`
 
@@ -95,7 +107,10 @@ See the following resources for help:
 * `./output/benchmarks/`
   * Job resource usage info
 
-##### Features table
+#### Features table
+
+> Note: `*_Match` in column names refers to reads that matched the reference at that position,
+  while `*_SNP` refers to reads that didn't match the reference at that position.
 
 * **Basic info**
   * assembler
@@ -171,7 +186,7 @@ See the following resources for help:
 
 ### Creating custom train/test data from reference genomes
 
-This is useful for training DeepMAsED-DL with a custom
+This is useful for training DeepMAsED (DL) with a custom
 train/test dataset (e.g., just biome-specific taxa). 
 
 **Input:**
@@ -205,7 +220,7 @@ The output will the be same as for feature generation, but with extra directorie
   * Metagenome assembly errors determined by using the references
 
 
-## DeepMAsED-DL
+## DeepMAsED (DL)
 
 Main interface: `DeepMAsED -h`
 
