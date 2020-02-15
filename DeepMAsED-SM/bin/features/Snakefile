@@ -121,3 +121,39 @@ rule features_compress:
         gzip -c {input} > {output} 2> {log}
         """
 
+localrules: features_file_table
+        
+rule features_file_table:
+    """
+    Creating a table that lists all feature files
+    """
+    input:
+        feats = expand(features_dir + \
+                       '{richness}/{rep}/{read_depth}/{assembler}/features.tsv.gz',
+                       richness = config['params']['MGSIM']['community_richness'],
+                       rep = config['reps'],                
+                       read_depth = config['params']['MGSIM']['read_depth'],
+	               assembler = config['assemblers'])        
+    output:
+        tsv = features_dir + 'feature_files.tsv'
+    params:
+        reads = config['params']['MGSIM']['reads']
+    log:
+        log_dir + 'features_file_table.log'
+    benchmark:
+        benchmark_dir + 'featuress_file_table.txt'
+    run:
+        import os,sys
+        MGSIM_reads = '"' + params.reads + '"'
+        cols = ['assembler', 'richness', 'read_depth', 'rep', 'feature_file', 'MGSIM_reads_params']
+        with open(output.tsv, 'w') as outF:
+            outF.write('\t'.join(cols) + '\n')
+            for F in input.feats:
+                F = os.path.abspath(F)
+                D,feat_file = os.path.split(F)
+                D,assembler = os.path.split(D)
+                D,read_depth = os.path.split(D)
+                D,rep = os.path.split(D)
+                D,richness = os.path.split(D)
+                x = '\t'.join([assembler, richness, read_depth, rep, F, MGSIM_reads])
+                outF.write(x + '\n')

@@ -171,13 +171,7 @@ def all_which_input(wildcards):
 
         # feature table
         if not config['params']['make_features'].startswith('Skip'):    
-            x = expand(features_dir + \
-                       '{richness}/{rep}/{read_depth}/{assembler}/features.tsv.gz',
-                       richness = config['params']['MGSIM']['community_richness'],
-                       rep = config['reps'],                
-                       read_depth = config['params']['MGSIM']['read_depth'],
-	               assembler = config['assemblers'])
-            input_files += x
+            input_files.append(features_dir + 'feature_files.tsv')
 
     # State of the Art
     ## ALE
