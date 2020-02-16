@@ -145,15 +145,14 @@ rule features_file_table:
     run:
         import os,sys
         MGSIM_reads = '"' + params.reads + '"'
-        cols = ['assembler', 'richness', 'read_depth', 'rep', 'feature_file', 'MGSIM_reads_params']
+        cols = ['richness', 'rep', 'read_depth', 'assembler', 'feature_file', 'MGSIM_reads_params']
         with open(output.tsv, 'w') as outF:
             outF.write('\t'.join(cols) + '\n')
             for F in input.feats:
-                F = os.path.abspath(F)
                 D,feat_file = os.path.split(F)
                 D,assembler = os.path.split(D)
                 D,read_depth = os.path.split(D)
                 D,rep = os.path.split(D)
                 D,richness = os.path.split(D)
-                x = '\t'.join([assembler, richness, read_depth, rep, F, MGSIM_reads])
+                x = '\t'.join([richness, rep, read_depth, assembler, F, MGSIM_reads])
                 outF.write(x + '\n')

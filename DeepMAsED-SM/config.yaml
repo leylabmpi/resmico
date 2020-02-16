@@ -41,7 +41,7 @@ params:
   samtools: ""
   keep_bam: True
   # creating DL features
-  make_features: --window 4
+  make_features: --window 6
   # state-of-the-art
   ## ALE
   ALE: ""

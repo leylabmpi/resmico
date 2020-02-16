@@ -160,12 +160,14 @@ def _contig_stats(contig, bam_file, fasta_file, assembler, window_size):
             read_stats = {'n_proper' : 0,
                           'n_orphan' : 0,
                           'n_sup' : 0,
-                          'n_sec' : 0,
+                          'n_sec' : 0,                        
                           'n_diff_strand' : 0,
+                          'n_discord' : 0,
                           'i_sizes' : [],
                           'map_quals' : []}
             read_stats = {True : copy.deepcopy(read_stats),   # SNP
-                          False : copy.deepcopy(read_stats)}  # match            
+                          False : copy.deepcopy(read_stats)}  # match
+            n_discord = 0
             for read in inF.fetch(contig, pos, pos+1):
                 # is the read a SNP at that position?
                 try:
@@ -174,7 +176,11 @@ def _contig_stats(contig, bam_file, fasta_file, assembler, window_size):
                     is_SNP = False
                 # read qualities
                 if read.is_paired == True and read.is_unmapped == False:
-                    if (read.is_proper_pair == True and
+                    if (read.is_proper_pair == False and
+                        read.mate_is_unmapped == False):
+                        read_stats[is_SNP]['n_discord'] += 1
+                        n_discord += 1
+                    elif (read.is_proper_pair == True and
                         read.mate_is_unmapped == False):
                         read_stats[is_SNP]['n_proper'] += 1
                     elif (read.mate_is_unmapped == False and
@@ -238,6 +244,7 @@ def _contig_stats(contig, bam_file, fasta_file, assembler, window_size):
                 str(coverage_by_base[3][0]),  # number of reads with 'T'
                 str(SNPs),                    # number of SNPs (relative to base at position)
                 str(coverage),                # total reads at position
+                str(n_discord),               # total discordant reads (for rev-compatibility)
                 # characterization of reads matching the reference at this position
                 str(read_stats[False]['min_i_size']),
                 str(read_stats[False]['mean_i_size']),
@@ -252,6 +259,7 @@ def _contig_stats(contig, bam_file, fasta_file, assembler, window_size):
                 str(read_stats[False]['n_orphan']),
                 str(read_stats[False]['n_sup']),
                 str(read_stats[False]['n_sec']),
+                str(read_stats[False]['n_discord']),
                 # characterization of reads with SNP vs ref at this position
                 str(read_stats[True]['min_i_size']),
                 str(read_stats[True]['mean_i_size']),
@@ -266,9 +274,10 @@ def _contig_stats(contig, bam_file, fasta_file, assembler, window_size):
                 str(read_stats[True]['n_orphan']),
                 str(read_stats[True]['n_sup']),
                 str(read_stats[True]['n_sec']),
+                str(read_stats[True]['n_discord']),
                 # general seq info
-                str(seq_ent),                 # sliding window sequence entropy
-                str(gc_perc)                 # sliding window percent GC                   
+                str(seq_ent),             # sliding window sequence entropy
+                str(gc_perc)              # sliding window percent GC                   
             ])
             
         return stats
@@ -305,7 +314,7 @@ def main(args):
     # header
     H = ['assembler', 'contig',  'position', 'ref_base', 
          'num_query_A', 'num_query_C', 'num_query_G', 'num_query_T',
-         'num_SNPs', 'coverage',
+         'num_SNPs', 'coverage', 'num_discordant',
          'min_insert_size_Match',
          'mean_insert_size_Match',
          'stdev_insert_size_Match',
@@ -319,6 +328,7 @@ def main(args):
          'num_orphans_Match',
          'num_supplementary_Match',
          'num_secondary_Match',
+         'num_discordant_Match',
          'min_insert_size_SNP',
          'mean_insert_size_SNP',
          'stdev_insert_size_SNP',
@@ -332,6 +342,7 @@ def main(args):
          'num_orphans_SNP',
          'num_supplementary_SNP',
          'num_secondary_SNP',
+         'num_discordant_SNP',
          'seq_window_entropy', 'seq_window_perc_gc']
     print('\t'.join(H))
     
