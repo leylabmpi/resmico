@@ -56,7 +56,12 @@ The tool is divided into two main parts:
 
 ### Creating feature tables for genomes (MAGs)
 
-Feature tables are fed to DeepMAsED (DL) for misassembly classification.
+If you just want to create feature tables so that you can run
+`DeepMAsED predict` for contig misassembly classification,
+then keep reading this section. 
+
+If you instead want to create simulated training/testing datasets,
+then see `Creating custom train/test data from reference genomes` below.
 
 **Input:**
 
@@ -199,11 +204,11 @@ train/test dataset (e.g., just biome-specific taxa).
 **Input:**
 
 * A table listing refernce genomes. Two possible formats:
-  * Genome-accession: `<Taxon>\t<Accession>`
+  * **Either** Genome-accession: `<Taxon>\t<Accession>`
      * "Taxon" = the species/strain name
      * "Accession" = the NCBI genbank genome accession 
      * The genomes will be downloaded based on the accession
-  * Genome-fasta: `<Taxon>\t<Fasta>`
+  * **Or** Genome-fasta: `<Taxon>\t<Fasta>`
      * "Taxon" = the species/strain name of the genome
      * "Fasta" = the fasta of the genome sequence
      * Use this option if you already have the genome fasta files (uncompressed or gzip'ed)
