@@ -30,11 +30,3 @@ def test_predict_default_model(tmpdir, caplog):
     args = Predict_CMD.parse_args(args)
     Predict_CMD.main(args)  
     
-# def test_predict_r3(tmpdir):
-#     out_path = tmpdir.mkdir('save_dir')
-#     model_path = os.path.join(data_dir, 'n1000_r3/', 'model')
-#     args = [os.path.join(data_dir, 'n1000_r3/'),
-#             '--cpu-only']
-#     args = Predict_CMD.parse_args(args)
-#     Predict_CMD.main(args)    
-    
