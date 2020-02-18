@@ -32,6 +32,8 @@ parser.add_argument('fasta_file', metavar='fasta_file', type=str,
                     help='Reference sequences for the bam (sam) file')
 parser.add_argument('-a', '--assembler', type=str, default='unknown',
                     help='Name of metagenome assembler used to create the contigs (default: %(default)s)')
+parser.add_argument('-b', '--batches', type=int, default=100,
+                    help='Number of contigs batches for parallel processing (default: %(default)s)')
 parser.add_argument('-p', '--procs', type=int, default=1,
                     help='Number of parallel processes (default: %(default)s)')
 parser.add_argument('--window', type=int, default=4,
@@ -292,16 +294,22 @@ def contig_stats(contigs, bam_file, fasta_file, assembler, window_size):
         stats.append(x)
     return stats
 
-def batch_contigs(contigs, nprocs):
+def batch_contigs(contigs, n_batches):
     """ Processing contigs in batches
+    Returns:
+      dict : {binID : [contig1, ..., contigN]}
     """
-    msg = 'Batching contigs into {} equal bins'
-    logging.info(msg.format(nprocs))
+    n_contigs = len(contigs)
+    if n_contigs < n_batches:
+        n_batches = n_contigs
+    n_per_batch = int(round(n_contigs / float(n_batches), 0))
+    msg = 'Batching {} contigs into {} equal bins (~{} per bin)'
+    logging.info(msg.format(n_contigs, n_batches, n_per_batch))
     
     contig_bins = {}
     contigs = list(contigs)
     shuffle(contigs)
-    for contig,_bin in zip(contigs, itertools.cycle(range(0,nprocs))):
+    for contig,_bin in zip(contigs, itertools.cycle(range(0,n_batches))):
         try:
             contig_bins[_bin].append(contig)
         except KeyError:
@@ -366,7 +374,7 @@ def main(args):
     if args.debug is False and args.procs > 1:
         p = Pool(args.procs)
         # batching contigs for multiprocessing
-        contig_bins = batch_contigs(contigs, args.procs)
+        contig_bins = batch_contigs(contigs, args.batches)
         # getting stats
         stats = p.map(func, contig_bins)
     else:

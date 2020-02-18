@@ -73,8 +73,7 @@ rule MGSIM_communities:
         abund = mgsim_dir + '{richness}/{rep}/comm_abund.txt',
         wAbund = mgsim_dir + '{richness}/{rep}/comm_wAbund.txt'
     params:
-        richness = lambda wildcards: wildcards.richness,
-        rndSeed = random.randint(10,100000)
+        richness = lambda wildcards: wildcards.richness
     conda:
         '../envs/MGSIM.yaml'
     resources:
@@ -89,7 +88,6 @@ rule MGSIM_communities:
         PREFIX=`dirname {output.abund}`"/comm"
 
         MGSIM communities --n-comm 1 \
-          --rnd-seed {params.rndSeed} \
           --richness {params.richness} \
           {input} $PREFIX 2> {log} 1>&2
         """

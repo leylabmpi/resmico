@@ -20,9 +20,10 @@ rule bam_to_DL_features:
     threads:
         12
     resources:
-        time = lambda wildcards, attempt: attempt ** 2 * 60 * 8,
+        time = lambda wildcards, attempt: attempt ** 2 * 60 * 12,
         n = lambda wildcards, threads: threads,         
-        mem_gb_pt = lambda wildcards, attempt: int(round(attempt ** 2.5 * 2 + 1, 0))
+        mem_gb_pt = lambda wildcards, attempt: int(round(attempt ** 2.5 * 2 + 1, 0)),
+        batches = lambda wildcards, attempt: attempt ** 2 * 400
     conda:
         '../envs/bowtie2.yaml'
     log:
@@ -32,6 +33,7 @@ rule bam_to_DL_features:
     shell:
         """
         {params.exe} {params.params} -p {threads} \
+          --batches {resources.batches} \
           --assembler {params.assembler} \
           {input.bam} {input.fasta} \
           > {output} 2> {log}
