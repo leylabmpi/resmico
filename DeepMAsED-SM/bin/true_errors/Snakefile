@@ -108,6 +108,31 @@ rule minimap2_contigs_vs_refs_summary:
         {params.exe} {input.aln} > {output} 2> {log}
         """
 
+localrules: metaquast_ref_genomes
+        
+rule metaquast_ref_genomes:
+    """
+    Creating ref genome set for just those genomes with non-zero
+    abundances in the simulated community.
+    The genomes will be symlinked to a specific ref directory
+    """
+    input:
+        refs = genomes_dir + 'genomes.tsv',
+        abund = mgsim_dir + '{richness}/{rep}/comm_wAbund.txt'
+    output:
+        refs = temp(config['tmp_dir'] + 'metaquast/{richness}/{rep}/genomes/genomes.tsv')
+    params:
+        exe = config['pipeline']['script_folder'] + 'genome_symlink.py'
+    log:
+        log_dir + 'metaquast_ref_genomes/{richness}/{rep}.log'
+    shell:
+        """
+        OUTDIR=`dirname {output.refs}`
+        rm -rf $OUTDIR 2> {log}
+        mkdir -p $OUTDIR 2>> {log}
+        {params.exe} {input.refs} {input.abund} $OUTDIR > {output.refs} 2>> {log}
+        """
+        
 rule metaquast:
     """
     MetaQUAST assessment of assemblies
@@ -115,7 +140,7 @@ rule metaquast:
     input:
         contigs = config['tmp_dir'] + \
                   '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta',
-        refs = genomes_dir + 'genomes.tsv',
+        refs = config['tmp_dir'] + 'metaquast/{richness}/{rep}/genomes/genomes.tsv',
 	read1 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/1/R1.fq',
 	read2 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/1/R2.fq'
     output:
