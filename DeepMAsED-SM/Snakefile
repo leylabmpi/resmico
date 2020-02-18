@@ -176,7 +176,7 @@ def all_which_input(wildcards):
     # State of the Art
     ## ALE
     if not config['params']['ALE'].startswith('Skip'):
-        x = expand(ale_dir + '{richness}/{rep}/{read_depth}/{assembler}/ALE_results.txt',
+        x = expand(ale_dir + '{richness}/{rep}/{read_depth}/{assembler}/ALE_results.txt.gz',
                    richness = config['params']['MGSIM']['community_richness'],
                    rep = config['reps'],                
                    read_depth = config['params']['MGSIM']['read_depth'],

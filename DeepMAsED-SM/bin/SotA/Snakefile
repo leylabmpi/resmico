@@ -10,14 +10,15 @@ rule ALE:
         bai = config['tmp_dir'] + \
               '{richness}/{rep}/{read_depth}/{assembler}.bam.bai'
     output:
-        txt = ale_dir + \
-              '{richness}/{rep}/{read_depth}/{assembler}/ALE_results.txt'
+        txt = temp(config['tmp_dir'] + \
+               '{richness}/{rep}/{read_depth}/{assembler}/ALE_results.txt'),
+        gz = ale_dir + \
+              '{richness}/{rep}/{read_depth}/{assembler}/ALE_results.txt.gz'
     params:
         params = config['params']['ALE'],
         exe = config['pipeline']['script_folder'] + 'ALE'
     resources:
         time = lambda wildcards, attempt: attempt * 59 * 12,
-        n = lambda wildcards, threads: threads,
         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 7
     log:
         log_dir + 'ALE/{richness}/{rep}/{read_depth}/{assembler}.log'
@@ -28,6 +29,7 @@ rule ALE:
         {params.exe} {params.params} \
            {input.bam} {input.ref} {output.txt} \
            2> {log} 1>&2
+        gzip -c {output.txt} > {output.gz} 2> {log}
         """
 
 rule VALET:
