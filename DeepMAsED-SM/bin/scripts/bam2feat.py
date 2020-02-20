@@ -21,6 +21,10 @@ epi = """DESCRIPTION:
 The bam file should be indexed via `samtools index`.
 The fasta file should be indexed via `samtools faidx`.
 
+The '--short' list of features is the features used for
+DeepMAsED version1. Using '--short' will generate a 
+feature table that is much smaller (many fewer features).
+
 The output table is written to STDOUT.
 """
 parser = argparse.ArgumentParser(description=desc,
@@ -34,10 +38,14 @@ parser.add_argument('-a', '--assembler', type=str, default='unknown',
                     help='Name of metagenome assembler used to create the contigs (default: %(default)s)')
 parser.add_argument('-b', '--batches', type=int, default=100,
                     help='Number of contigs batches for parallel processing (default: %(default)s)')
+parser.add_argument('-c', '--chunk', type=int, default=50,
+                    help='No. of bins to process before writing; lower values = lower memory (default: %(default)s)')
 parser.add_argument('-p', '--procs', type=int, default=1,
                     help='Number of parallel processes (default: %(default)s)')
-parser.add_argument('--window', type=int, default=4,
+parser.add_argument('-w', '--window', type=int, default=4,
                     help='Sliding window size for sequence entropy & GC content (default: %(default)s)')
+parser.add_argument('-s', '--short', action='store_true', default=False,
+                    help='Short feature list instead of all features? (default: %(default)s)')
 parser.add_argument('--debug', action='store_true', default=False,
                     help='Debug mode; just for troubleshooting (default: %(default)s)')
 parser.add_argument('--version', action='version', version='0.0.1')
@@ -113,11 +121,11 @@ def seq_entropy(seq, window_size):
     
     return ent, gc
     
-def _contig_stats(contig, bam_file, fasta_file, assembler, window_size):
+def _contig_stats(contig, bam_file, fasta_file, assembler, window_size, short):
     """ Extracting contig-specific info from bam file
     """
-    logging.info('Processing contig: {}'.format(contig))
-
+    logging.info('  Processing contig: {}'.format(contig))
+    
     fasta = pysam.FastaFile(fasta_file)    
     x = 'rb' if bam_file.endswith('.bam') else 'r'
 
@@ -131,7 +139,7 @@ def _contig_stats(contig, bam_file, fasta_file, assembler, window_size):
                                                     inF.lengths[contig_i]),
                                         window_size)        
         # the BP in which each read has a SNP
-        logging.info('  Creating SNP index')
+        logging.info('    Creating SNP index')
         query_SNP = defaultdict(dict)
         for pileupcolumn in inF.pileup(contig, 1, inF.lengths[contig_i]):
             ref_base = ref_seq[pileupcolumn.reference_pos] 
@@ -143,12 +151,12 @@ def _contig_stats(contig, bam_file, fasta_file, assembler, window_size):
                 query_SNP[pileupcolumn.reference_pos][pileupread.alignment.query_name] = \
                   ref_base != query_base
 
-        logging.info('  Getting per-read characteristics')                
         # read alignment at each position
+        logging.info('    Getting per-read characteristics')                
         contig_len = inF.lengths[contig_i]
         for pos in range(0, contig_len):
             if (pos + 1) % 5000 == 0:
-                logging.info('    {} of {} positions complete'.format(pos+1, contig_len))
+                logging.info('      {} of {} positions complete'.format(pos+1, contig_len))
             # ref base at position
             ref_base = ref_seq[pos:pos+1]
             # coverage at position
@@ -169,6 +177,7 @@ def _contig_stats(contig, bam_file, fasta_file, assembler, window_size):
                           'map_quals' : []}
             read_stats = {True : copy.deepcopy(read_stats),   # SNP
                           False : copy.deepcopy(read_stats)}  # match
+            ## iterating per-read
             n_discord = 0
             for read in inF.fetch(contig, pos, pos+1):
                 # is the read a SNP at that position?
@@ -199,42 +208,43 @@ def _contig_stats(contig, bam_file, fasta_file, assembler, window_size):
                     read_stats[is_SNP]['n_sec'] += 1
                 ## mapping quality
                 read_stats[is_SNP]['map_quals'].append(read.mapping_quality)
-                
-            # aggretation
-            for SNP_match in [True, False]:
-                # insert sizes
-                try:
-                    i_sizes = read_stats[SNP_match]['i_sizes']
-                    read_stats[SNP_match]['min_i_size'] = min(i_sizes)
-                    read_stats[SNP_match]['mean_i_size']  = round(statistics.mean(i_sizes),1)
-                    read_stats[SNP_match]['max_i_size'] = max(i_sizes)
-                except ValueError:
-                    read_stats[SNP_match]['min_i_size'] = 'NA'
-                    read_stats[SNP_match]['mean_i_size'] = 'NA'
-                    read_stats[SNP_match]['max_i_size'] = 'NA'
-                try:
-                    read_stats[SNP_match]['stdev_i_size'] = round(statistics.stdev(i_sizes),1)
-                except ValueError:
-                    read_stats[SNP_match]['stdev_i_size'] = 'NA'
-                # MAPQ
-                try:
-                    map_quals = read_stats[SNP_match]['map_quals']
-                    read_stats[SNP_match]['min_map_qual'] = min(map_quals)
-                    read_stats[SNP_match]['mean_map_qual']  = \
-                       round(statistics.mean(map_quals),1)
-                    read_stats[SNP_match]['max_map_qual'] = max(map_quals)
-                except ValueError:
-                    read_stats[SNP_match]['min_map_qual'] = 'NA'
-                    read_stats[SNP_match]['mean_map_qual'] = 'NA'
-                    read_stats[SNP_match]['max_map_qual'] = 'NA'
-                try:
-                    read_stats[SNP_match]['stdev_map_qual'] = \
-                      round(statistics.stdev(map_quals),1)
-                except ValueError:
-                    read_stats[SNP_match]['stdev_map_qual'] = 'NA'
                     
+            # aggretation
+            if not short:
+                for SNP_match in [True, False]:
+                    # insert sizes
+                    try:
+                        i_sizes = read_stats[SNP_match]['i_sizes']
+                        read_stats[SNP_match]['min_i_size'] = min(i_sizes)
+                        read_stats[SNP_match]['mean_i_size']  = round(statistics.mean(i_sizes),1)
+                        read_stats[SNP_match]['max_i_size'] = max(i_sizes)
+                    except ValueError:
+                        read_stats[SNP_match]['min_i_size'] = 'NA'
+                        read_stats[SNP_match]['mean_i_size'] = 'NA'
+                        read_stats[SNP_match]['max_i_size'] = 'NA'
+                    try:
+                        read_stats[SNP_match]['stdev_i_size'] = round(statistics.stdev(i_sizes),1)
+                    except ValueError:
+                        read_stats[SNP_match]['stdev_i_size'] = 'NA'
+                    # MAPQ
+                    try:
+                        map_quals = read_stats[SNP_match]['map_quals']
+                        read_stats[SNP_match]['min_map_qual'] = min(map_quals)
+                        read_stats[SNP_match]['mean_map_qual']  = \
+                           round(statistics.mean(map_quals),1)
+                        read_stats[SNP_match]['max_map_qual'] = max(map_quals)
+                    except ValueError:
+                        read_stats[SNP_match]['min_map_qual'] = 'NA'
+                        read_stats[SNP_match]['mean_map_qual'] = 'NA'
+                        read_stats[SNP_match]['max_map_qual'] = 'NA'
+                    try:
+                        read_stats[SNP_match]['stdev_map_qual'] = \
+                          round(statistics.stdev(map_quals),1)
+                    except ValueError:
+                        read_stats[SNP_match]['stdev_map_qual'] = 'NA'
+                        
             # columns
-            stats.append([
+            x = [
                 assembler,                    # assembler ID
                 contig,                       # contig ID
                 str(pos),                     # position (bp)
@@ -246,51 +256,58 @@ def _contig_stats(contig, bam_file, fasta_file, assembler, window_size):
                 str(coverage_by_base[3][0]),  # number of reads with 'T'
                 str(SNPs),                    # number of SNPs (relative to base at position)
                 str(coverage),                # total reads at position
-                str(n_discord),               # total discordant reads (for rev-compatibility)
-                # characterization of reads matching the reference at this position
-                str(read_stats[False]['min_i_size']),
-                str(read_stats[False]['mean_i_size']),
-                str(read_stats[False]['stdev_i_size']),
-                str(read_stats[False]['max_i_size']),
-                str(read_stats[False]['min_map_qual']),
-                str(read_stats[False]['mean_map_qual']),
-                str(read_stats[False]['stdev_map_qual']),
-                str(read_stats[False]['max_map_qual']),
-                str(read_stats[False]['n_proper']),
-                str(read_stats[False]['n_diff_strand']),
-                str(read_stats[False]['n_orphan']),
-                str(read_stats[False]['n_sup']),
-                str(read_stats[False]['n_sec']),
-                str(read_stats[False]['n_discord']),
-                # characterization of reads with SNP vs ref at this position
-                str(read_stats[True]['min_i_size']),
-                str(read_stats[True]['mean_i_size']),
-                str(read_stats[True]['stdev_i_size']),
-                str(read_stats[True]['max_i_size']),
-                str(read_stats[True]['min_map_qual']),
-                str(read_stats[True]['mean_map_qual']),
-                str(read_stats[True]['stdev_map_qual']),
-                str(read_stats[True]['max_map_qual']),
-                str(read_stats[True]['n_proper']),
-                str(read_stats[True]['n_diff_strand']),
-                str(read_stats[True]['n_orphan']),
-                str(read_stats[True]['n_sup']),
-                str(read_stats[True]['n_sec']),
-                str(read_stats[True]['n_discord']),
-                # general seq info
+                str(n_discord)                # total discordant reads (for rev-compatibility)
+                ]
+            if not short:
+                x += [
+                    # characterization of reads matching the reference at this position
+                    str(read_stats[False]['min_i_size']),
+                    str(read_stats[False]['mean_i_size']),
+                    str(read_stats[False]['stdev_i_size']),
+                    str(read_stats[False]['max_i_size']),
+                    str(read_stats[False]['min_map_qual']),
+                    str(read_stats[False]['mean_map_qual']),
+                    str(read_stats[False]['stdev_map_qual']),
+                    str(read_stats[False]['max_map_qual']),
+                    str(read_stats[False]['n_proper']),
+                    str(read_stats[False]['n_diff_strand']),
+                    str(read_stats[False]['n_orphan']),
+                    str(read_stats[False]['n_sup']),
+                    str(read_stats[False]['n_sec']),
+                    str(read_stats[False]['n_discord']),
+                    # characterization of reads with SNP vs ref at this position
+                    str(read_stats[True]['min_i_size']),
+                    str(read_stats[True]['mean_i_size']),
+                    str(read_stats[True]['stdev_i_size']),
+                    str(read_stats[True]['max_i_size']),
+                    str(read_stats[True]['min_map_qual']),
+                    str(read_stats[True]['mean_map_qual']),
+                    str(read_stats[True]['stdev_map_qual']),
+                    str(read_stats[True]['max_map_qual']),
+                    str(read_stats[True]['n_proper']),
+                    str(read_stats[True]['n_diff_strand']),
+                    str(read_stats[True]['n_orphan']),
+                    str(read_stats[True]['n_sup']),
+                    str(read_stats[True]['n_sec']),
+                    str(read_stats[True]['n_discord'])
+                    ]
+            # general seq info
+            x += [
                 str(seq_ent),             # sliding window sequence entropy
-                str(gc_perc)              # sliding window percent GC                   
-            ])
+                str(gc_perc)              # sliding window percent GC
+            ]
+            stats.append(x)
             
         return stats
 
     
-def contig_stats(contigs, bam_file, fasta_file, assembler, window_size):
+def contig_stats(contigs, bam_file, fasta_file, assembler, window_size, short):
     """ Extracting contig-specific info from all contigs
     """
     stats = []
     for contig in contigs:
-        x = _contig_stats(contig, bam_file, fasta_file, assembler, window_size)
+        x = _contig_stats(contig, bam_file, fasta_file,
+                          assembler, window_size, short)
         stats.append(x)
     return stats
 
@@ -314,7 +331,15 @@ def batch_contigs(contigs, n_batches):
             contig_bins[_bin].append(contig)
         except KeyError:
             contig_bins[_bin] = [contig]
-    return contig_bins.values()
+    return list(contig_bins.values())
+
+def write_stats(stats):
+    # printing results
+    logging.info('Writing features...')
+    for batch in stats:
+        for y in batch:
+            for z in y:
+                print('\t'.join(z))
 
 def main(args):
     """ Main interface
@@ -322,7 +347,9 @@ def main(args):
     # header
     H = ['assembler', 'contig',  'position', 'ref_base', 
          'num_query_A', 'num_query_C', 'num_query_G', 'num_query_T',
-         'num_SNPs', 'coverage', 'num_discordant',
+         'num_SNPs', 'coverage', 'num_discordant']
+    if not args.short:
+        H += [
          'min_insert_size_Match',
          'mean_insert_size_Match',
          'stdev_insert_size_Match',
@@ -350,8 +377,8 @@ def main(args):
          'num_orphans_SNP',
          'num_supplementary_SNP',
          'num_secondary_SNP',
-         'num_discordant_SNP',
-         'seq_window_entropy', 'seq_window_perc_gc']
+         'num_discordant_SNP']
+    H += ['seq_window_entropy', 'seq_window_perc_gc']
     print('\t'.join(H))
     
     # Getting contig list
@@ -370,23 +397,34 @@ def main(args):
     func = partial(contig_stats, bam_file=args.bam_file,
                    fasta_file=args.fasta_file,
                    assembler=args.assembler,
-                   window_size=args.window)
+                   window_size=args.window,
+                   short=args.short)
     if args.debug is False and args.procs > 1:
         p = Pool(args.procs)
         # batching contigs for multiprocessing
         contig_bins = batch_contigs(contigs, args.batches)
         # getting stats
-        stats = p.map(func, contig_bins)
+        x = 0
+        msg = 'Processing {} batches: {} to {}'
+        for i in range(int(len(contig_bins) / args.chunk) + 1):
+            i = (i + 1) * args.chunk
+            i = len(contig_bins) if i >= len(contig_bins) else i
+            try:
+                contig_bins_p = contig_bins[x:i]
+            except IndexError:
+                contig_bins_p = contig_bins[x:]
+            if len(contig_bins_p) == 0:
+                continue
+            logging.info(msg.format(len(contig_bins_p), x+1, i))
+            stats = p.map(func, contig_bins_p)
+            write_stats(stats)
+            x = i
+            stats = None
     else:
-        # getting status
+        # getting stats
         stats = map(func, [contigs])
+        write_stats(stats)
         
-    # printing results
-    logging.info('Writing feature table to STDOUT')
-    for batch in stats:
-        for y in batch:
-            for z in y:
-                print('\t'.join(z))
 
 if __name__ == '__main__':
     args = parser.parse_args()
