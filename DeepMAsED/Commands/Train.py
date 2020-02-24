@@ -81,9 +81,6 @@ def parse_args(test_args=None, subparsers=None):
                         help='How many folds for CV. Use "-1" to skip & pool all data for training (default: %(default)s)')
     parser.add_argument('--lr-init', default=0.001, type=float, 
                         help='Size of test set (default: %(default)s)')
-    parser.add_argument('--mode', default='extensive', type=str,
-                        choices = ['extensive','edit', 'chimera'],
-                        help='Classification problem (default: %(default)s)')
     parser.add_argument('--norm-raw', default=0, type=int, 
                         help='Whether to normalize the four one-hot feature of raw (default: %(default)s)')
     parser.add_argument('--pickle-only', action='store_true', default=False,

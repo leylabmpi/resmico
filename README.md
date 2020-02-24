@@ -187,6 +187,10 @@ You can use `./snakemake_sge.sh` for convenience
 * **MetaQUAST info**
   * `Extensive_misassembly`
     * the "extensive misassembly" classification set by MetaQUAST
+    * encoding: `1 = misassembly; 0 = no misassembly`
+  * `Extensive_misassembly_by_pos`
+    * Per-contig-position labeling of misassembly types set by MetaQUAST
+    * Note: multiple misassembly labels are possible per position (eg, 'inversion,translocation')
 
 #### Features file table
 

@@ -38,7 +38,7 @@ parser.add_argument('-a', '--assembler', type=str, default='unknown',
                     help='Name of metagenome assembler used to create the contigs (default: %(default)s)')
 parser.add_argument('-b', '--batches', type=int, default=100,
                     help='Number of contigs batches for parallel processing (default: %(default)s)')
-parser.add_argument('-c', '--chunk', type=int, default=50,
+parser.add_argument('-c', '--chunks', type=int, default=50,
                     help='No. of bins to process before writing; lower values = lower memory (default: %(default)s)')
 parser.add_argument('-p', '--procs', type=int, default=1,
                     help='Number of parallel processes (default: %(default)s)')
@@ -406,8 +406,8 @@ def main(args):
         # getting stats
         x = 0
         msg = 'Processing {} batches: {} to {}'
-        for i in range(int(len(contig_bins) / args.chunk) + 1):
-            i = (i + 1) * args.chunk
+        for i in range(int(len(contig_bins) / args.chunks) + 1):
+            i = (i + 1) * args.chunks
             i = len(contig_bins) if i >= len(contig_bins) else i
             try:
                 contig_bins_p = contig_bins[x:i]

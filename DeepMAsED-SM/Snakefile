@@ -132,22 +132,22 @@ def all_which_input(wildcards):
     
     # true mis-assemblies
     ## minimap2
-    if not config['params']['minimap2'].startswith('Skip'):
-        x = expand(true_errors_dir + \
-                   '{richness}/{rep}/{read_depth}/{assembler}/minimap2_aln.paf.gz',
-                   richness = config['params']['MGSIM']['community_richness'],
-                   rep = config['reps'],                
-                   read_depth = config['params']['MGSIM']['read_depth'],
-	           assembler = config['assemblers'])
-        input_files += x
+    # if not config['params']['minimap2'].startswith('Skip'):
+    #     x = expand(true_errors_dir + \
+    #                '{richness}/{rep}/{read_depth}/{assembler}/minimap2_aln.paf.gz',
+    #                richness = config['params']['MGSIM']['community_richness'],
+    #                rep = config['reps'],                
+    #                read_depth = config['params']['MGSIM']['read_depth'],
+    #                assembler = config['assemblers'])
+    #     input_files += x
 
-        x = expand(true_errors_dir + \
-                   '{richness}/{rep}/{read_depth}/{assembler}/minimap2_aln_summary.tsv',
-                   richness = config['params']['MGSIM']['community_richness'],
-                   rep = config['reps'],                
-                   read_depth = config['params']['MGSIM']['read_depth'],
-	           assembler = config['assemblers'])
-        input_files += x
+    #     x = expand(true_errors_dir + \
+    #                '{richness}/{rep}/{read_depth}/{assembler}/minimap2_aln_summary.tsv',
+    #                richness = config['params']['MGSIM']['community_richness'],
+    #                rep = config['reps'],                
+    #                read_depth = config['params']['MGSIM']['read_depth'],
+    #                assembler = config['assemblers'])
+    #     input_files += x
 
     ## metaquast
     if not config['params']['metaquast'].startswith('Skip'):

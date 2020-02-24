@@ -51,9 +51,6 @@ def parse_args(test_args=None, subparsers=None):
                         help='Where to save plots (default: %(default)s)')
     parser.add_argument('--max-len', default=10000, type=int, 
                         help='Max contig len, fixed input for CNN (default: %(default)s)')
-    parser.add_argument('--mode', default='extensive', type=str,
-                        choices = ['extensive','edit', 'chimera'],
-                        help='Classification problem (default: %(default)s)')
     parser.add_argument('--technology', default='all-asmbl', type=str, 
                         help='Assembler name in the data_path. "all-asmbl" will use all assemblers (default: %(default)s)')    
     parser.add_argument('--norm-raw', default=1, type=int, 

@@ -27,7 +27,6 @@ class Config(object):
         self.pool_window = args.pool_window
         self.dropout = args.dropout
         self.lr_init = args.lr_init
-        self.mode = args.mode
 
 def main(args):
     # init
@@ -46,7 +45,6 @@ def main(args):
     # Load and process data
     x, y = Utils.load_features_tr(args.feature_file_table,
                                   max_len=args.max_len,
-                                  mode = config.mode,
                                   technology = args.technology,
                                   pickle_only = args.pickle_only,
                                   force_overwrite = args.force_overwrite,
@@ -81,24 +79,20 @@ def main(args):
                                                   histogram_freq=0, 
                                                   write_graph=True, write_images=True)
             logging.info('Fold {}: Training network...'.format(val_idx))
-            ## which mode (binary or continuous)?
-            if config.mode in ['chimera', 'extensive']:
+            ## binary classification (extensive misassembly)
+            try:
                 w_one = int(len(np.where(y_tr == 0)[0])  / len(np.where(y_tr == 1)[0]))
-                class_weight = {0 : 1 , 1: w_one}
-                deepmased.net.fit_generator(generator=dataGen, 
-                                            validation_data=dataGen_val,
-                                            epochs=args.n_epochs, 
-                                            use_multiprocessing=args.n_procs > 1,
-                                            workers=args.n_procs,
-                                            verbose=2,
-                                            callbacks=[tb_logs, deepmased.reduce_lr])
-            elif config.mode == 'edit':
-                st = StandardScaler()
-                y_tr = st.fit_transform(y_tr)
-                y_te = st.transform(y_te)
-                deepmased.net.fit(x_tr, y_tr, validation_data=(x_te, y_te),
-                                  epochs=args.n_epochs, 
-                                  callbacks=[tb_logs, deepmased.reduce_lr])
+            except ZeroDivisionError:
+                logging.warning('  No misassemblies present!')
+                w_one = 0
+            class_weight = {0 : 1 , 1: w_one}
+            deepmased.net.fit_generator(generator=dataGen, 
+                                        validation_data=dataGen_val,
+                                        epochs=args.n_epochs, 
+                                        use_multiprocessing=args.n_procs > 1,
+                                        workers=args.n_procs,
+                                        verbose=2,
+                                        callbacks=[tb_logs, deepmased.reduce_lr])
             # AUC scores
             logging.info('Fold {}: Computing AUC scores...'.format(val_idx))
             scores_val = deepmased.predict_generator(dataGen_val)
@@ -135,13 +129,12 @@ def main(args):
                                               write_graph=True, write_images=True)
         
         logging.info('Training network...')
-        if config.mode in ['chimera', 'extensive']:             
-            deepmased.net.fit_generator(generator=dataGen,
-                                        epochs=args.n_epochs, 
-                                        use_multiprocessing=args.n_procs > 1,
-                                        workers=args.n_procs,
-                                        verbose=2,
-                                        callbacks=[tb_logs, deepmased.reduce_lr])
+        deepmased.net.fit_generator(generator=dataGen,
+                                    epochs=args.n_epochs, 
+                                    use_multiprocessing=args.n_procs > 1,
+                                    workers=args.n_procs,
+                                    verbose=2,
+                                    callbacks=[tb_logs, deepmased.reduce_lr])
             
         logging.info('Saving trained model...')
         x = [args.save_name, args.technology, 'model.h5']

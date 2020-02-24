@@ -41,7 +41,7 @@ def compute_mean_std(x_tr):
         n_el += xi.shape[0]
 
     mean = feat_sum / n_el
-    std = np.sqrt(feat_sq_sum / n_el - mean ** 2)
+    std = np.sqrt((feat_sq_sum / n_el - mean ** 2).clip(min=0))
 
     return mean, std
 
@@ -178,7 +178,10 @@ def pickle_in_parallel(feature_files, n_procs, set_target=True):
     Returns:
       list of 
     """
-    logging.info('Pickling in parallel with {} threads'.format(n_procs))
+    if n_procs > 1:        
+        logging.info('Pickling in parallel with {} threads...'.format(n_procs))
+    else:
+        logging.info('Pickling...')
     pool = mp.Pool(processes = n_procs)
     # list of lists for input to pool.map
     x = []
@@ -189,16 +192,19 @@ def pickle_in_parallel(feature_files, n_procs, set_target=True):
             x.append([F, pklF, rep, asmbl])
     # Pickle in parallel and saving file paths in dict
     func = partial(pickle_data_b, set_target=set_target)
-    for y in pool.map(func, x):
+    if n_procs > 1:
+        ret = pool.map(func, x)
+    else:
+        ret = map(func, x)
+    for y in ret:
         rep = y[2]
         asmbl = y[3]
         feature_files['pkl'][rep][asmbl] = y[1]
     return feature_files['pkl']
 
 def load_features_tr(feat_file_table, max_len=10000, 
-                     mode='extensive', technology = None,
-                     pickle_only=False, force_overwrite=False,
-                     n_procs=1):
+                     technology = None, pickle_only=False,
+                     force_overwrite=False, n_procs=1):
     """
     Loads features, pre-process them and returns training. 
     Fuses data from both assemblers. 
@@ -218,7 +224,7 @@ def load_features_tr(feat_file_table, max_len=10000,
                                          force_overwrite=force_overwrite,
                                          technology=technology)
     # pickling feature tables (if needed)
-    feat_files = pickle_in_parallel(feat_files, n_procs)
+    feat_files = pickle_in_parallel(feat_files, n_procs, set_target=True)
 
     # Pre-process once if not done already
     if pickle_only:
@@ -256,19 +262,12 @@ def load_features_tr(feat_file_table, max_len=10000,
         x.append(x_in_contig)
         yext.append(np.array(y_in_contig))
 
-    # mode 
-    if mode == 'edit':
-        y = 100 * np.array(ye)
-    elif mode == 'extensive':
-        y = yext
-    else:
-        raise('Mode "{}" currently not supported'.format(mode))
+    # for binary classification
+    y = yext
 
     return x, y
 
-    
 def load_features(feat_file_table, max_len=10000, 
-                  mode='extensive',
                   technology = 'megahit', 
                   pickle_only = False,
                   force_overwrite = False,
@@ -338,18 +337,12 @@ def load_features(feat_file_table, max_len=10000,
 
             shift = len(i2n_all)
 
-    # mode
-    if mode == 'edit':
-        y = 100 * np.array(ye)
-    elif mode == 'extensive':
-        y = yext
-    else:
-        raise('Mode currently not supported: {}'.format(mode))
+    # for binary classification
+    y = yext
 
     return x, y, i2n_all
 
 def load_features_nogt(feat_file_table, max_len=10000, 
-                       mode='extensive', 
                        pickle_only=False,
                        force_overwrite=False,
                        n_procs=1):
@@ -429,13 +422,9 @@ def load_features_nogt(feat_file_table, max_len=10000,
             # for next loop iteration
             shift = len(i2n_all)
             i += 1
-            
-    if mode == 'edit':
-        y = 100 * np.array(ye)
-    elif mode == 'extensive':
-        y = yext
-    else:
-        raise('Mode currently not supported: {}'.format(mode))
+
+    # for binary classification
+    y = yext
     
     return x, y, i2n_all
 
@@ -507,8 +496,7 @@ def pickle_data_b(x, set_target=True):
     if features_in.endswith('.gz'):
         _open = lambda x: gzip.open(x, 'rt')
     else:
-        _open = lambda x: open(x, 'r')
-            
+        _open = lambda x: open(x, 'r')            
     with _open(features_in) as f:
         # load
         tsv = csv.reader(f, delimiter='\t')
@@ -516,7 +504,7 @@ def pickle_data_b(x, set_target=True):
         # indexing
         w_contig = col_names.index('contig')
         w_ext = col_names.index('Extensive_misassembly')
-        w_chimera = col_names.index('chimeric')
+        #w_chimera = col_names.index('chimeric')
         w_ref = col_names.index('ref_base')
         w_nA = col_names.index('num_query_A')
         w_nC = col_names.index('num_query_C')
@@ -534,18 +522,13 @@ def pickle_data_b(x, set_target=True):
             if name_contig not in name_to_id:
                 if idx != 0:
                     feat_contig.append(np.concatenate(feat, 0))
-                    if set_target == True:                        
+                    if set_target == True:            
                         target_contig.append(float(tgt))
-
                 feat = []
                
-                #Set target
+                #Set target (0 or 1; 1=misassembly)
                 if set_target == True:
-                    tgt = row[w_ext]
-                    if tgt == '':
-                        tgt = 0
-                    else:
-                        tgt = 1
+                    tgt = int(row[w_ext])
                 # index
                 name_to_id[name_contig] = idx
                 idx += 1
@@ -558,15 +541,17 @@ def pickle_data_b(x, set_target=True):
     feat_contig.append(np.concatenate(feat, 0))
     if set_target == True:
         target_contig.append(float(tgt))
-
+    # Checking feature object
     assert(len(feat_contig) == len(name_to_id))
 
     # Save processed data into pickle file
     with open(features_out, 'wb') as f:
+        logging.info('  Dumping pickle file')
         if set_target == True:
             pickle.dump([feat_contig, target_contig, name_to_id], f)
         else:
             pickle.dump([feat_contig, name_to_id], f)
+            
     return x
         
 def class_recall(label):
@@ -602,7 +587,6 @@ def reverse_dict(d):
             r_d[v].append(k)
     return r_d
 
-
 def compute_predictions(n2i, generator, model, save_path, save_name):
     """
     Computes predictions for a model and generator, aggregating scores for long contigs.
@@ -613,7 +597,6 @@ def compute_predictions(n2i, generator, model, save_path, save_name):
     Output:
         saves scores for individual contigs
     """
-
     score_val = model.predict_generator(generator)
 
     # Compute predictions by aggregating scores for longer contigs

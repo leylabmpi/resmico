@@ -22,8 +22,8 @@ rule bam_to_DL_features:
     resources:
         time = lambda wildcards, attempt: attempt ** 2 * 60 * 12,
         n = lambda wildcards, threads: threads,         
-        mem_gb_pt = lambda wildcards, attempt: int(round(attempt ** 2.5 * 2 + 1, 0)),
-        batches = lambda wildcards, attempt: attempt ** 2 * 400
+        mem_gb_pt = lambda wildcards, attempt: int(round(attempt ** 2.5 * 2 + 2, 0)),
+        batches = lambda wildcards, attempt: attempt * 2 * 400
     conda:
         '../envs/bowtie2.yaml'
     log:
@@ -32,74 +32,45 @@ rule bam_to_DL_features:
         benchmark_dir + 'bam_to_DL_features/{richness}/{rep}/{read_depth}/{assembler}.txt'
     shell:
         """
-        {params.exe} {params.params} -p {threads} \
+        {params.exe} {params.params} \
+          -p {threads} --chunks 200 \
           --batches {resources.batches} \
           --assembler {params.assembler} \
           {input.bam} {input.fasta} \
           > {output} 2> {log}
         """
-
-rule feature_true_est_join:
+        
+rule metaquast_masmbl_feature_join:
     """
-    Joining 'true' contig assembly info with the bam-generated feature table
-    """
-    input:
-        feats = config['tmp_dir'] + \
-                'feats/{richness}/{rep}/{read_depth}/{assembler}/features.tsv',
-        err = true_errors_dir + \
-              '{richness}/{rep}/{read_depth}/{assembler}/minimap2_aln_summary.tsv'
-    output:
-        temp(config['tmp_dir'] + \
-             'feats/{richness}/{rep}/{read_depth}/{assembler}/features_j.tsv')
-    params:
-        exe = config['pipeline']['script_folder'] + 'table_join.R'
-    resources:
-        time = lambda wildcards, attempt: attempt ** 3 * 59,
-        mem_gb_pt = lambda wildcards, attempt: attempt ** 2 * 15
-    conda:
-        '../envs/R.yaml'
-    log:
-        log_dir + \
-            'feature_true_est_join/{richness}/{rep}/{read_depth}/{assembler}.log'
-    benchmark:
-        benchmark_dir + \
-            'feature_true_est_join/{richness}/{rep}/{read_depth}/{assembler}.txt'
-    shell:
-        """
-        {params.exe} -x contig -y query -o {output} \
-          {input.feats} {input.err} 2> {log} 1>&2
-        """
-
-rule feature_metaquast_summary_join:
-    """
-    Joining metaquast mis-assembly summary info with the bam-generated feature table
+    Adding metaQUAST misassembly report info to feature table
     """
     input:
-        tbl = config['tmp_dir'] + \
-              'feats/{richness}/{rep}/{read_depth}/{assembler}/features_j.tsv',
-        mis = true_errors_dir + \
-              '{richness}/{rep}/{read_depth}/{assembler}/' + \
-              'combined_reference/contigs_report_contigs_filtered.mis_contigs.tsv'
+        fasta = true_errors_dir + \
+            '{richness}/{rep}/{read_depth}/{assembler}/combined_reference/' + \
+	    'contigs_reports/contigs_filtered.mis_contigs.fa',
+        masmbl = true_errors_dir + \
+            '{richness}/{rep}/{read_depth}/{assembler}/combined_reference/' + \
+	    'contigs_reports/contigs_report_contigs_filtered.mis_contigs.info',
+        feats = config['tmp_dir'] + 'feats/{richness}/{rep}/{read_depth}/{assembler}/features.tsv'
     output:
         temp(config['tmp_dir'] + \
-             'feats/{richness}/{rep}/{read_depth}/{assembler}/features_j_j.tsv')
+            'feats/{richness}/{rep}/{read_depth}/{assembler}/features_j.tsv')
     params:
-        exe = config['pipeline']['script_folder'] + 'table_join.R'
+        exe = config['pipeline']['script_folder'] + 'metaquast_masmbl_report_feature_join.py'
     resources:
-        time = lambda wildcards, attempt: attempt ** 3 * 59,
-        mem_gb_pt = lambda wildcards, attempt: attempt ** 2 * 12
+        time = lambda wildcards, attempt: attempt ** 3 * 60 * 8,
+        mem_gb_pt = lambda wildcards, attempt: attempt ** 2 * 2 + 10
     conda:
-        '../envs/R.yaml'
+        '../envs/bowtie2.yaml'
     log:
         log_dir + \
-            'feature_true_est_join/{richness}/{rep}/{read_depth}/{assembler}.log'
+            'metaquast_masmbl_feature_join/{richness}/{rep}/{read_depth}/{assembler}.log'
     benchmark:
-        benchmark_dir + \
-            'feature_true_est_join/{richness}/{rep}/{read_depth}/{assembler}.txt'
+        log_dir + \
+            'metaquast_masmbl_feature_join/{richness}/{rep}/{read_depth}/{assembler}.txt'
     shell:
         """
-        {params.exe} -x contig -y Contig -o {output} \
-          {input.tbl} {input.mis} 2> {log} 1>&2
+        {params.exe} {input.fasta} {input.masmbl} {input.feats} > {output} 2> {log}
         """
 
 rule features_compress:
@@ -108,7 +79,7 @@ rule features_compress:
     """
     input:
         config['tmp_dir'] + \
-            'feats/{richness}/{rep}/{read_depth}/{assembler}/features_j_j.tsv'
+            'feats/{richness}/{rep}/{read_depth}/{assembler}/features_j.tsv'
     output:
         features_dir + '{richness}/{rep}/{read_depth}/{assembler}/features.tsv.gz'
     resources:

@@ -54,7 +54,6 @@ def main(args):
         logging.info('Loading synthetic features')
         x, y, i2n = Utils.load_features(args.feature_file_table,
                                         max_len = args.max_len,
-                                        mode = args.mode, 
                                         technology = args.technology,
                                         force_overwrite = args.force_overwrite,
                                         n_procs = args.n_procs)
@@ -62,7 +61,6 @@ def main(args):
         logging.info('Loading non-synthetic features')
         x, y, i2n = Utils.load_features_nogt(args.feature_file_table,
                                              max_len = args.max_len,
-                                             mode = args.mode,
                                              force_overwrite = args.force_overwrite,
                                              n_procs = args.n_procs)
         
