@@ -53,7 +53,6 @@ class deepmased(object):
                 self.net.add(Dropout(rate=self.dropout))
 
             self.net.add(Dense(1, activation='sigmoid'))
-            self.net.add(Dropout(rate=self.dropout))
 
             self.net.compile(loss='binary_crossentropy',
                              optimizer=optimizer,

@@ -141,7 +141,7 @@ def main(args):
 
         logging.info('Constructing model...')
         deepmased = Models.deepmased(config)
-        dataGen = Models.Generator(x, y, args.max_len, batch_size=64,
+        dataGen = Models.Generator(x, y, args.max_len, batch_size=4,
                                    norm_raw=bool(args.norm_raw))
         tb_logs = keras.callbacks.TensorBoard(log_dir=os.path.join(save_path, 'logs_final'), 
                                               histogram_freq=0, 
@@ -151,7 +151,7 @@ def main(args):
         if args.val_path:
             logging.info('Training network with validation...')
             dataGen_val = Models.Generator(x_val, y_val, args.max_len,
-                           batch_size=64,shuffle=False,norm_raw=bool(args.norm_raw),
+                           batch_size=4,shuffle=False,norm_raw=bool(args.norm_raw),
                            mean_tr=dataGen.mean, std_tr=dataGen.std)
             list_callbacks = [tb_logs, 
                               deepmased.reduce_lr,
