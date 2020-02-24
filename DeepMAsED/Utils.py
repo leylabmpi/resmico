@@ -15,7 +15,7 @@ from keras.callbacks import Callback
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import average_precision_score
 import IPython
 ## application
 
@@ -163,7 +163,7 @@ def find_feature_files(data_path, technology=None,
 def load_features_tr(data_path, max_len=10000, 
                      mode='extensive', technology = None,
                      pickle_only=False, force_overwrite=False,
-                     n_procs=1):
+                     n_procs=1, chunks=True):
     """
     Loads features, pre-process them and returns training. 
     Fuses data from both assemblers. 
@@ -226,24 +226,28 @@ def load_features_tr(data_path, max_len=10000,
 
 
         x_in_contig, y_in_contig = [], []
-        
+
         for xi, yi in zip(xtech, ytech):
             for j in range(len(xi)):
                 len_contig = xi[j].shape[0]
+                if chunks:
+                    idx_chunk = 0
+                    while idx_chunk * max_len < len_contig:
+                        chunked = xi[j][idx_chunk * max_len :
+                                        (idx_chunk + 1) * max_len, :]
 
-                idx_chunk = 0
-                while idx_chunk * max_len < len_contig:
-                    chunked = xi[j][idx_chunk * max_len :
-                                    (idx_chunk + 1) * max_len, :]
-            
-                    x_in_contig.append(chunked)
+                        x_in_contig.append(chunked)
+                        y_in_contig.append(yi[j])
+
+                        idx_chunk += 1
+                else:
+                    x_in_contig.append(xi[j])
                     y_in_contig.append(yi[j])
-
-                    idx_chunk += 1
 
         # Each element is a metagenome
         x.append(x_in_contig)
         yext.append(np.array(y_in_contig))
+
 
     # mode 
     if mode == 'edit':
@@ -260,7 +264,8 @@ def load_features(data_path, max_len=10000,
                   mode='extensive',
                   technology = 'megahit', 
                   pickle_only = False,
-                  force_overwrite = False):
+                  force_overwrite = False,
+                  chunks=True):
     """
     Loads features, pre-process them and returns validation data. 
 
@@ -301,17 +306,22 @@ def load_features(data_path, max_len=10000,
             n2i_keys = set([])
             for j in range(len(xi)):
                 len_contig = xi[j].shape[0]
+                if chunks:
+                    idx_chunk = 0
+                    while idx_chunk * max_len < len_contig:
+                        chunked = xi[j][idx_chunk * max_len :
+                                        (idx_chunk + 1) * max_len, :]
 
-                idx_chunk = 0
-                while idx_chunk * max_len < len_contig:
-                    chunked = xi[j][idx_chunk * max_len :
-                                    (idx_chunk + 1) * max_len, :]
-        
-                    x_in_contig.append(chunked)
+                        x_in_contig.append(chunked)
+                        y_in_contig.append(yi[j])
+
+                        i2n_all[len(x_in_contig) - 1 + shift] = (int(rep), i2ni[j][0])
+                        idx_chunk += 1
+                        n2i_keys.add(i2ni[j][0])
+                else:
+                    x_in_contig.append(xi[j])
                     y_in_contig.append(yi[j])
-
                     i2n_all[len(x_in_contig) - 1 + shift] = (int(rep), i2ni[j][0])
-                    idx_chunk += 1
                     n2i_keys.add(i2ni[j][0])
 
             # Each element is a metagenome
@@ -714,10 +724,10 @@ class roc_callback(Callback):
         
         y_pred_val = self.model.predict_generator(self.val_gen)
         y_true_val = self.val_gen.y
-        roc_val = roc_auc_score(y_true_val[:len(y_pred_val)], y_pred_val)   #change it when last batch is readed    
-        self.val_reports.append(roc_val)
+        auc_val = average_precision_score(y_true_val[:len(y_pred_val)], y_pred_val)   #change it when last batch is readed    
+#         self.val_reports.append(auc_val)
 #         print('\rroc-auc: %s - roc-auc_val: %s' % (str(round(roc_train,4)),str(round(roc_val,4))),end=100*' '+'\n')
-        print('\rroc-auc_val: %s' % (str(round(roc_val,4))),end=100*' '+'\n')
+        print('\rauc_val: %s' % (str(round(auc_val,4))),end=100*' '+'\n')
         return 
  
     def on_batch_begin(self, batch, logs={}):
@@ -781,18 +791,19 @@ def compute_predictions(n2i, generator, model, save_path, save_name):
     logging.info('File written: {}'.format(outfile))
 
 
-def compute_predictions_y_known(y, n2i, model, dataGen):
+def compute_predictions_y_known(y, n2i, model, dataGen, x=False):
     """
     Computes predictions for a model and generator, NOT aggregating scores for long contigs.
 
     Inputs: 
         n2i: dictionary with contig_name -> list of idx corresponding to that contig.
+        y and x of the same size, it works only for contigs of the full length
     Output:
         scores:
             pred: scores for individual contigs
             y: corresponding true labels
     """
-
+    lens_x = [len(i) for i in x]
     score_val = model.predict_generator(dataGen)
 
     # Compute predictions by aggregating scores for longer contigs
@@ -810,10 +821,13 @@ def compute_predictions_y_known(y, n2i, model, dataGen):
         # Make sure we have predictions for these indices
         if sup > len(score_val):
             continue
-
+        
         # Make sure all the labels for the contig coincide
         assert((y[inf : sup] == y[inf]).all())
-        scores[k[0]][k[1]] = {'y' : int(y[inf]), 'pred' : score_val[inf : sup]}
-
+        assert(len(y)==len(lens_x))
+        if x: # writes contigs' length
+            scores[k[0]][k[1]] = {'y' : int(y[inf]), 'pred' : score_val[inf : sup], 'len' : lens_x[inf]}
+        else:
+            scores[k[0]][k[1]] = {'y' : int(y[inf]), 'pred' : score_val[inf : sup]}
     return scores
 

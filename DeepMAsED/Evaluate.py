@@ -14,7 +14,8 @@ from sklearn.metrics import recall_score, roc_auc_score
 from sklearn.preprocessing import StandardScaler
 import IPython
 ## application
-from DeepMAsED import Models
+# from DeepMAsED import Models
+from DeepMAsED import Models_FL  #to use contigs of variable length
 from DeepMAsED import Utils
 
 
@@ -56,7 +57,8 @@ def main(args):
                                         max_len = args.max_len,
                                         mode = args.mode, 
                                         technology = args.technology,
-                                        force_overwrite=args.force_overwrite)
+                                        force_overwrite=args.force_overwrite,
+                                        chunks=False)  #to use contigs of variable length
     else:
         logging.info('Loading non-synthetic features')
         x, y, i2n = Utils.load_features_nogt(args.data_path,
@@ -68,12 +70,12 @@ def main(args):
     n2i = Utils.reverse_dict(i2n)
     x = [xi for xmeta in x for xi in xmeta]
     y = np.concatenate(y)    
-    dataGen = Models.Generator(x, y, args.max_len, batch_size=64,  shuffle=False, 
+    dataGen = Models_FL.Generator(x, y, args.max_len, batch_size=16,  shuffle=False, 
                                norm_raw=bool(args.norm_raw),
-                               mean_tr=mean_tr, std_tr=std_tr)
+                               mean_tr=mean_tr, std_tr=std_tr) #to use contigs of variable length
     
     logging.info('Computing predictions for {}...'.format(args.technology))    
-    scores = Utils.compute_predictions_y_known(y, n2i, model, dataGen)
+    scores = Utils.compute_predictions_y_known(y, n2i, model, dataGen, x=x)
     outfile = os.path.join(args.save_path, '_'.join([args.save_name, args.technology + '.pkl']))
     with open(outfile, 'wb') as spred:
         pickle.dump(scores, spred)
