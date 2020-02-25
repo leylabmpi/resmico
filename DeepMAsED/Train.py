@@ -33,22 +33,22 @@ class Config(object):
 
 def main(args):
     # init
-    np.random.seed(12)
+    np.random.seed(args.seed)
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
     save_path = args.save_path
     
     # Build model
-    logging.info('Building model')
     config = Config(args)
-    deepmased = Models.deepmased(config)
-    deepmased.print_summary()
-
+    # if not args.pickle_only:
+    #     logging.info('Building model')
+    #     deepmased = Models.deepmased(config)
+    #     deepmased.print_summary()
 
     # Load and process data
-    x, y = Utils.load_features_tr(args.data_path,
+    x, y = Utils.load_features_tr(args.feature_file_table,
                                   max_len=args.max_len,
-                                  mode = config.mode, 
+                                  mode = config.mode,
                                   technology = args.technology,
                                   pickle_only=args.pickle_only,
                                   force_overwrite=args.force_overwrite,
@@ -79,7 +79,8 @@ def main(args):
             logging.info('Fold {}: Constructing model...'.format(val_idx))        
             x_tr, x_val, y_tr, y_val = Utils.kfold(x, y, val_idx, k=args.n_folds)
             deepmased = Models.deepmased(config)
-
+            deepmased.print_summary()
+            
             #Construct generator
             dataGen = Models.Generator(x_tr, y_tr, args.max_len,
                                        batch_size=64, norm_raw=bool(args.norm_raw))
@@ -101,7 +102,7 @@ def main(args):
                 deepmased.net.fit_generator(generator=dataGen, 
                                             validation_data=dataGen_val,
                                             epochs=args.n_epochs, 
-                                            use_multiprocessing=True,
+                                            use_multiprocessing=args.n_procs > 1,
                                             workers=args.n_procs,
                                             verbose=2,
                                             callbacks=[tb_logs, deepmased.reduce_lr])
@@ -141,6 +142,7 @@ def main(args):
 
         logging.info('Constructing model...')
         deepmased = Models.deepmased(config)
+        deepmased.print_summary()
         dataGen = Models.Generator(x, y, args.max_len, batch_size=4,
                                    norm_raw=bool(args.norm_raw))
         tb_logs = keras.callbacks.TensorBoard(log_dir=os.path.join(save_path, 'logs_final'), 
@@ -165,23 +167,25 @@ def main(args):
             deepmased.net.fit_generator(generator=dataGen,
                                         validation_data=dataGen_val,
                                         epochs=args.n_epochs, 
-                                        use_multiprocessing=True,
+                                        use_multiprocessing=args.n_procs > 1,
+                                        workers=args.n_procs,
                                         verbose=2,
                                         callbacks=list_callbacks)
         else:
             logging.info('Training network...')
             deepmased.net.fit_generator(generator=dataGen,
                         epochs=args.n_epochs, 
-                        use_multiprocessing=True,
+                        use_multiprocessing=args.n_procs > 1,
                         verbose=2,
                         callbacks=[tb_logs, deepmased.reduce_lr])
             
-        logging.info('Saving trained model...')                   
-        outfile = os.path.join(save_path, '_'.join([args.save_name, args.technology, 'model.h5']))
+        logging.info('Saving trained model...')
+        x = [args.save_name, args.technology, 'model.h5']
+        outfile = os.path.join(save_path, '_'.join(x))
         deepmased.save(outfile)
-        logging.info('  File written: {}'.format(outfile))
-        
-        outfile = os.path.join(save_path, '_'.join([args.save_name, args.technology, 'mean_std.pkl']))
+        logging.info('  File written: {}'.format(outfile))        
+        x = [args.save_name, args.technology, 'mean_std.pkl']
+        outfile = os.path.join(save_path, '_'.join(x))
         with open(outfile, 'wb') as f:
             pickle.dump([dataGen.mean, dataGen.std], f)
         logging.info('  File written: {}'.format(outfile))

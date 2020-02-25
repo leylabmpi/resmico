@@ -1,0 +1,160 @@
+rule bam_to_DL_features:
+    """
+    Converting bam to features
+    """
+    input:
+        fasta = config['tmp_dir'] + \
+                '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta',
+	fai = config['tmp_dir'] + \
+              '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta.fai',
+        bam = config['tmp_dir'] + \
+              '{richness}/{rep}/{read_depth}/{assembler}.bam',
+        bai = config['tmp_dir'] + \
+              '{richness}/{rep}/{read_depth}/{assembler}.bam.bai'
+    output:
+        temp(config['tmp_dir'] + 'feats/{richness}/{rep}/{read_depth}/{assembler}/features.tsv')
+    params:
+        exe = config['pipeline']['script_folder'] + 'bam2feat.py',
+	params = config['params']['make_features'],
+        assembler = lambda wildcards: wildcards.assembler
+    threads:
+        12
+    resources:
+        time = lambda wildcards, attempt: attempt ** 2 * 60 * 12,
+        n = lambda wildcards, threads: threads,         
+        mem_gb_pt = lambda wildcards, attempt: int(round(attempt ** 2.5 * 2 + 1, 0)),
+        batches = lambda wildcards, attempt: attempt ** 2 * 400
+    conda:
+        '../envs/bowtie2.yaml'
+    log:
+        log_dir + 'bam_to_DL_features/{richness}/{rep}/{read_depth}/{assembler}.log'
+    benchmark:
+        benchmark_dir + 'bam_to_DL_features/{richness}/{rep}/{read_depth}/{assembler}.txt'
+    shell:
+        """
+        {params.exe} {params.params} -p {threads} \
+          --batches {resources.batches} \
+          --assembler {params.assembler} \
+          {input.bam} {input.fasta} \
+          > {output} 2> {log}
+        """
+
+rule feature_true_est_join:
+    """
+    Joining 'true' contig assembly info with the bam-generated feature table
+    """
+    input:
+        feats = config['tmp_dir'] + \
+                'feats/{richness}/{rep}/{read_depth}/{assembler}/features.tsv',
+        err = true_errors_dir + \
+              '{richness}/{rep}/{read_depth}/{assembler}/minimap2_aln_summary.tsv'
+    output:
+        temp(config['tmp_dir'] + \
+             'feats/{richness}/{rep}/{read_depth}/{assembler}/features_j.tsv')
+    params:
+        exe = config['pipeline']['script_folder'] + 'table_join.R'
+    resources:
+        time = lambda wildcards, attempt: attempt ** 3 * 59,
+        mem_gb_pt = lambda wildcards, attempt: attempt ** 2 * 15
+    conda:
+        '../envs/R.yaml'
+    log:
+        log_dir + \
+            'feature_true_est_join/{richness}/{rep}/{read_depth}/{assembler}.log'
+    benchmark:
+        benchmark_dir + \
+            'feature_true_est_join/{richness}/{rep}/{read_depth}/{assembler}.txt'
+    shell:
+        """
+        {params.exe} -x contig -y query -o {output} \
+          {input.feats} {input.err} 2> {log} 1>&2
+        """
+
+rule feature_metaquast_summary_join:
+    """
+    Joining metaquast mis-assembly summary info with the bam-generated feature table
+    """
+    input:
+        tbl = config['tmp_dir'] + \
+              'feats/{richness}/{rep}/{read_depth}/{assembler}/features_j.tsv',
+        mis = true_errors_dir + \
+              '{richness}/{rep}/{read_depth}/{assembler}/' + \
+              'combined_reference/contigs_report_contigs_filtered.mis_contigs.tsv'
+    output:
+        temp(config['tmp_dir'] + \
+             'feats/{richness}/{rep}/{read_depth}/{assembler}/features_j_j.tsv')
+    params:
+        exe = config['pipeline']['script_folder'] + 'table_join.R'
+    resources:
+        time = lambda wildcards, attempt: attempt ** 3 * 59,
+        mem_gb_pt = lambda wildcards, attempt: attempt ** 2 * 12
+    conda:
+        '../envs/R.yaml'
+    log:
+        log_dir + \
+            'feature_true_est_join/{richness}/{rep}/{read_depth}/{assembler}.log'
+    benchmark:
+        benchmark_dir + \
+            'feature_true_est_join/{richness}/{rep}/{read_depth}/{assembler}.txt'
+    shell:
+        """
+        {params.exe} -x contig -y Contig -o {output} \
+          {input.tbl} {input.mis} 2> {log} 1>&2
+        """
+
+rule features_compress:
+    """
+    Compressing table
+    """
+    input:
+        config['tmp_dir'] + \
+            'feats/{richness}/{rep}/{read_depth}/{assembler}/features_j_j.tsv'
+    output:
+        features_dir + '{richness}/{rep}/{read_depth}/{assembler}/features.tsv.gz'
+    resources:
+        time = lambda wildcards, attempt: attempt ** 3 * 59,
+        mem_gb_pt = lambda wildcards, attempt: attempt ** 2 * 8
+    log:
+        log_dir + 'features_compress/{richness}/{rep}/{read_depth}/{assembler}.log'
+    benchmark:
+        benchmark_dir + 'features_compress/{richness}/{rep}/{read_depth}/{assembler}.txt'
+    shell:
+        """
+        gzip -c {input} > {output} 2> {log}
+        """
+
+localrules: features_file_table
+        
+rule features_file_table:
+    """
+    Creating a table that lists all feature files
+    """
+    input:
+        feats = expand(features_dir + \
+                       '{richness}/{rep}/{read_depth}/{assembler}/features.tsv.gz',
+                       richness = config['params']['MGSIM']['community_richness'],
+                       rep = config['reps'],                
+                       read_depth = config['params']['MGSIM']['read_depth'],
+	               assembler = config['assemblers'])        
+    output:
+        tsv = features_dir + 'feature_files.tsv'
+    params:
+        reads = config['params']['MGSIM']['reads']
+    log:
+        log_dir + 'features_file_table.log'
+    benchmark:
+        benchmark_dir + 'featuress_file_table.txt'
+    run:
+        import os,sys
+        MGSIM_reads = '"' + params.reads + '"'
+        cols = ['richness', 'rep', 'read_depth', 'assembler', 'feature_file', 'MGSIM_reads_params']
+        with open(output.tsv, 'w') as outF:
+            outF.write('\t'.join(cols) + '\n')
+            for F in input.feats:
+                D,feat_file = os.path.split(F)
+                D,assembler = os.path.split(D)
+                D,read_depth = os.path.split(D)
+                D,rep = os.path.split(D)
+                D,richness = os.path.split(D)
+                x = '\t'.join([richness, rep, read_depth, assembler, F, MGSIM_reads])
+                outF.write(x + '\n')

@@ -16,14 +16,18 @@ random.seed(config['pipeline']['rnd_seed'])
 ## dirs 
 snake_dir = config['pipeline']['snakemake_folder']
 include: snake_dir + 'bin/dirs'
+config['output_dir'] = config['output_dir'].rstrip('/') + '/'
+## temp_dir
+config['tmp_dir'] = os.path.join(config['tmp_dir'], 'deepmased-sm_' + \
+                                 str(os.stat('.').st_ino) + '/')
+print('\33[33mUsing temporary directory: {} \x1b[0m'.format(config['tmp_dir']))
+try:
+    os.makedirs(config['tmp_dir'])
+except FileExistsError:
+    pass
 
-## load 
-### temp_folder
-config['pipeline']['username'] = getpass.getuser()
-config['pipeline']['email'] = config['pipeline']['username'] + '@tuebingen.mpg.de'
-config['pipeline']['temp_folder'] = os.path.join(config['pipeline']['temp_folder'],
-                                                 config['pipeline']['username'])
-### genomes file
+## Load
+### Genomes file
 config['genomes_tbl'] = pd.read_csv(config['genomes_file'], sep='\t', comment='#')
 #### Taxon
 for x in ['Taxon']:
@@ -49,15 +53,7 @@ if 'Sample' in config['genomes_tbl'].columns:
 else:
     config['just_features'] = False
 
-## output directories
-config['output_dir'] = config['output_dir'].rstrip('/') + '/'
-config['tmp_dir'] = os.path.join(config['pipeline']['temp_folder'],
-		                 'DeepMAsED_' + str(os.stat('.').st_ino) + '/')
-if not os.path.isdir(config['tmp_dir']):
-    os.makedirs(config['tmp_dir'])
-print('\33[33mUsing temporary directory: {} \x1b[0m'.format(config['tmp_dir']))
-
-# config calculated parameters
+# Config calculated parameters
 if config['just_features']:
     config['taxa_unique'] = config['genomes_tbl'].Taxon.unique().tolist()
     config['samples_unique'] = config['genomes_tbl'].Sample.unique().tolist()    
@@ -65,7 +61,7 @@ else:
     config['reps'] = [x+1 for x in range(config['params']['reps'])]
     config['assemblers'] = [k for k,v in config['params']['assemblers'].items() if not v.startswith('Skip')]
 
-## modular snakefiles
+## Modular snakefiles
 include: snake_dir + 'bin/Snakefile'
 if config['just_features']:
     include: snake_dir + 'bin/gs_map/Snakefile'
@@ -75,9 +71,16 @@ else:
     include: snake_dir + 'bin/assembly/Snakefile'
     include: snake_dir + 'bin/true_errors/Snakefile'
     include: snake_dir + 'bin/map/Snakefile'
+    include: snake_dir + 'bin/features/Snakefile'
     include: snake_dir + 'bin/SotA/Snakefile'
 
-
+wildcard_constraints:
+    rep='[^/]+'
+wildcard_constraints:
+    richness='[^/]+'
+wildcard_constraints:     
+    read_depth='[^/]+'
+    
 def all_feat_tables(genomes_tbl):
     out_files = []
     for i,x in genomes_tbl.iterrows():
@@ -93,74 +96,100 @@ def all_which_input(wildcards):
     if config['just_features']:
         # feature table
         input_files += all_feat_tables(config['genomes_tbl'])
-    else:
-        # reads
-        if config['params']['keep_reads'] == True:
-            x = expand(mgsim_dir + 'sim_reads/{rep}/Read1.fq.gz',
-                       rep = config['reps'])
-            input_files += x
-            x = expand(mgsim_dir + 'sim_reads/{rep}/Read2.fq.gz',
-                       rep = config['reps'])
-            input_files += x
-        # coverage
-        if not config['params']['nonpareil'].startswith('Skip'):
-            x = expand(coverage_dir + '{rep}/nonpareil.npo',
-                       rep = config['reps'])
-            input_files += x
-            if not config['params']['nonpareil_summary'].startswith('Skip'):
-                input_files.append(coverage_dir + 'nonpareil/all_summary.RDS')
-                input_files.append(coverage_dir + 'nonpareil/all_summary.txt')
-                input_files.append(coverage_dir + 'nonpareil/all_curve.pdf')
+        return input_files
     
-        # MG assemblies
-        x = expand(asmbl_dir + '{rep}/{assembler}/contigs_filtered.fasta',
+    # reads
+    if config['params']['keep_reads'] == True:
+        x = expand(mgsim_dir + 'sim_reads/{richness}/{rep}/{read_depth}/Read1.fq.gz',
+                   richness = config['params']['MGSIM']['community_richness'],
+                   read_depth = config['params']['MGSIM']['read_depth'],
+                   rep = config['reps'])
+        input_files += x
+        x = expand(mgsim_dir + 'sim_reads/{richness}/{rep}/{read_depth}/Read2.fq.gz',
+                   richness = config['params']['MGSIM']['community_richness'],
                    rep = config['reps'],
-                   assembler = config['assemblers'])
+                   read_depth = config['params']['MGSIM']['read_depth'])
         input_files += x
-    
-        # true mis-assemblies
-        ## minimap2
-        x = expand(true_errors_dir + '{rep}/{assembler}/minimap2_aln.paf.gz',
-    	       rep = config['reps'],
-    	       assembler = config['assemblers'])
+    # coverage
+    if not config['params']['nonpareil'].startswith('Skip'):
+        x = expand(coverage_dir + '{richness}/{rep}/{read_depth}/nonpareil.npo',
+                   richness = config['params']['MGSIM']['community_richness'],
+                   rep = config['reps'],                
+                   read_depth = config['params']['MGSIM']['read_depth'])
         input_files += x
+        if not config['params']['nonpareil_summary'].startswith('Skip'):
+            input_files.append(coverage_dir + 'nonpareil/all_summary.RDS')
+            input_files.append(coverage_dir + 'nonpareil/all_summary.txt')
+            input_files.append(coverage_dir + 'nonpareil/all_curve.pdf')
+
+    # MG assemblies
+    x = expand(asmbl_dir + '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta.gz',
+               richness = config['params']['MGSIM']['community_richness'],
+               rep = config['reps'],                
+               read_depth = config['params']['MGSIM']['read_depth'],
+               assembler = config['assemblers'])
+    input_files += x
     
-        x = expand(true_errors_dir + '{rep}/{assembler}/minimap2_aln_summary.tsv',
-    	       rep = config['reps'],
-    	       assembler = config['assemblers'])
-        input_files += x
-    
-        ## metaquast
-        x = expand(true_errors_dir + '{rep}/{assembler}/metaquast.done',
-    	       rep = config['reps'],
-    	       assembler = config['assemblers'])
-        input_files += x
-    
-        # read mapping to contigs
-        x = expand(map_dir + '{rep}/{assembler}.bam.bai',
-    	       rep = config['reps'],
-    	       assembler = config['assemblers'])
-        input_files += x
-    
-        # feature table
-        x = expand(map_dir + '{rep}/{assembler}/features.tsv.gz',
-    	       rep = config['reps'],
-    	       assembler = config['assemblers'])
+    # true mis-assemblies
+    ## minimap2
+    if not config['params']['minimap2'].startswith('Skip'):
+        x = expand(true_errors_dir + \
+                   '{richness}/{rep}/{read_depth}/{assembler}/minimap2_aln.paf.gz',
+                   richness = config['params']['MGSIM']['community_richness'],
+                   rep = config['reps'],                
+                   read_depth = config['params']['MGSIM']['read_depth'],
+	           assembler = config['assemblers'])
         input_files += x
 
-        # State of the Art
-	## ALE
-        if not config['params']['ALE'].startswith('Skip'):
-            x = expand(ale_dir + '{rep}/{assembler}/ALE_results.txt',
-    		       rep = config['reps'],
-    	               assembler = config['assemblers'])
-            input_files += x
-	## VALET
-        if not config['params']['VALET'].startswith('Skip'):
-            x = expand(valet_dir + '{rep}/{assembler}/summary.tsv',
-    		       rep = config['reps'],
-    	               assembler = config['assemblers'])
-            input_files += x
+        x = expand(true_errors_dir + \
+                   '{richness}/{rep}/{read_depth}/{assembler}/minimap2_aln_summary.tsv',
+                   richness = config['params']['MGSIM']['community_richness'],
+                   rep = config['reps'],                
+                   read_depth = config['params']['MGSIM']['read_depth'],
+	           assembler = config['assemblers'])
+        input_files += x
+
+    ## metaquast
+    if not config['params']['metaquast'].startswith('Skip'):
+        x = expand(true_errors_dir + \
+                   '{richness}/{rep}/{read_depth}/{assembler}/metaquast.done',
+                   richness = config['params']['MGSIM']['community_richness'],
+                   rep = config['reps'],                
+                   read_depth = config['params']['MGSIM']['read_depth'],
+	           assembler = config['assemblers'])
+        input_files += x
+
+    # read mapping to contigs
+    if (not config['params']['samtools'].startswith('Skip') and
+        config['params']['keep_bam'] == True): 
+        x = expand(map_dir + '{richness}/{rep}/{read_depth}/{assembler}.bam',
+                   richness = config['params']['MGSIM']['community_richness'],
+                   rep = config['reps'],                
+                   read_depth = config['params']['MGSIM']['read_depth'],
+	           assembler = config['assemblers'])
+        input_files += x
+
+        # feature table
+        if not config['params']['make_features'].startswith('Skip'):    
+            input_files.append(features_dir + 'feature_files.tsv')
+
+    # State of the Art
+    ## ALE
+    if not config['params']['ALE'].startswith('Skip'):
+        x = expand(ale_dir + '{richness}/{rep}/{read_depth}/{assembler}/ALE_results.txt.gz',
+                   richness = config['params']['MGSIM']['community_richness'],
+                   rep = config['reps'],                
+                   read_depth = config['params']['MGSIM']['read_depth'],
+	           assembler = config['assemblers'])
+        input_files += x
+    ## VALET
+    if not config['params']['VALET'].startswith('Skip'):
+        x = expand(valet_dir + '{richness}/{rep}/{read_depth}/{assembler}/summary.tsv',
+                   richness = config['params']['MGSIM']['community_richness'],
+                   rep = config['reps'],                
+                   read_depth = config['params']['MGSIM']['read_depth'],
+	           assembler = config['assemblers'])
+        input_files += x
 
     return input_files
 

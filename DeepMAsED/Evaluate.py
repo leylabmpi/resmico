@@ -14,8 +14,8 @@ from sklearn.metrics import recall_score, roc_auc_score
 from sklearn.preprocessing import StandardScaler
 import IPython
 ## application
-# from DeepMAsED import Models
-from DeepMAsED import Models_FL  #to use contigs of variable length
+from DeepMAsED import Models
+# from DeepMAsED import Models_FL as Models  #to use contigs of variable length
 from DeepMAsED import Utils
 
 
@@ -23,17 +23,17 @@ from DeepMAsED import Utils
 def main(args):
     """Main interface
     """
-    np.random.seed(12)
-    logging.info('Loading data...')
-    
-    # where to save the plot
+    # init
+    np.random.seed(args.seed)
+    ## where to save the plot
     save_plot = args.save_plot
     if save_plot is None:
-        save_plot = args.save_path        
-        
+        save_plot = args.save_path
+                
     # Load and process data
     # Provide objective to load
     custom_obj = {'class_recall_0':Utils.class_recall_0, 'class_recall_1': Utils.class_recall_1}
+
     
     h5_file = os.path.join(args.model_path, args.model_name)
     if not os.path.exists(h5_file):
@@ -41,38 +41,37 @@ def main(args):
         raise IOError(msg.format(args.model_name, args.model_path))
     logging.info('Loading model: {}'.format(h5_file))
     model = load_model(h5_file, custom_objects=custom_obj)
-
-    
     # model pkl
     pkl_file = os.path.join(args.model_path, args.mstd_name)
     logging.info('Loading file: {}'.format(pkl_file))
     with open(pkl_file, 'rb') as mstd:
         mean_tr, std_tr = pickle.load(mstd)
-    
-
     # loading features
     if args.is_synthetic == 1:
         logging.info('Loading synthetic features')
-        x, y, i2n = Utils.load_features(args.data_path,
+        x, y, i2n = Utils.load_features(args.feature_file_table,
                                         max_len = args.max_len,
                                         mode = args.mode, 
                                         technology = args.technology,
                                         force_overwrite=args.force_overwrite,
-                                        chunks=False)  #to use contigs of variable length
+                                        n_procs = args.n_procs,
+                                        chunks=True)  #set to False to use contigs of variable length
     else:
         logging.info('Loading non-synthetic features')
-        x, y, i2n = Utils.load_features_nogt(args.data_path,
+        x, y, i2n = Utils.load_features_nogt(args.feature_file_table,
                                              max_len = args.max_len,
                                              mode = args.mode,
-                                             force_overwrite=args.force_overwrite)
+                                             force_overwrite = args.force_overwrite,
+                                             n_procs = args.n_procs)
         
-    logging.info('Loaded {} contigs...'.format(len(set(i2n.values()))))    
+    logging.info('Loaded {} contigs'.format(len(set(i2n.values()))))    
     n2i = Utils.reverse_dict(i2n)
     x = [xi for xmeta in x for xi in xmeta]
-    y = np.concatenate(y)    
-    dataGen = Models_FL.Generator(x, y, args.max_len, batch_size=16,  shuffle=False, 
+    y = np.concatenate(y)
+    logging.info('Running model generator...')    
+    dataGen = Models.Generator(x, y, args.max_len, batch_size=16,  shuffle=False, 
                                norm_raw=bool(args.norm_raw),
-                               mean_tr=mean_tr, std_tr=std_tr) #to use contigs of variable length
+                               mean_tr=mean_tr, std_tr=std_tr)
     
     logging.info('Computing predictions for {}...'.format(args.technology))    
     scores = Utils.compute_predictions_y_known(y, n2i, model, dataGen, x=x)

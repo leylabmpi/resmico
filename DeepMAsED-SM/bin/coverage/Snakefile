@@ -31,32 +31,34 @@ rule nonpareil:
     """
     input:
         check = coverage_dir + 'precheck_nonpareil.done',
-	read1 = config['tmp_dir'] + '{rep}/sim_reads/1/R1.fq'
+        read1 = config['tmp_dir'] + \
+                '{richness}/{rep}/{read_depth}/sim_reads/1/R1.fq'
     output:
-        npo = coverage_dir + '{rep}/nonpareil.npo'
+        npo = coverage_dir + '{richness}/{rep}/{read_depth}/nonpareil.npo'
     params:
-        params = config['params']['nonpareil'],
-        basename = coverage_dir + '{rep}/nonpareil'
+        params = config['params']['nonpareil']
     conda:
         '../envs/nonpareil.yaml'
     threads:
         8
     resources:
-        time = lambda wildcards, attempt: attempt * 59 * 8,
+        time = lambda wildcards, attempt: attempt * 60 * 8,
+        n = lambda wildcards, threads: threads,
         mem_mb_pt = lambda wildcards, attempt: attempt * 3000,
         mem_gb_pt = lambda wildcards, attempt: attempt * 3
     log:
-        log_dir + 'nonpareil/{rep}.log'
+        log_dir + 'nonpareil/{richness}/{rep}/{read_depth}.log'
     benchmark:
-        benchmark_dir + 'nonpareil/{rep}.txt'
+        benchmark_dir + 'nonpareil/{richness}/{rep}/{read_depth}.txt'
     shell:
         """
+        BASENAME=`dirname {output.npo}`"/nonpareil"
         nonpareil {params.params} \
            -R {resources.mem_mb_pt} \
            -t {threads} \
            -f fastq \
            -s {input.read1} \
-           -b {params.basename} \
+           -b $BASENAME \
            2>> {log} 1>&2 || touch {output.npo} 
         """
 
@@ -65,8 +67,10 @@ rule nonpareil_summary:
     Summarizing nonpareil data
     """
     input:
-        expand(coverage_dir + '{rep}/nonpareil.npo',
-               rep = config['reps'])
+        expand(coverage_dir + '{richness}/{rep}/{read_depth}/nonpareil.npo',
+               richness = config['params']['MGSIM']['community_richness'],
+               rep = config['reps'],                
+               read_depth = config['params']['MGSIM']['read_depth'])
     output:
         curves = coverage_dir + 'nonpareil/all_curve.pdf',
         rds = coverage_dir + 'nonpareil/all_summary.RDS',

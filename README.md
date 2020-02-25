@@ -15,12 +15,6 @@ Deep learning for Metagenome Assembly Error Detection (DeepMAsED)
 Rojas-Carulla, Mateo, Ruth E. Ley, Bernhard Schoelkopf, and Nicholas D. Youngblut. 2019.
 "DeepMAsED: Evaluating the Quality of Metagenomic Assemblies." bioRxiv. https://doi.org/10.1101/763813.
 
-
-# WARNINGS
-
-This project is currently undergoing heavy development.
-The UI is not stable and can change at any time (see git log for changes).
-
 # Main Description
 
 The tool is divided into two main parts:
@@ -29,22 +23,23 @@ The tool is divided into two main parts:
   * A snakemake pipeline for:
     * generating DeepMAsED train/test datasets from reference genomes
     * creating feature tables from "real" assemblies (fasta + bam files)
-* **DeepMAsED-DL**
+* **DeepMAsED (DL)**
   * A python package for misassembly detection via deep learning
 
+# Warnings
+
+* The UI has changed substantially between version 0.2.1 and 0.3.0
+  * DeepMAsED-SM generates a feature file table
+  * DeepMAsED uses the feature file table as input 
 
 # Setup
 
-## DeepMAsED-SM
+## conda 
 
 * [If needed] Install miniconda (or anaconda)
-* Create a conda env that includes `snakemake` & `pandas`
-  * e.g., `conda create -n snakemake conda-forge::pandas bioconda::snakemake`
-* To activate the conda env: `conda activate snakemake`
-
-## DeepMAsED-DL
-
-See the `conda create` line in the .travis.yaml file.
+* See the `conda create` line in the .travis.yaml file.
+* If just using DeepMAsED-SM:
+  * `conda create -n snakemake conda-forge::pandas bioconda::snakemake`
 
 ### Testing the DeepMAsED package (optional)
 
@@ -61,7 +56,12 @@ See the `conda create` line in the .travis.yaml file.
 
 ### Creating feature tables for genomes (MAGs)
 
-Feature tables are fed to DeepMAsED-DL for misassembly classification.
+If you just want to create feature tables so that you can run
+`DeepMAsED predict` for contig misassembly classification,
+then keep reading this section. 
+
+If you instead want to create simulated training/testing datasets,
+then see `Creating custom train/test data from reference genomes` below.
 
 **Input:**
 
@@ -80,21 +80,33 @@ Feature tables are fed to DeepMAsED-DL for misassembly classification.
   * Config params on assemblers & parameters
   * Note: the same config is used for simulations and feature table creation
 
-#### Running locally 
+### Running locally 
 
 `snakemake --use-conda -j <NUMBER_OF_THREADS> --configfile <MY_CONFIG.yaml_FILE>`
 
-#### Running on SGE cluster 
+### Running on a cluster
 
-`./snakemake_sge.sh <MY_CONFIG.yaml_FILE> cluster.json <PATH_FOR_SGE_LOGS> <NUMBER_OF_PARALLEL_JOBS> [additional snakemake options]`
+You will need to setup a snakemake profile specific to your cluster setup.
+See the following for how:
 
-It should be rather easy to update the code to run on other cluster architectures.
-See the following resources for help:
-
+* [Ley Lab snakemake profiles](https://github.com/leylabmpi/snakemake_profiles)
 * [Snakemake docs on cluster config](https://snakemake.readthedocs.io/en/stable/snakefiles/configuration.html)
-* [Snakemake profiles](https://github.com/Snakemake-Profiles)
+* [Official snakemake profiles](https://github.com/Snakemake-Profiles)
 
-#### Output
+Note that the job submission script should include the following resources:
+
+* `time` = max job time in minutes
+* `n` = number of threads requested
+* `mem_gb_pt` = per-thread mem in gigabytes
+
+#### Running on SGE cluster
+
+The SGE profile in [Ley Lab snakemake profiles](https://github.com/leylabmpi/snakemake_profiles)
+should work without any modifications (read the README).
+
+You can use `./snakemake_sge.sh` for convenience
+
+### Output
 
 > Assuming output directory is `./output/`
 
@@ -105,93 +117,98 @@ See the following resources for help:
 * `./output/benchmarks/`
   * Job resource usage info
 
-##### Features table
+#### Features table
+
+> Note: All columns ending in `_*` appear in the table twice: once as `*_Match` (reads that matched the reference at that position) and once as `*_SNP`, which are reads that didn't match the reference at that position.
 
 * **Basic info**
-  * assembler
+  * `assembler`
     * metagenome assembler used
-  * contig
+  * `contig`
     * contig ID
-  * position
+  * `position`
     * position on the contig (bp)
-  * ref_base
+  * `ref_base`
     * nucleotide at that position on the contig
 * **Extracted from the bam file**
-  * num_query_A
+  * `num_query_A`
     * number of reads mapping to that position with 'A'
-  * num_query_C
+  * `num_query_C`
     * number of reads mapping to that position with 'C'
-  * num_query_G
+  * `num_query_G`
     * number of reads mapping to that position with 'G'
-  * num_query_T
+  * `num_query_T`
     * number of reads mapping to that position with 'T'
-  * num_SNPs
+  * `num_SNPs`
     * number of SNPs at that position
-  * coverage
+  * `coverage`
     * number of reads mapping to that position
-  * min_insert_size
+  * `num_discordant`
+    * number of reads in which:
+      * the read belongs to a pair
+      * the read mate is not properly mapped (see pysam definition)
+  * `min_insert_size_*`
     * minimum paired-end read insert size for all reads mapping to that position
-  * mean_insert_size
+  * `mean_insert_size_*`
     * mean paired-end read insert size for all reads mapping to that position
-  * stdev_insert_size
+  * `stdev_insert_size_*`
     * stdev paired-end read insert size for all reads mapping to that position
-  * max_insert_size
+  * `max_insert_size_*`
     * max paired-end read insert size for all reads mapping to that position
-  * min_mapq
+  * `min_mapq_*`
     * minimum read mapping quality for all reads mapping to that position
-  * mean_mapq
+  * `mean_mapq_*`
     * mean read mapping quality for all reads mapping to that position
-  * stdev_mapq
+  * `stdev_mapq_*`
     * stdev read mapping quality for all reads mapping to that position
-  * max_mapq
+  * `max_mapq_*`
     * max read mapping quality for all reads mapping to that position
-  * num_proper
+  * `num_proper_*`
     * number of reads mapping to that position with proper read pairing
-  * num_diff_strand
+  * `num_diff_strand_*`
     * number of reads mapping to that position where mate maps to the other strand
     * "proper" pair alignment determined by bowtie2
-  * num_orphans
+  * `num_orphans_*`
     * number of reads mapping to that position where the mate did not map
-  * num_supplementary
+  * `num_supplementary_*`
     * number of reads mapping to that position where the alignment is supplementary
     * see the [samtools docs](https://samtools.github.io/hts-specs/SAMv1.pdf) for more info
-  * num_secondary
+  * `num_secondary_*`
     * number of reads mapping to that position where the alignment is secondary
     * see the [samtools docs](https://samtools.github.io/hts-specs/SAMv1.pdf) for more info
-  * seq_window_entropy
+  * `num_discordant_*`
+    * See `num_discordant` above 
+  * `seq_window_entropy`
     * sliding window contig sequence Shannon entropy
     * window size defined with the `make_features:` param in the `config.yaml` file
-  * seq_window_perc_gc
+  * `seq_window_perc_gc`
     * sliding window contig sequence GC content
     * window size defined with the `make_features:` param in the `config.yaml` file
-* **miniasm info**
-  * chimeric
-    * chimeric contig (Supplementary alignments; SAM 0x800)
-  * num_hits
-    * number of primary + supplementary alignments
-  * query_hit_len
-    * total query hit length (all alignments summed)
-  * edit_dist
-    * "NM" tag in minimap2 (summed for all alignments)
-  * edit_dist_norm
-    * edit_dist / query_hit_len
 * **MetaQUAST info**
-  * Extensive_misassembly
+  * `Extensive_misassembly`
     * the "extensive misassembly" classification set by MetaQUAST
+
+#### Features file table
+
+This is a table automatically generated by `DeepMAsED-SM`, which
+lists all individual feature tables and their associated metadata
+(e.g., simulation parameters).
+
+Run `DeepMAsED train -h` to get a full description.
 
 ### Creating custom train/test data from reference genomes
 
-This is useful for training DeepMAsED-DL with a custom
+This is useful for training DeepMAsED (DL) with a custom
 train/test dataset (e.g., just biome-specific taxa). 
 
 **Input:**
 
 * A table listing refernce genomes. Two possible formats:
-  * Genome-accession: `<Taxon>\t<Accession>`
+  * **Either** Genome-accession: `<Taxon>\t<Accession>`
      * "Taxon" = the species/strain name
      * "Accession" = the NCBI genbank genome accession 
      * The genomes will be downloaded based on the accession
-  * Genome-fasta: `<Taxon>\t<Fasta>`
+  * **Or** Genome-fasta: `<Taxon>\t<Fasta>`
      * "Taxon" = the species/strain name of the genome
      * "Fasta" = the fasta of the genome sequence
      * Use this option if you already have the genome fasta files (uncompressed or gzip'ed)
@@ -215,7 +232,7 @@ The output will the be same as for feature generation, but with extra directorie
   * Metagenome assembly errors determined by using the references
 
 
-## DeepMAsED-DL
+## DeepMAsED (DL)
 
 Main interface: `DeepMAsED -h`
 
