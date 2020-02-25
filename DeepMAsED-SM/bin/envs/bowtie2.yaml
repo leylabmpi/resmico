@@ -2,6 +2,7 @@ channels: !!python/tuple
 - bioconda
 dependencies:
 - pigz
+- conda-forge::intervaltree
 - bioconda::samtools
 - bioconda::bowtie2
 - bioconda::pysam
