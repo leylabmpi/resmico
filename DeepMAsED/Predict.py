@@ -13,7 +13,7 @@ from sklearn.preprocessing import StandardScaler
 import IPython
 import _pickle as pickle
 ## application
-from DeepMAsED import Models
+from DeepMAsED import Models_FL as Models
 from DeepMAsED import Utils
 
 
@@ -29,7 +29,6 @@ def main(args):
     # Load and process data
     # Provide objective to load
     custom_obj = {'class_recall_0':Utils.class_recall_0, 'class_recall_1': Utils.class_recall_1}
-                
     logging.info('Loading model...')
     ## pkl
     logging.info('  Loading mstd...')
@@ -55,7 +54,7 @@ def main(args):
     x, y, i2n = Utils.load_features_nogt(args.feature_file_table,
                                          force_overwrite=args.force_overwrite,
                                          pickle_only=args.pickle_only,
-                                         n_procs=args.n_procs)
+                                         n_procs=args.n_procs, chunks=False)
     
     logging.info('Loaded {} contigs'.format(len(set(i2n.values()))))    
     n2i = Utils.reverse_dict(i2n)
@@ -63,7 +62,7 @@ def main(args):
     y = np.concatenate(y)
     
     logging.info('Running model generator...')
-    dataGen = Models.Generator(x, y, batch_size=64, shuffle=False, 
+    dataGen = Models.Generator(x, y, batch_size=args.batch_size, shuffle=False, 
                                norm_raw=0, mean_tr=mean_tr, std_tr=std_tr)
     
     logging.info('Computing predictions...')

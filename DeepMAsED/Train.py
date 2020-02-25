@@ -14,7 +14,7 @@ from sklearn.metrics import recall_score, roc_auc_score, average_precision_score
 from sklearn.preprocessing import StandardScaler
 import IPython
 ## Application
-from DeepMAsED import Models
+from DeepMAsED import Models_FL as Models
 from DeepMAsED import Utils
 
 
@@ -37,29 +37,22 @@ def main(args):
         os.makedirs(args.save_path)
     save_path = args.save_path
     
-    # Build model
     config = Config(args)
-    # if not args.pickle_only:
-    #     logging.info('Building model')
-    #     deepmased = Models.deepmased(config)
-    #     deepmased.print_summary()
-
     # Load and process data
     x, y = Utils.load_features_tr(args.feature_file_table,
                                   max_len=args.max_len,
                                   technology = args.technology,
                                   pickle_only=args.pickle_only,
                                   force_overwrite=args.force_overwrite,
-                                  n_procs=args.n_procs)
+                                  n_procs=args.n_procs, chunks=False)
     # Load and process validation data if given
     if args.val_path:
         x_val, y_val = Utils.load_features_tr(args.val_path,
-                                      max_len=args.max_len,
-                                      mode = config.mode, 
+                                      max_len=args.max_len, 
                                       technology = args.technology,
                                       pickle_only=args.pickle_only,
                                       force_overwrite=args.force_overwrite,
-                                      n_procs=args.n_procs)
+                                      n_procs=args.n_procs, chunks=False)
         x_val = [item for sl in x_val for item in sl]
         y_val = np.concatenate(y_val)
 
@@ -81,10 +74,10 @@ def main(args):
             
             #Construct generator
             dataGen = Models.Generator(x_tr, y_tr, args.max_len,
-                                       batch_size=64, norm_raw=bool(args.norm_raw))
+                                       batch_size=args.batch_size, norm_raw=bool(args.norm_raw))
 
             # Init validation generator and 
-            dataGen_val = Models.Generator(x_val, y_val, args.max_len, batch_size=64, 
+            dataGen_val = Models.Generator(x_val, y_val, args.max_len, batch_size=args.batch_size, 
                                            shuffle=False, norm_raw=bool(args.norm_raw), 
                                            mean_tr=dataGen.mean, std_tr=dataGen.std)
 
@@ -94,11 +87,6 @@ def main(args):
                                                   write_graph=True, write_images=True)
             logging.info('Fold {}: Training network...'.format(val_idx))
             ## binary classification (extensive misassembly)
-            try:
-                w_one = int(len(np.where(y_tr == 0)[0])  / len(np.where(y_tr == 1)[0]))
-            except ZeroDivisionError:
-                logging.warning('  No misassemblies present!')
-                w_one = 0
             
             deepmased.net.fit_generator(generator=dataGen, 
                                         validation_data=dataGen_val,
@@ -137,7 +125,7 @@ def main(args):
         logging.info('Constructing model...')
         deepmased = Models.deepmased(config)
         deepmased.print_summary()
-        dataGen = Models.Generator(x, y, args.max_len, batch_size=4,
+        dataGen = Models.Generator(x, y, args.max_len, batch_size=args.batch_size,
                                    norm_raw=bool(args.norm_raw))
         tb_logs = keras.callbacks.TensorBoard(log_dir=os.path.join(save_path, 'logs_final'), 
                                               histogram_freq=0, 
@@ -146,11 +134,12 @@ def main(args):
         if args.val_path:
             logging.info('Training network with validation...')
             dataGen_val = Models.Generator(x_val, y_val, args.max_len,
-                           batch_size=4,shuffle=False,norm_raw=bool(args.norm_raw),
+                           batch_size=args.batch_size,
+                           shuffle=False,norm_raw=bool(args.norm_raw),
                            mean_tr=dataGen.mean, std_tr=dataGen.std)
             list_callbacks = [tb_logs, 
                               deepmased.reduce_lr,
-                              Utils.roc_callback(dataGen,dataGen_val)]
+                              Utils.roc_callback(dataGen_val)]
             if args.early_stop:
                 es = EarlyStopping(monitor='val_loss', verbose=1, patience=9)
                 list_callbacks.append(es)

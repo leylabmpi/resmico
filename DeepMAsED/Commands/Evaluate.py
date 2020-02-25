@@ -30,8 +30,8 @@ def parse_args(test_args=None, subparsers=None):
                                          formatter_class=argparse.RawTextHelpFormatter)
 
     #default trained model
-    pkg_model = resource_filename('DeepMAsED','Model/deepmased_model.h5')
-    pkg_mstd = resource_filename('DeepMAsED','Model/deepmased_mean_std.pkl')
+    pkg_model = resource_filename('DeepMAsED','Model/fl_all_model.h5')
+    pkg_mstd = resource_filename('DeepMAsED','Model/fl_all_mean_std.pkl')
     pkg_path, pkg_model = os.path.split(pkg_model)
     _, pkg_mstd  = os.path.split(pkg_mstd)
     # args
@@ -49,6 +49,8 @@ def parse_args(test_args=None, subparsers=None):
                         help='Prefix for name in the save_path (default: %(default)s)')        
     parser.add_argument('--save-plot', default=None, type=str, 
                         help='Where to save plots (default: %(default)s)')
+    parser.add_argument('--batch-size', default=4, type=int, 
+                        help='Batch size (default: %(default)s)')
     parser.add_argument('--max-len', default=10000, type=int, 
                         help='Max contig len, fixed input for CNN (default: %(default)s)')
     parser.add_argument('--technology', default='all-asmbl', type=str, 

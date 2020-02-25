@@ -14,8 +14,7 @@ from sklearn.metrics import recall_score, roc_auc_score
 from sklearn.preprocessing import StandardScaler
 import IPython
 ## application
-from DeepMAsED import Models
-# from DeepMAsED import Models_FL as Models  #to use contigs of variable length
+from DeepMAsED import Models_FL as Models  #to use contigs of variable length
 from DeepMAsED import Utils
 
 
@@ -32,9 +31,7 @@ def main(args):
                 
     # Load and process data
     # Provide objective to load
-    custom_obj = {'class_recall_0':Utils.class_recall_0, 'class_recall_1': Utils.class_recall_1}
-
-    
+    custom_obj = {'class_recall_0':Utils.class_recall_0, 'class_recall_1': Utils.class_recall_1}    
     h5_file = os.path.join(args.model_path, args.model_name)
     if not os.path.exists(h5_file):
         msg = 'Cannot find {} file in {}'
@@ -54,7 +51,7 @@ def main(args):
                                         technology = args.technology,
                                         force_overwrite=args.force_overwrite,
                                         n_procs = args.n_procs,
-                                        chunks=True)  #set to False to use contigs of variable length
+                                        chunks=False)  #False to use contigs of variable length
     else:
         logging.info('Loading non-synthetic features')
         x, y, i2n = Utils.load_features_nogt(args.feature_file_table,
@@ -67,7 +64,7 @@ def main(args):
     x = [xi for xmeta in x for xi in xmeta]
     y = np.concatenate(y)
     logging.info('Running model generator...')    
-    dataGen = Models.Generator(x, y, args.max_len, batch_size=16,  shuffle=False, 
+    dataGen = Models.Generator(x, y, args.max_len, batch_size=args.batch_size,  shuffle=False, 
                                norm_raw=bool(args.norm_raw),
                                mean_tr=mean_tr, std_tr=std_tr)
     

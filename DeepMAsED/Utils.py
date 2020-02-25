@@ -360,6 +360,7 @@ def load_features(feat_file_table, max_len=10000,
 def load_features_nogt(feat_file_table, max_len=10000, 
                        pickle_only=False,
                        force_overwrite=False,
+                       chunks=True,
                        n_procs=1):
     """
     Loads features for real datasets. Filters contigs with low coverage.
@@ -408,6 +409,7 @@ def load_features_nogt(feat_file_table, max_len=10000,
             n_contigs_filtered = 0
             x_in_contig, y_in_contig = [], []
             n2i_keys = set([])
+            
             for j in range(len(xi)):
                 len_contig = xi[j].shape[0]
                 
@@ -415,18 +417,24 @@ def load_features_nogt(feat_file_table, max_len=10000,
                 if np.amin(xi[j][:, idx_coverage]) == 0:
                     n_contigs_filtered += 1
                     continue
+                if chunks:
+                    idx_chunk = 0
+                    while idx_chunk * max_len < len_contig:
+                        chunked = xi[j][idx_chunk * max_len :
+                                        (idx_chunk + 1) * max_len, :]
 
-                idx_chunk = 0
-                while idx_chunk * max_len < len_contig:
-                    chunked = xi[j][idx_chunk * max_len :
-                                    (idx_chunk + 1) * max_len, :]
-            
-                    x_in_contig.append(chunked)
+                        x_in_contig.append(chunked)
+                        y_in_contig.append(yi[j])
+
+                        i2n_all[len(x_in_contig) - 1 + shift] = (i, i2ni[j][0])
+                        idx_chunk += 1
+                        n2i_keys.add(i2ni[j][0])
+                else:
+                    x_in_contig.append(xi[j])
                     y_in_contig.append(yi[j])
-
-                    i2n_all[len(x_in_contig) - 1 + shift] = (i, i2ni[j][0])
-                    idx_chunk += 1
+                    i2n_all[len(x_in_contig) - 1 + shift] = (int(rep), i2ni[j][0])
                     n2i_keys.add(i2ni[j][0])
+                    
             # status
             msg = 'Contigs filtered due to low coverage: {}'
             logging.info(msg.format(n_contigs_filtered))
@@ -519,7 +527,6 @@ def pickle_data_b(x, set_target=True):
         # indexing
         w_contig = col_names.index('contig')
         w_ext = col_names.index('Extensive_misassembly')
-        #w_chimera = col_names.index('chimeric')
         w_ref = col_names.index('ref_base')
         w_nA = col_names.index('num_query_A')
         w_nC = col_names.index('num_query_C')
@@ -589,11 +596,8 @@ def class_recall_1(y_true, y_pred):
     return class_acc
 
 class roc_callback(Callback):
-    def __init__(self,train_gen,val_gen):
-        self.train_gen = train_gen
-        self.train_reports = []
-        self.val_gen = val_gen
-        self.val_reports = []      
+    def __init__(self,val_gen):
+        self.val_gen = val_gen   
     
     def on_train_begin(self, logs={}):
         return
@@ -605,17 +609,9 @@ class roc_callback(Callback):
         return
  
     def on_epoch_end(self, epoch, logs={}): 
-#        too time consuming
-#         y_pred = self.model.predict_generator(self.train_gen)
-#         y_true = self.train_gen.y
-#         roc_train = roc_auc_score(y_true[:len(y_pred)], y_pred) #change it when last batch is readed      
-#         self.train_reports.append(roc_train)
-        
         y_pred_val = self.model.predict_generator(self.val_gen)
         y_true_val = self.val_gen.y
         auc_val = average_precision_score(y_true_val[:len(y_pred_val)], y_pred_val)   #change it when last batch is readed    
-#         self.val_reports.append(auc_val)
-#         print('\rroc-auc: %s - roc-auc_val: %s' % (str(round(roc_train,4)),str(round(roc_val,4))),end=100*' '+'\n')
         print('\rauc_val: %s' % (str(round(auc_val,4))),end=100*' '+'\n')
         return 
  
@@ -684,13 +680,12 @@ def compute_predictions_y_known(y, n2i, model, dataGen, x=False):
 
     Inputs: 
         n2i: dictionary with contig_name -> list of idx corresponding to that contig.
-        y and x of the same size, it works only for contigs of the full length
+        y and x of the same size, it works only for contigs of the full length!
     Output:
         scores:
             pred: scores for individual contigs
             y: corresponding true labels
     """
-    lens_x = [len(i) for i in x]
     score_val = model.predict_generator(dataGen)
 
     # Compute predictions by aggregating scores for longer contigs
@@ -711,8 +706,10 @@ def compute_predictions_y_known(y, n2i, model, dataGen, x=False):
         
         # Make sure all the labels for the contig coincide
         assert((y[inf : sup] == y[inf]).all())
-        assert(len(y)==len(lens_x))
-        if x: # writes contigs' length
+        
+        if x: # only for chunks=False
+            lens_x = [len(i) for i in x]
+            assert(len(y)==len(lens_x))
             scores[k[0]][k[1]] = {'y' : int(y[inf]), 'pred' : score_val[inf : sup], 'len' : lens_x[inf]}
         else:
             scores[k[0]][k[1]] = {'y' : int(y[inf]), 'pred' : score_val[inf : sup]}

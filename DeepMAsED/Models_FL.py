@@ -24,7 +24,6 @@ class deepmased(object):
         self.pool_window = config.pool_window
         self.dropout = config.dropout
         self.lr_init = config.lr_init
-        self.mode = config.mode
         self.n_fc = config.n_fc
         self.n_hid = config.n_hid
 
@@ -53,19 +52,17 @@ class deepmased(object):
 
         optimizer = keras.optimizers.adam(lr=self.lr_init)
 
-        if self.mode in ['extensive']:
-            for _ in range(1):
-                x = Dense(self.n_hid, activation='relu')(x)
-                x = Dropout(rate=self.dropout)(x)
+        for _ in range(1):
+            x = Dense(self.n_hid, activation='relu')(x)
+            x = Dropout(rate=self.dropout)(x)
 
-            x = Dense(1, activation='sigmoid')(x)
-            
-            self.net =  Model(inputs=inlayer,outputs=x)
-            self.net.compile(loss='binary_crossentropy',
-                             optimizer=optimizer,
-                             metrics=[Utils.class_recall_0, Utils.class_recall_1])
-        else:
-            raise('Training mode "{}" not supported.'.format(mode))
+        x = Dense(1, activation='sigmoid')(x)
+
+        self.net =  Model(inputs=inlayer,outputs=x)
+        self.net.compile(loss='binary_crossentropy',
+                         optimizer=optimizer,
+                         metrics=[Utils.class_recall_0, Utils.class_recall_1])
+
 
         self.reduce_lr = keras.callbacks.ReduceLROnPlateau(
                                monitor='val_loss', factor=0.5,

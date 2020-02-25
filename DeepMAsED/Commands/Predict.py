@@ -33,8 +33,8 @@ def parse_args(test_args=None, subparsers=None):
         parser = argparse.ArgumentParser(description=desc, epilog=epi,
                                          formatter_class=argparse.RawTextHelpFormatter)
     #default trained model
-    pkg_model = resource_filename('DeepMAsED','Model/deepmased_model.h5')
-    pkg_mstd = resource_filename('DeepMAsED','Model/deepmased_mean_std.pkl')
+    pkg_model = resource_filename('DeepMAsED','Model/fl_all_model.h5')
+    pkg_mstd = resource_filename('DeepMAsED','Model/fl_all_mean_std.pkl')
     pkg_path, pkg_model = os.path.split(pkg_model)
     _, pkg_mstd  = os.path.split(pkg_mstd)
     # args
@@ -58,6 +58,8 @@ def parse_args(test_args=None, subparsers=None):
                         help='Force re-creation of pickle files (default: %(default)s)')
     parser.add_argument('--seed', default=12, type=int, 
                         help='Seed used for numpy.random (default: %(default)s)')
+    parser.add_argument('--batch-size', default=4, type=int, 
+                        help='Batch size (default: %(default)s)')
     parser.add_argument('--n-procs', default=1, type=int, 
                         help='Number of parallel processes; just used for pickling (default: %(default)s)')
     # test args

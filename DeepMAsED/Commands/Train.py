@@ -66,7 +66,7 @@ def parse_args(test_args=None, subparsers=None):
     parser.add_argument('--val-path', default=None, type=str, 
                         help='Path to validation data (default: %(default)s)')
     parser.add_argument('--early-stop', action='store_true', default=False,
-                        help='Only pickle files (default: %(default)s)')
+                        help='Early stopping. Can be used only if val-path provided (default: %(default)s)')
     parser.add_argument('--filters', default=8, type=int, 
                         help='N of filters for first conv layer. Then x2 (default: %(default)s)')
     parser.add_argument('--n-hid', default=50, type=int, 
@@ -77,6 +77,8 @@ def parse_args(test_args=None, subparsers=None):
                         help='N of fully connected layers (default: %(default)s)')
     parser.add_argument('--n-epochs', default=10, type=int, 
                         help='N of training epochs (default: %(default)s)')
+    parser.add_argument('--batch-size', default=4, type=int, 
+                        help='Batch size (default: %(default)s)')
     parser.add_argument('--max-len', default=10000, type=int, 
                         help='Max contig len, fixed input for CNN (default: %(default)s)')
     parser.add_argument('--dropout', default=0.5, type=float, 

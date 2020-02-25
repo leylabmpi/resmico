@@ -45,4 +45,15 @@ def test_train(tmpdir, caplog):
     args = Train_CMD.parse_args(args)
     Train_CMD.main(args)
 
+def test_train_on_all_data(tmpdir, caplog):
+    caplog.set_level(logging.INFO)   
+    save_path = tmpdir.mkdir('save_dir')
+    args = ['--early-stop',
+            '--n-epochs', '2',
+            '--force-overwrite',
+            '--save-path', str(save_path),
+            '--val-path',os.path.join(data_dir, 'n10_r2/feature_files.tsv'), #the same ass train in this case
+            os.path.join(data_dir, 'n10_r2/feature_files.tsv')]
+    args = Train_CMD.parse_args(args)
+    Train_CMD.main(args)
 
