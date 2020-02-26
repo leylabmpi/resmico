@@ -91,6 +91,7 @@ rule metaquast:
     shell:
         """
         # params
+        REFDIR=`dirname {input.refs}`
         OUTDIR=`dirname {output.done}`
         # removing existing metaquast output
         rm -rf $OUTDIR"/combined_reference/" 2> {log}        
@@ -99,9 +100,31 @@ rule metaquast:
         # metaquast run
         metaquast.py {params.params} -t {threads} \
           --reads1 {input.read1} --reads2 {input.read2} \
-          -o $OUTDIR -r {params.refdir} \
+          -o $OUTDIR -r $REFDIR \
           {input.contigs} 2>> {log} 1>&2
 
         touch {output.done} 2>> {log}
         """
  
+localrules: metaquast_ref_genomes_rm
+        
+rule metaquast_ref_genomes_rm:
+    """
+    Removing ref genomes directory
+    """
+    input:
+        refs = config['tmp_dir'] + 'metaquast/{richness}/{rep}/genomes/genomes.tsv',
+        done = expand(true_errors_dir + \
+                      '{{richness}}/{{rep}}/{read_depth}/{assembler}/metaquast.done',
+                      read_depth = config['params']['MGSIM']['read_depth'],
+	              assembler = config['assemblers'])
+    output:
+        done = true_errors_dir + '{richness}/{rep}/metaquast_cleanup.done'
+    log:
+        log_dir + 'metaquast_ref_genomes_rm/{richness}/{rep}.log'
+    shell:
+        """
+        > {log}
+        find `dirname {input}` -name "*.fna" 2>> {log} | xargs rm -f 2>> {log}
+        touch {output.done}
+        """
