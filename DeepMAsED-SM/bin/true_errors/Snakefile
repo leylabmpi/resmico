@@ -79,7 +79,7 @@ rule metaquast:
     threads:
         12
     resources:
-        time = lambda wildcards, attempt: attempt * 60 * 36,
+        time = lambda wildcards, attempt: attempt * 60 * 50,
         n = lambda wildcards, threads: threads,
         mem_gb_pt = lambda wildcards, attempt: int(attempt ** 2.6 + 4)
     conda:
