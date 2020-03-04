@@ -97,7 +97,8 @@ rule metaquast:
         rm -rf $OUTDIR"/runs_per_reference/" 2>> {log}
 
         # metaquast run
-        metaquast.py {params.params} -t {threads} \
+        metaquast.py -t {threads} {params.params}  \
+          --max-ref-number 0 --no-gzip \
           --reads1 {input.read1} --reads2 {input.read2} \
           -o $OUTDIR -r $REFDIR \
           {input.contigs} 2>> {log} 1>&2
