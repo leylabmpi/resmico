@@ -113,7 +113,7 @@ rule MGSIM_reads:
     resources:
         time = lambda wildcards, attempt: attempt ** 2 * 60 * 24,
         n = lambda wildcards, threads: threads,
-        mem_gb_pt = lambda wildcards, attempt: attempt * 2 + 1
+        mem_gb_pt = lambda wildcards, attempt: attempt * 2 + 2
     log:
         log_dir + 'MGSIM_reads/{richness}/{rep}/{read_depth}.log'
     benchmark:

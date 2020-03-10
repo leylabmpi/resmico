@@ -78,9 +78,9 @@ rule metaquast:
     threads:
         12
     resources:
-        time = lambda wildcards, attempt: attempt * 60 * 50,
+        time = lambda wildcards, attempt: attempt * 60 * 36,
         n = lambda wildcards, threads: threads,
-        mem_gb_pt = lambda wildcards, attempt: int(attempt ** 2.6 + 4)
+        mem_gb_pt = lambda wildcards, attempt: int(attempt ** 2.3 + 6)
     conda:
         '../envs/quast.yaml'	
     log:

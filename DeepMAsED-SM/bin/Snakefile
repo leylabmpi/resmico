@@ -44,7 +44,7 @@ def mk_cmd(success=True):
     print('Pipeline {}! Creating report...'.format(msg))
     exe = os.path.join(config['pipeline']['script_folder'], 'log_summarize.py')
     rpt_file = os.path.join(config['tmp_dir'], 'job_report.csv')
-    cmd = '{exe} {{log}} > {rpt_file}'.format(exe=exe, rpt_file=rpt_file)
+    cmd = '{exe} {{log}} | head -n 80000 > {rpt_file}'.format(exe=exe, rpt_file=rpt_file)
     return rpt_file, cmd
 
 ## call
