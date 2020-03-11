@@ -127,5 +127,6 @@ rule features_file_table:
                 D,read_depth = os.path.split(D)
                 D,rep = os.path.split(D)
                 D,richness = os.path.split(D)
-                x = '\t'.join([richness, rep, read_depth, assembler, F, MGSIM_reads])
+                rel_path = os.path.join(richness, rep, read_depth, assembler, os.path.split(F)[1])
+                x = '\t'.join([richness, rep, read_depth, assembler, rel_path, MGSIM_reads])
                 outF.write(x + '\n')
