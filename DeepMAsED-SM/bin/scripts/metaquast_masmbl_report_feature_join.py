@@ -56,6 +56,10 @@ def masmbl_itrees(report_file, contig_lens):
     """ Converting metaQUAST extensive misassembly report file to
     an interval tree.
 
+    Metaquast special encodings:
+      (relocation, inconsistency = 278087)
+      (relocation, inconsistency = -129 [linear representation of circular genome])
+
     Returns:
       {contigID : itree}   # itree[start:end] : [misassembly_type, inverted_positions?, pos1 or pos2?]
 
@@ -77,7 +81,7 @@ def masmbl_itrees(report_file, contig_lens):
                     raise KeyError(msg.format(contigID))
                 # parsing line
                 line = line.split(' between ')
-                masmbl_type = line[0].split('(')[1].rstrip(')').strip()
+                masmbl_type = line[0].split('(')[1].rstrip(')').split(',')[0].strip()
                 y = line[1].split(' ')
                 ## range 1
                 start1 = int(y[0])
