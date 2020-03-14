@@ -146,14 +146,14 @@ def all_which_input(wildcards):
         input_files += x
 
     # read mapping to contigs
-    if (not config['params']['samtools'].startswith('Skip') and
-        config['params']['keep_bam'] == True): 
-        x = expand(map_dir + '{richness}/{rep}/{read_depth}/{assembler}.bam',
-                   richness = config['params']['MGSIM']['community_richness'],
-                   rep = config['reps'],                
-                   read_depth = config['params']['MGSIM']['read_depth'],
-	           assembler = config['assemblers'])
-        input_files += x
+    if not config['params']['samtools'].startswith('Skip'):
+        if not config['params']['keep_bam'] == True:
+            x = expand(map_dir + '{richness}/{rep}/{read_depth}/{assembler}.bam',
+                       richness = config['params']['MGSIM']['community_richness'],
+                       rep = config['reps'],                
+                       read_depth = config['params']['MGSIM']['read_depth'],
+	               assembler = config['assemblers'])
+            input_files += x
 
         # feature table
         if not config['params']['make_features'].startswith('Skip'):    
