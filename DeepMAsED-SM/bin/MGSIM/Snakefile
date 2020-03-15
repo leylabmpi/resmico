@@ -1,8 +1,4 @@
-import os
-import random
-import pandas as pd
-
-if not config['params']['MGSIM']['genome_download'].startswith('Skip'):
+if not skipped(config['params']['MGSIM']['genome_download']):
     localrules: MGSIM_genome_download    
     rule MGSIM_genome_download:
         """

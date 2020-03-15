@@ -8,6 +8,9 @@ import socket
 import pandas as pd
 import random
 
+def skipped(x):
+    return str(x).strip().lower().startswith('skip')
+
 # setup
 ## config
 configfile: 'config.yaml'
@@ -59,7 +62,7 @@ if config['just_features']:
     config['samples_unique'] = config['genomes_tbl'].Sample.unique().tolist()    
 else:
     config['reps'] = [x+1 for x in range(config['params']['reps'])]
-    config['assemblers'] = [k for k,v in config['params']['assemblers'].items() if not v.startswith('Skip')]
+    config['assemblers'] = [k for k,v in config['params']['assemblers'].items() if not skipped(v)]
 
 ## Modular snakefiles
 include: snake_dir + 'bin/Snakefile'
@@ -111,13 +114,13 @@ def all_which_input(wildcards):
                    read_depth = config['params']['MGSIM']['read_depth'])
         input_files += x
     # coverage
-    if not config['params']['nonpareil'].startswith('Skip'):
+    if not skipped(config['params']['nonpareil']):
         x = expand(coverage_dir + '{richness}/{rep}/{read_depth}/nonpareil.npo',
                    richness = config['params']['MGSIM']['community_richness'],
                    rep = config['reps'],                
                    read_depth = config['params']['MGSIM']['read_depth'])
         input_files += x
-        if not config['params']['nonpareil_summary'].startswith('Skip'):
+        if not skipped(config['params']['nonpareil_summary']):
             input_files.append(coverage_dir + 'nonpareil/all_summary.RDS')
             input_files.append(coverage_dir + 'nonpareil/all_summary.txt')
             input_files.append(coverage_dir + 'nonpareil/all_curve.pdf')
@@ -131,7 +134,7 @@ def all_which_input(wildcards):
     input_files += x
     
     ## metaquast
-    if not config['params']['metaquast'].startswith('Skip'):
+    if not skipped(config['params']['metaquast']):
         x = expand(true_errors_dir + \
                    '{richness}/{rep}/{read_depth}/{assembler}/metaquast.done',
                    richness = config['params']['MGSIM']['community_richness'],
@@ -146,7 +149,7 @@ def all_which_input(wildcards):
         input_files += x
 
     # read mapping to contigs
-    if not config['params']['samtools'].startswith('Skip'):
+    if not skipped(config['params']['samtools']):
         if not config['params']['keep_bam'] == True:
             x = expand(map_dir + '{richness}/{rep}/{read_depth}/{assembler}.bam',
                        richness = config['params']['MGSIM']['community_richness'],
@@ -156,12 +159,12 @@ def all_which_input(wildcards):
             input_files += x
 
         # feature table
-        if not config['params']['make_features'].startswith('Skip'):    
+        if not skipped(config['params']['make_features']):    
             input_files.append(features_dir + 'feature_files.tsv')
 
     # State of the Art
     ## ALE
-    if not config['params']['ALE'].startswith('Skip'):
+    if not skippe(config['params']['ALE']):
         x = expand(ale_dir + '{richness}/{rep}/{read_depth}/{assembler}/ALE_results.txt.gz',
                    richness = config['params']['MGSIM']['community_richness'],
                    rep = config['reps'],                
@@ -169,7 +172,7 @@ def all_which_input(wildcards):
 	           assembler = config['assemblers'])
         input_files += x
     ## VALET
-    if not config['params']['VALET'].startswith('Skip'):
+    if not skipped(config['params']['VALET']):
         x = expand(valet_dir + '{richness}/{rep}/{read_depth}/{assembler}/summary.tsv',
                    richness = config['params']['MGSIM']['community_richness'],
                    rep = config['reps'],                
