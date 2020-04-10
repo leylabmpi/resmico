@@ -54,7 +54,7 @@ parser.add_argument('--version', action='version', version='0.0.1')
 logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG)
 
 
-IDX = {'A':0, 'C':1, 'G':2, 'T':3}
+IDX = {'A':0, 'C':1, 'G':2, 'T':3, 'N':-1}
 
 def count_SNPs(coverage_by_base, ref_seq):
     SNP_cnt = 0

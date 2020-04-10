@@ -118,7 +118,8 @@ rule features_file_table:
     run:
         import os,sys
         MGSIM_reads = '"' + params.reads + '"'
-        cols = ['richness', 'rep', 'read_depth', 'assembler', 'feature_file', 'MGSIM_reads_params']
+        cols = ['richness', 'rep', 'read_depth', 'assembler',
+                'feature_file', 'MGSIM_reads_params']
         with open(output.tsv, 'w') as outF:
             outF.write('\t'.join(cols) + '\n')
             for F in input.feats:
@@ -127,6 +128,7 @@ rule features_file_table:
                 D,read_depth = os.path.split(D)
                 D,rep = os.path.split(D)
                 D,richness = os.path.split(D)
-                rel_path = os.path.join(richness, rep, read_depth, assembler, os.path.split(F)[1])
+                rel_path = os.path.join(richness, rep, read_depth, assembler,
+                                        os.path.split(F)[1])
                 x = '\t'.join([richness, rep, read_depth, assembler, rel_path, MGSIM_reads])
                 outF.write(x + '\n')
