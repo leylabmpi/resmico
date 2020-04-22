@@ -25,46 +25,65 @@ import IPython
 def nested_dict():
     return defaultdict(nested_dict)
 
-def compute_mean_std(x_tr):
+def compute_sum_sumsq_n(featurefiles_table, n_feat=21):
     """
-    Given training data (list of contigs), compute mean and std 
-    feature-wise. 
+    This function is applied once to the whole training data to compute
     """
-    n_feat = x_tr[0].shape[1]
+    feat_files = read_feature_file_table(featurefiles_table)
+    
     feat_sum = np.zeros(n_feat)
     feat_sq_sum = np.zeros(n_feat)
     n_el = 0
 
-    for xi in x_tr:
-        sum_xi = np.sum(xi, 0)
-        sum_sq = np.sum(xi ** 2, 0)
-        feat_sum += sum_xi
-        feat_sq_sum += sum_sq
-        n_el += xi.shape[0]
+    for rep,v in feat_files['pkl'].items():
+        for tech,info in v.items():
+            filename = info[0]
+            with open(filename, 'rb') as feat:
+                x, _, _ = pickle.load(feat)
+                for xi in x:
+                    sum_xi = np.sum(xi, 0)
+                    sum_sq = np.sum(xi ** 2, 0)
+                    feat_sum += sum_xi
+                    feat_sq_sum += sum_sq
+                    n_el += xi.shape[0]
+                    
+    path = os.path.split(featurefiles_table)[0]
+    np.save(path+'/mean_std', [feat_sum, feat_sq_sum, n_el])
+    return 
+
+
+def standardize_data(feat_file_table, mean_std_file, set_target=True):
+    
+    feat_files = read_feature_file_table(feat_file_table)
+    feat_sum, feat_sq_sum, n_el = np.load(mean_std_file, allow_pickle=True)
 
     mean = feat_sum / n_el
     std = np.sqrt((feat_sq_sum / n_el - mean ** 2).clip(min=0))
+    # do not change refrence and counts
+    mean[0:8] = 0
+    std[0:8] = 1
+    std[std==0]=1.
+    
+    for rep,v in feat_files['pkl'].items():
+        for tech,info in v.items():
+            filename = info[0]
+            with open(filename, 'rb') as feat:
+                if set_target == True:
+                    x, target_contig, name_to_id = pickle.load(feat)
+                else:
+                    x, name_to_id = pickle.load(feat)
+                standard_x = []
+                for xi in x:
+                    standard_x.append((xi - mean) / std)
+                
+            with open(filename, 'wb') as f:
+                logging.info('Dumping: {}'.format(filename))
+                if set_target == True:
+                    pickle.dump([standard_x, target_contig, name_to_id], f)
+                else:
+                    pickle.dump([standard_x, name_to_id], f)  
+    return 
 
-    return mean, std
-
-def splitall(path):
-    """
-    Fully split file path
-    """
-    path = os.path.abspath(path)
-    allparts = []
-    while 1:
-        parts = os.path.split(path)
-        if parts[0] == path: 
-            allparts.insert(0, parts[0])
-            break
-        elif parts[1] == path:
-            allparts.insert(0, parts[1])
-            break
-        else:
-            path = parts[0]
-            allparts.insert(0, parts[1])
-    return allparts
 
 def get_row_val(row, row_num, col_idx, col):
     try:
@@ -77,23 +96,22 @@ def get_row_val(row, row_num, col_idx, col):
 def find_pkl_file(feat_file, force_overwrite=False):
     if force_overwrite is True:
         logging.info('  --force-overwrite=True; creating pkl from tsv file')
-        return 'tsv'
+        return feat_file, 'tsv'
     else:
         logging.info('  --force-overwrite=False; searching for pkl version of tsv file')
     
     pkl = os.path.splitext(feat_file)[0]
     if pkl.endswith('.tsv'):
-        pkl = os.path.splitext(feat_file)[0]
-         
-    if os.path.isfile(pkl):
+        pkl = os.path.splitext(pkl)[0]  
+    if os.path.isfile(pkl+'.pkl'):
         logging.info('Found pkl file: {}'.format(pkl))        
         msg = '  Using the existing pkl file. Set --force-overwrite=True'
         msg += ' to force-recreate the pkl file from the tsv file'
         logging.info(msg)
-        return 'pkl'
+        return pkl+'.pkl', 'pkl'
     else:
         logging.info('  No pkl found. A pkl file will be created from the tsv file')
-        return 'tsv'
+        return feat_file, 'tsv'
                 
 def read_feature_file_table(feat_file_table, force_overwrite=False, technology='all-asmbl'):
     """ Loads feature file table, which lists all feature tables & associated
@@ -139,10 +157,10 @@ def read_feature_file_table(feat_file_table, force_overwrite=False, technology='
             else:
                 logging.info('Input file exists: {}'.format(feature_file))
                 
-            if feature_file.endswith('.tsv') or feature_file.endswith('.tsv.gz'):
-                file_type = find_pkl_file(feature_file, force_overwrite)
-            elif feature_file.endswith('.pkl'):
+            if feature_file.endswith('.pkl'):
                 file_type = 'pkl'
+            elif feature_file.endswith('.tsv') or feature_file.endswith('.tsv.gz'):
+                feature_file, file_type = find_pkl_file(feature_file, force_overwrite)
             else:
                 msg = 'Feature file table, Row{} => file extension'
                 msg += ' must be ".tsv", ".tsv.gz", or ".pkl"'
@@ -188,9 +206,10 @@ def pickle_in_parallel(feature_files, n_procs, set_target=True):
     x = []
     for rep,v in feature_files['tsv'].items():
         for asmbl,F in v.items():
+            depth = F[2]
             F = F[0]
             pklF = os.path.join(os.path.split(F)[0], 'features.pkl')
-            x.append([F, pklF, rep, asmbl])
+            x.append([F, pklF, rep, asmbl, depth])
     # Pickle in parallel and saving file paths in dict
     func = partial(pickle_data_b, set_target=set_target)
     if n_procs > 1:
@@ -201,13 +220,12 @@ def pickle_in_parallel(feature_files, n_procs, set_target=True):
         rep = y[2]
         asmbl = y[3]
         feature_files['pkl'][rep][asmbl] = y[1]
-    return feature_files['pkl']
+    return 
 
 
 def load_features_tr(feat_file_table, max_len=10000, 
                      technology = None,
-                     pickle_only=False, force_overwrite=False,
-                     n_procs=1, chunks=True):
+                     chunks=True):
 
     """
     Loads features, pre-process them and returns training. 
@@ -225,23 +243,16 @@ def load_features_tr(feat_file_table, max_len=10000,
     """
     # reading in feature file table
     feat_files = read_feature_file_table(feat_file_table,
-                                         force_overwrite=force_overwrite,
                                          technology=technology)
-    # pickling feature tables (if needed)
-    feat_files = pickle_in_parallel(feat_files, n_procs, set_target=True)
 
-    # Pre-process once if not done already
-    if pickle_only:
-        logging.info('--pickle-only=True; exiting')        
-        exit(0)
 
     # for each metagenome simulation rep, combining features from each assembler together
     ## "tech" = assembler
     x, y, ye, yext, n2i = [], [], [], [], []
-    for rep,v in feat_files.items():
+    for rep,v in feat_files['pkl'].items():
         xtech, ytech = [], []
         for tech,filename in v.items():
-            with open(filename, 'rb') as feat:
+            with open(filename[0], 'rb') as feat:
                 xi, yi, n2ii = pickle.load(feat)
                 xtech.append(xi)
                 ytech.append(yi)
@@ -276,8 +287,6 @@ def load_features_tr(feat_file_table, max_len=10000,
 
 def load_features(feat_file_table, max_len=10000, 
                   technology = 'megahit', 
-                  pickle_only = False,
-                  force_overwrite = False,
                   chunks=True,
                   n_procs = 1):
     """
@@ -297,21 +306,15 @@ def load_features(feat_file_table, max_len=10000,
     # Finding feature files
     # reading in feature file table
     feat_files = read_feature_file_table(feat_file_table,
-                                         force_overwrite=force_overwrite,
                                          technology=technology)
-    # pickling feature tables (if needed)
-    feat_files = pickle_in_parallel(feat_files, n_procs)
-    if pickle_only:
-        logging.info('--pickle-only=True; exiting')  
-        exit()
 
     # loading pickled feature matrices 
     x, y, ye, yext, n2i = [], [], [], [], []
     shift = 0
     i2n_all = {}
-    for rep,v in feat_files.items():
+    for rep,v in feat_files['pkl'].items():
         for assembler,filename in v.items():
-            with open(filename, 'rb') as feat:
+            with open(filename[0], 'rb') as feat:
                 features = pickle.load(feat)
             
             xi, yi, n2ii = features
@@ -376,11 +379,6 @@ def load_features_nogt(feat_file_table, max_len=10000,
     # reading in feature file table
     feat_files = read_feature_file_table(feat_file_table,
                                          force_overwrite=force_overwrite)
-    # pickling feature tables (if needed)
-    feat_files = pickle_in_parallel(feat_files, n_procs, set_target=False)
-    if pickle_only:
-        logging.info('--pickle-only=True; exiting')
-        exit()    
         
     # loading pickled feature tables
     x, y, ye, yext, n2i = [], [], [], [], []
@@ -391,7 +389,7 @@ def load_features_nogt(feat_file_table, max_len=10000,
     for rep,v in feat_files.items():
         for assembler,filename in v.items():            
             # loading pickled features
-            with open(filename, 'rb') as inF:
+            with open(filename[0], 'rb') as inF:
                 logging.info('Loading file: {}'.format(filename))
                 features = pickle.load(inF)
 
@@ -491,7 +489,7 @@ def pickle_data_b(x, set_target=True):
     """
     One time function parsing the csv file and dumping the 
     values of interest into a pickle file. 
-    The file can be gzip'ed 
+    The input file can be gzip'ed 
     Params:
       x : list, first 2 elements are features_in & features_out
       set_target : bool, set the target (for train) or not (for predict)?
@@ -499,6 +497,7 @@ def pickle_data_b(x, set_target=True):
       features_out       
     """
     features_in, features_out = x[:2]
+    depth = x[4]
 
     msg = 'Pickling feature data: {} => {}'
     logging.info(msg.format(features_in, features_out))
@@ -532,18 +531,36 @@ def pickle_data_b(x, set_target=True):
         w_nC = col_names.index('num_query_C')
         w_nG = col_names.index('num_query_G')
         w_nT = col_names.index('num_query_T')
-        w_var = col_names.index('num_SNPs')
+        w_npropM = col_names.index('num_proper_Match')
+        w_orpM = col_names.index('num_orphans_Match')
+        w_max_is = col_names.index('max_insert_size_Match')
+        w_mean_is = col_names.index('mean_insert_size_Match')
+        w_min_is = col_names.index('min_insert_size_Match')
+        w_std_is = col_names.index('stdev_insert_size_Match')
+        w_mean_mq = col_names.index('mean_mapq_Match')
+        w_min_mq = col_names.index('min_mapq_Match')
+        w_std_mq = col_names.index('stdev_mapq_Match')
+        w_gc = col_names.index('seq_window_perc_gc') #try without
+        w_npropV = col_names.index('num_proper_SNP') #try without
         w_cov = col_names.index('coverage')  # WARNING: predict assumes coverage in -2 position
-        w_dis = col_names.index('num_discordant')
-        w_features = [w_nA, w_nC, w_nG, w_nT, w_var, w_cov, w_dis]
-        # formatting rows
+        w_countN = [w_nA, w_nC, w_nT, w_nG]
+        w_features = [w_npropM, w_orpM, 
+                      w_max_is, w_min_is, w_mean_is, w_std_is,
+                      w_min_mq, w_mean_mq, w_std_mq, 
+                      w_npropV, w_gc, w_cov]
+        nf=21
+        
+#         formatting rows
         for row in tsv:
             name_contig = row[w_contig]
 
             # If name not in set, add previous contig and target to dataset
             if name_contig not in name_to_id:
                 if idx != 0:
-                    feat_contig.append(np.concatenate(feat, 0))
+                    #filling missing values with average within contig
+                    df_feat = pd.DataFrame(np.array(feat).reshape(-1,nf))
+                    df_feat.fillna(df_feat.mean(), inplace=True)
+                    feat_contig.append(df_feat.values)
                     if set_target == True:            
                         target_contig.append(float(tgt))
                 feat = []
@@ -556,11 +573,26 @@ def pickle_data_b(x, set_target=True):
                 idx += 1
 
             # Feature vec
-            feat.append(np.array(4 * [0] + [int(row[ind]) for ind in w_features])[None, :].astype(np.uint8))
+            f_countN = [float(row[w_nA]), float(row[w_nC]), float(row[w_nT]), float(row[w_nG])]
+            if np.sum(f_countN)>1:
+                f_countN = f_countN/np.sum(f_countN)
+                
+            f_flt_values = []
+            for ind in w_features:
+                try:
+                    f_flt_values.append(float(row[ind]))
+                except:
+                    if row[ind]=='NA':
+                        f_flt_values.append(None)
+                    else: print(ind, row[ind])
+    
+            feat.append(np.concatenate((4 * [0], f_countN, f_flt_values, [int(depth)]))[None, :])
             feat[-1][0][letter_idx[row[w_ref]]] = 1
 
     # Append last
-    feat_contig.append(np.concatenate(feat, 0))
+    df_feat = pd.DataFrame(np.array(feat).reshape(-1,nf))
+    df_feat.fillna(df_feat.mean(), inplace=True)
+    feat_contig.append(df_feat.values)
     if set_target == True:
         target_contig.append(float(tgt))
     # Checking feature object

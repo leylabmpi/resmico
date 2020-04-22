@@ -40,9 +40,7 @@ def parse_args(test_args=None, subparsers=None):
     parser.add_argument('--model-path',  default=pkg_path, type=str, 
                         help='Directory containing the model (default: %(default)s)')
     parser.add_argument('--model-name', default=pkg_model, type=str, 
-                        help='Model name in the model_path (default: %(default)s)') 
-    parser.add_argument('--mstd-name', default=pkg_mstd, type=str, 
-                        help='Data mean and std name in the model_path (default: %(default)s)')     
+                        help='Model name in the model_path (default: %(default)s)')      
     parser.add_argument('--save-path', default='.', type=str, 
                         help='Directory where to save output (default: %(default)s)')
     parser.add_argument('--save-name', default='deepmased', type=str, 
@@ -55,12 +53,8 @@ def parse_args(test_args=None, subparsers=None):
                         help='Max contig len, fixed input for CNN (default: %(default)s)')
     parser.add_argument('--technology', default='all-asmbl', type=str, 
                         help='Assembler name in the data_path. "all-asmbl" will use all assemblers (default: %(default)s)')    
-    parser.add_argument('--norm-raw', default=1, type=int, 
-                        help='Whether to normalize the four one-hot feature of raw (default: %(default)s)')
     parser.add_argument('--is-synthetic', default=1, type=int, 
                         help='Whether the data is synthetic and thus has ground truth (default: %(default)s)')
-    parser.add_argument('--force-overwrite', action='store_true', default=False,
-                        help='Force re-creation of pickle files (default: %(default)s)')
     parser.add_argument('--seed', default=12, type=int, 
                         help='Seed used for numpy.random (default: %(default)s)')
     parser.add_argument('--n-procs', default=1, type=int, 

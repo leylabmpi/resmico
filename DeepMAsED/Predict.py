@@ -63,7 +63,7 @@ def main(args):
     
     logging.info('Running model generator...')
     dataGen = Models.Generator(x, y, batch_size=args.batch_size, shuffle=False, 
-                               norm_raw=0, mean_tr=mean_tr, std_tr=std_tr)
+                               mean_tr=mean_tr, std_tr=std_tr)
     
     logging.info('Computing predictions...')
     scores = Utils.compute_predictions(n2i, dataGen, model,

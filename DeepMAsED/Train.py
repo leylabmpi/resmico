@@ -25,7 +25,7 @@ class Config(object):
         self.n_conv = args.n_conv
         self.n_fc = args.n_fc
         self.n_hid = args.n_hid
-        self.n_features = 11
+        self.n_features = 21
         self.pool_window = args.pool_window
         self.dropout = args.dropout
         self.lr_init = args.lr_init
@@ -41,18 +41,12 @@ def main(args):
     # Load and process data
     x, y = Utils.load_features_tr(args.feature_file_table,
                                   max_len=args.max_len,
-                                  technology = args.technology,
-                                  pickle_only=args.pickle_only,
-                                  force_overwrite=args.force_overwrite,
-                                  n_procs=args.n_procs, chunks=False)
+                                  technology = args.technology, chunks=False)
     # Load and process validation data if given
     if args.val_path:
         x_val, y_val = Utils.load_features_tr(args.val_path,
                                       max_len=args.max_len, 
-                                      technology = args.technology,
-                                      pickle_only=args.pickle_only,
-                                      force_overwrite=args.force_overwrite,
-                                      n_procs=args.n_procs, chunks=False)
+                                      technology = args.technology, chunks=False)
         x_val = [item for sl in x_val for item in sl]
         y_val = np.concatenate(y_val)
 
@@ -74,12 +68,12 @@ def main(args):
             
             #Construct generator
             dataGen = Models.Generator(x_tr, y_tr, args.max_len,
-                                       batch_size=args.batch_size, norm_raw=bool(args.norm_raw))
+                                       batch_size=args.batch_size)
 
             # Init validation generator and 
-            dataGen_val = Models.Generator(x_val, y_val, args.max_len, batch_size=args.batch_size, 
-                                           shuffle=False, norm_raw=bool(args.norm_raw), 
-                                           mean_tr=dataGen.mean, std_tr=dataGen.std)
+            dataGen_val = Models.Generator(x_val, y_val, args.max_len, 
+                                           batch_size=args.batch_size, 
+                                           shuffle=False)
 
             #Train model
             tb_logs = keras.callbacks.TensorBoard(log_dir=os.path.join(save_path, 'logs'), 
@@ -115,18 +109,11 @@ def main(args):
         logging.info('NOTE: Training on all pooled data!')
         x = [item for sl in x for item in sl]
         y = np.concatenate(y)
-        
-#         #downsample to half
-#         import random
-#         dwnsample = np.array(random.sample(range(len(y)), int(len(y)/2)))
-#         x = np.array(x)[dwnsample]
-#         y = np.array(y)[dwnsample]
 
         logging.info('Constructing model...')
         deepmased = Models.deepmased(config)
         deepmased.print_summary()
-        dataGen = Models.Generator(x, y, args.max_len, batch_size=args.batch_size,
-                                   norm_raw=bool(args.norm_raw))
+        dataGen = Models.Generator(x, y, args.max_len, args.batch_size)
         tb_logs = keras.callbacks.TensorBoard(log_dir=os.path.join(save_path, 'logs_final'), 
                                               histogram_freq=0, 
                                               write_graph=True, write_images=True)
@@ -135,8 +122,7 @@ def main(args):
             logging.info('Training network with validation...')
             dataGen_val = Models.Generator(x_val, y_val, args.max_len,
                            batch_size=args.batch_size,
-                           shuffle=False,norm_raw=bool(args.norm_raw),
-                           mean_tr=dataGen.mean, std_tr=dataGen.std)
+                           shuffle=False)
             list_callbacks = [tb_logs, 
                               deepmased.reduce_lr,
                               Utils.roc_callback(dataGen_val)]
@@ -159,18 +145,13 @@ def main(args):
                         epochs=args.n_epochs, 
                         use_multiprocessing=args.n_procs > 1,
                         verbose=2,
-                        callbacks=[tb_logs, deepmased.reduce_lr])
+                        callbacks=[tb_logs])
 
             
         logging.info('Saving trained model...')
         x = [args.save_name, args.technology, 'model.h5']
         outfile = os.path.join(save_path, '_'.join(x))
         deepmased.save(outfile)
-        logging.info('  File written: {}'.format(outfile))        
-        x = [args.save_name, args.technology, 'mean_std.pkl']
-        outfile = os.path.join(save_path, '_'.join(x))
-        with open(outfile, 'wb') as f:
-            pickle.dump([dataGen.mean, dataGen.std], f)
         logging.info('  File written: {}'.format(outfile))
             
 

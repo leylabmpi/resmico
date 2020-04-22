@@ -52,10 +52,6 @@ def parse_args(test_args=None, subparsers=None):
                         help='Prefix for name in the save_path (default: %(default)s)')        
     parser.add_argument('--cpu-only', action='store_true', default=False,
                         help='Only use CPUs, and no GPUs (default: %(default)s)')
-    parser.add_argument('--pickle-only', action='store_true', default=False,
-                        help='Only pickle files (default: %(default)s)')
-    parser.add_argument('--force-overwrite', action='store_true', default=False,
-                        help='Force re-creation of pickle files (default: %(default)s)')
     parser.add_argument('--seed', default=12, type=int, 
                         help='Seed used for numpy.random (default: %(default)s)')
     parser.add_argument('--batch-size', default=4, type=int, 

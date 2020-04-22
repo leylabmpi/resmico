@@ -10,6 +10,7 @@ import argparse
 from DeepMAsED.Commands import Train
 from DeepMAsED.Commands import Predict
 from DeepMAsED.Commands import Evaluate
+from DeepMAsED.Commands import Preprocess
 
 # funcs
 def main(args=None):
@@ -32,6 +33,9 @@ def main(args=None):
 
     # subparsers
     subparsers = parser.add_subparsers()
+    ## preprocess
+    preprocess = Preprocess.parse_args(subparsers=subparsers)
+    preprocess.set_defaults(func=Preprocess.main)
     ## train
     train = Train.parse_args(subparsers=subparsers)
     train.set_defaults(func=Train.main)

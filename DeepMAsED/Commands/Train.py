@@ -53,8 +53,6 @@ def parse_args(test_args=None, subparsers=None):
                                          formatter_class=argparse.RawTextHelpFormatter)
 
     # args
-    # parser.add_argument('data_path',  metavar='data-path', type=str, 
-                        # help='Base path to the feature tables (see DESCRIPTION)')
     parser.add_argument('feature_file_table',  metavar='feature_file_table', type=str, 
                         help='Table listing feature table files (see DESCRIPTION)')
     parser.add_argument('--technology', default='all-asmbl', type=str, 
@@ -77,9 +75,9 @@ def parse_args(test_args=None, subparsers=None):
                         help='N of fully connected layers (default: %(default)s)')
     parser.add_argument('--n-epochs', default=10, type=int, 
                         help='N of training epochs (default: %(default)s)')
-    parser.add_argument('--batch-size', default=4, type=int, 
+    parser.add_argument('--batch-size', default=6, type=int, 
                         help='Batch size (default: %(default)s)')
-    parser.add_argument('--max-len', default=10000, type=int, 
+    parser.add_argument('--max-len', default=30000, type=int, 
                         help='Max contig len, fixed input for CNN (default: %(default)s)')
     parser.add_argument('--dropout', default=0.5, type=float, 
                         help='Rate of dropout (default: %(default)s)')
@@ -89,12 +87,6 @@ def parse_args(test_args=None, subparsers=None):
                         help='How many folds for CV. Use "-1" to skip & pool all data for training (default: %(default)s)')
     parser.add_argument('--lr-init', default=0.001, type=float, 
                         help='Size of test set (default: %(default)s)')
-    parser.add_argument('--norm-raw', default=0, type=int, 
-                        help='Whether to normalize the four one-hot feature of raw (default: %(default)s)')
-    parser.add_argument('--pickle-only', action='store_true', default=False,
-                        help='Only pickle files (default: %(default)s)')
-    parser.add_argument('--force-overwrite', action='store_true', default=False,
-                        help='Force re-creation of pickle files (default: %(default)s)')
     parser.add_argument('--seed', default=12, type=int, 
                         help='Seed used for numpy.random (default: %(default)s)')
     parser.add_argument('--n-procs', default=1, type=int, 
