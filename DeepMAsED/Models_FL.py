@@ -82,27 +82,14 @@ class deepmased(object):
 
 
 class Generator(keras.utils.Sequence):
-    def __init__(self, x, y, max_len=10000, batch_size=32,
-                 shuffle=True, norm_raw=True,
-                 mean_tr=None, std_tr=None): 
-        self.batch_size = batch_size
-        self.shuffle = shuffle
+    def __init__(self, x, y, max_len, batch_size,
+                 shuffle=True): 
         self.max_len = max_len
+        self.batch_size = batch_size
         self.x = x
         self.y = y
         self.shuffle = shuffle
         self.n_feat = x[0].shape[1]
-
-        if mean_tr is None:
-            mean, std = Utils.compute_mean_std(self.x)
-            self.mean = mean
-            self.std = std
-            if not norm_raw:
-                self.mean[0:4] = 0
-                self.std[0:4] = 1
-        else:
-            self.mean = mean_tr
-            self.std = std_tr
 
         # Shuffle data
         self.indices = np.arange(len(x))
@@ -123,31 +110,36 @@ class Generator(keras.utils.Sequence):
         """
         Generate new mini-batch
         """
-        mb_max_len = min(max(list(map(len,[self.x[ind] for ind in indices_tmp]))), 30000)
-#         mb_max_len = max(list(map(len,[self.x[ind] for ind in indices_tmp])))
-        x_mb = np.zeros((self.batch_size, mb_max_len, self.n_feat))
-        y_mb = np.zeros((self.batch_size, 1))
+        max_contig_len = max(list(map(len,[self.x[ind] for ind in indices_tmp])))
+        mb_max_len = min(max_contig_len, self.max_len)
+      
+        x_mb = np.zeros((len(indices_tmp), mb_max_len, self.n_feat))
 
         for i, idx in enumerate(indices_tmp):
             if self.x[idx].shape[0]<=mb_max_len:
-                x_mb[i, 0:self.x[idx].shape[0]] = (self.x[idx] - self.mean) / self.std
+                x_mb[i, 0:self.x[idx].shape[0]] = self.x[idx]
             else:
                 #cut chunk
                 start_pos = np.random.randint(self.x[idx].shape[0]-mb_max_len+1)
-                x_mb[i, :] = (self.x[idx][start_pos:start_pos+mb_max_len,:] - self.mean) / self.std
-            y_mb[i] = self.y[idx]
+                x_mb[i, :] = self.x[idx][start_pos:start_pos+mb_max_len,:] 
 
+        y_mb = [self.y[i] for i in indices_tmp]
         return x_mb, y_mb
 
+
     def __len__(self):
-        return int(np.floor(len(self.indices) / self.batch_size))
+        return int(np.ceil(len(self.indices) / self.batch_size))
 
     def __getitem__(self, index):
         """
         Get new mb
         """
-        indices_tmp = \
-          self.indices[self.batch_size * index : self.batch_size * (index + 1)]
+        if self.batch_size * (index + 1) < len(self.indices):
+            indices_tmp = \
+              self.indices[self.batch_size * index : self.batch_size * (index + 1)]
+        else:
+            indices_tmp = \
+              self.indices[self.batch_size * index : ]           
         x_mb, y_mb = self.generate(indices_tmp)
         return x_mb, y_mb
 
