@@ -98,15 +98,15 @@ def find_pkl_file(feat_file, force_overwrite=False):
         logging.info('  --force-overwrite=True; creating pkl from tsv file')
         return feat_file, 'tsv'
     else:
-        logging.info('  --force-overwrite=False; searching for pkl version of tsv file')
+        logging.info('  searching for pkl version of tsv file')
     
     pkl = os.path.splitext(feat_file)[0]
     if pkl.endswith('.tsv'):
         pkl = os.path.splitext(pkl)[0]  
     if os.path.isfile(pkl+'.pkl'):
         logging.info('Found pkl file: {}'.format(pkl))        
-        msg = '  Using the existing pkl file. Set --force-overwrite=True'
-        msg += ' to force-recreate the pkl file from the tsv file'
+        msg = '  Using the existing pkl file. Use DeepMAsED Preprocess --pickle-tsv'
+        msg += ' --force-overwrite=True to force-recreate the pkl file from the tsv file'
         logging.info(msg)
         return pkl+'.pkl', 'pkl'
     else:
@@ -147,6 +147,7 @@ def read_feature_file_table(feat_file_table, force_overwrite=False, technology='
             if technology != 'all-asmbl' and assembler != technology:
                 msg = 'Feature file table, Row{} => "{}" != --technology; Skipping'
                 logging.info(msg.format(i+2, assembler))
+                continue
             feature_file = get_row_val(row, i + 2, colnames, 'feature_file')
             if not os.path.isfile(feature_file):
                 feature_file = os.path.join(base_dir, feature_file)
@@ -706,7 +707,7 @@ def compute_predictions(n2i, generator, model, save_path, save_name):
     logging.info('File written: {}'.format(outfile))
 
 
-def compute_predictions_y_known(y, n2i, model, dataGen, x=False):
+def compute_predictions_y_known(y, n2i, model, dataGen, n_procs, x=False):
     """
     Computes predictions for a model and generator, NOT aggregating scores for long contigs.
 
@@ -718,7 +719,8 @@ def compute_predictions_y_known(y, n2i, model, dataGen, x=False):
             pred: scores for individual contigs
             y: corresponding true labels
     """
-    score_val = model.predict_generator(dataGen)
+    score_val = model.predict_generator(dataGen, 
+                                        use_multiprocessing=n_procs > 1,workers=n_procs)
 
     # Compute predictions by aggregating scores for longer contigs
     score_val = score_val.flatten()

@@ -8,7 +8,7 @@ import _pickle as pickle
 ## 3rd party
 import numpy as np
 import tensorflow as tf
-tf.debugging.set_log_device_placement(True)
+# tf.debugging.set_log_device_placement(True)
 import keras
 from keras.models import load_model
 import IPython
@@ -58,7 +58,7 @@ def main(args):
     dataGen = Models.Generator(x, y, args.max_len, batch_size=args.batch_size,  shuffle=False)
     
     logging.info('Computing predictions for {}...'.format(args.technology))    
-    scores = Utils.compute_predictions_y_known(y, n2i, model, dataGen, x=x) #give x if chunks=False
+    scores = Utils.compute_predictions_y_known(y, n2i, model, dataGen, args.n_procs, x=x) #give x if chunks=False
     outfile = os.path.join(args.save_path, '_'.join([args.save_name, args.technology + '.pkl']))
     with open(outfile, 'wb') as spred:
         pickle.dump(scores, spred)
