@@ -22,7 +22,7 @@ rule bam_to_DL_features:
     resources:
         time = lambda wildcards, attempt: attempt ** 2 * 60 * 12,
         n = lambda wildcards, threads: threads,         
-        mem_gb_pt = lambda wildcards, attempt: int(round(attempt ** 2.5 * 2 + 2, 0)),
+        mem_gb_pt = lambda wildcards, attempt: int(round(attempt ** 2.1 * 2 + 3, 0)),
         batches = lambda wildcards, attempt: attempt * 2 * 400
     conda:
         '../envs/bowtie2.yaml'
