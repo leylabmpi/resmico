@@ -82,6 +82,8 @@ rule map_bam_copy:
         config['tmp_dir'] + '{richness}/{rep}/{read_depth}/{assembler}.bam'
     output:
         map_dir + '{richness}/{rep}/{read_depth}/{assembler}.bam'
+    params:
+        ionice = config['params']['ionice']
     resources:
         time = lambda wildcards, attempt: attempt ** 3 * 59,
         mem_gb_pt = lambda wildcards, attempt: attempt * 2 + 4
@@ -89,7 +91,7 @@ rule map_bam_copy:
         log_dir + 'map_bam_copy/{richness}/{rep}/{read_depth}/{assembler}.log',    
     shell:
         """
-        cp -f {input} {output} 2> {log}
+        ionice {params.ionice} cp -f {input} {output} 2> {log}
         """
         
 rule map_bowtie2_index_bam:

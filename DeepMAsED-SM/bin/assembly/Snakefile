@@ -120,6 +120,8 @@ rule contig_compress:
         config['tmp_dir'] + '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta'
     output:
         asmbl_dir + '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta.gz'
+    params:
+        ionice = config['params']['ionice']
     resources:
         time = lambda wildcards, attempt: attempt ** 3 * 59,
         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 4
@@ -127,6 +129,6 @@ rule contig_compress:
         log_dir + 'contig_compress/{richness}/{rep}/{read_depth}/{assembler}.log'
     shell:
         """
-        gzip -c {input} > {output} 2> {log}
+        ionice {params.ionice} gzip -c {input} > {output} 2> {log}
         """
 

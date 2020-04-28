@@ -92,6 +92,15 @@ rule metaquast:
 	read2 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/1/R2.fq',
         done = true_errors_dir + 'metaquast_setup.done'
     output:
+        info_tmp = temp(config['tmp_dir'] + \
+	                '{richness}/{rep}/{read_depth}/{assembler}/' + \
+                        'combined_reference/contigs_reports/' + \
+	                'contigs_report_contigs_filtered.mis_contigs.info'),
+        fasta_tmp = temp(config['tmp_dir'] + \
+                         '{richness}/{rep}/{read_depth}/{assembler}/combined_reference/' + \
+	                 'contigs_reports/contigs_filtered.mis_contigs.fa'),
+        done_tmp = touch(config['tmp_dir'] + \
+                         '{richness}/{rep}/{read_depth}/{assembler}/metaquast.done'),
         info = true_errors_dir + \
 	   '{richness}/{rep}/{read_depth}/{assembler}/' + \
            'combined_reference/contigs_reports/' + \
@@ -103,7 +112,8 @@ rule metaquast:
                      '{richness}/{rep}/{read_depth}/{assembler}/metaquast.done')
     params:
         params = config['params']['metaquast'],
-        exe = config['pipeline']['script_folder'] + 'metaquast_gridmap.py'
+        exe = config['pipeline']['script_folder'] + 'metaquast_gridmap.py',
+        ionice = config['params']['ionice']
     threads:
         8
     resources:
@@ -120,8 +130,11 @@ rule metaquast:
         """
         # params
         REFDIR=`dirname {input.refs}`
+        TMPOUTDIR=`dirname {output.done_tmp}`
         OUTDIR=`dirname {output.done}`
         # removing existing metaquast output
+        rm -rf $TMPOUTDIR"/combined_reference/" 2> {log}        
+        rm -rf $TMPOUTDIR"/runs_per_reference/" 2>> {log}
         rm -rf $OUTDIR"/combined_reference/" 2> {log}        
         rm -rf $OUTDIR"/runs_per_reference/" 2>> {log}
 
@@ -129,10 +142,13 @@ rule metaquast:
         {params.exe} -t {threads} {params.params}  \
           --max-ref-number 0 --no-gzip \
           --reads1 {input.read1} --reads2 {input.read2} \
-          -o $OUTDIR -r $REFDIR \
+          -o $TMPOUTDIR -r $REFDIR \
           {input.contigs} 2>> {log} 1>&2
 
-        touch {output.done} 2>> {log}
+        # copying
+        mkdir -p $OUTDIR 2>> {log}
+        ionice {params.ionice} cp -rf $TMPOUTDIR/* $OUTDIR 2>> {log} 
+        touch {output.done_tmp} {output.done} 2>> {log}
         """
  
 localrules: metaquast_ref_genomes_rm

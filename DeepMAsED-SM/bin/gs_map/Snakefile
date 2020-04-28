@@ -194,6 +194,8 @@ rule features_compress:
         config['tmp_dir'] + 'feats/{genome}/{sample}/features.tsv'
     output:
         map_dir + '{genome}/{sample}/features.tsv.gz'
+    params:
+        ionice = config['params']['ionice']
     resources:
         time = lambda wildcards, attempt: attempt ** 3 * 59,        
         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 * 8
@@ -203,6 +205,6 @@ rule features_compress:
         benchmark_dir + 'features_compress/{genome}/{sample}.txt'
     shell:
         """
-        gzip -c {input} > {output} 2> {log}
+        ionice {params.ionice} gzip -c {input} > {output} 2> {log}
         """
 

@@ -141,11 +141,15 @@ rule MGSIM_compress_read1:
         config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/1/R1.fq'
     output:
         mgsim_dir + 'sim_reads/{richness}/{rep}/{read_depth}/Read1.fq.gz'
+    params:
+        ionice = config['params']['ionice']
+    resources:
+        time = lambda wildcards, attempt: attempt ** 3 * 59
     log:
         log_dir + 'MGSIM_compress_read1/{richness}/{rep}/{read_depth}.log'
     shell:
         """
-        gzip -c {input} > {output} 2> {log}
+        ionice {params.ionice} gzip -c {input} > {output} 2> {log}
         """
 
 rule MGSIM_compress_read2:
@@ -156,10 +160,14 @@ rule MGSIM_compress_read2:
         config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/1/R2.fq'
     output:
         mgsim_dir + 'sim_reads/{richness}/{rep}/{read_depth}/Read2.fq.gz'
+    params:
+        ionice = config['params']['ionice']
+    resources:
+        time = lambda wildcards, attempt: attempt ** 3 * 59
     log:
         log_dir + 'MGSIM_compress_read2/{richness}/{rep}/{read_depth}.log'
     shell:
         """
-        gzip -c {input} > {output} 2> {log}
+        ionice {params.ionice} gzip -c {input} > {output} 2> {log}
         """
 

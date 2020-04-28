@@ -15,6 +15,7 @@ email: Skip
 ## `reps:` is the number of replicate simulations
 ## If `keep_reads: True`, then simulated reads are kept
 params:
+  ionice: -c 3
   # simulating metagenomes
   reps: 2
   MGSIM:
