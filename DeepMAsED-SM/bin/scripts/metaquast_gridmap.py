@@ -35,6 +35,13 @@ logger.set_up_console_handler()
 from datetime import datetime
 import logging
 import itertools
+
+# gridmap
+os.environ['SGE_ROOT'] = '/var/lib/gridengine'
+os.environ['SGE_CELL'] = 'default'
+os.environ['DRMAA_LIBRARY_PATH'] = '/usr/lib/gridengine-drmaa/lib/libdrmaa.so.1.0'
+os.environ['CREATE_PLOTS'] = 'False'
+os.environ['CREATE_PLOTS'] = 'False'
 from gridmap import grid_map
 
 
@@ -63,13 +70,7 @@ def run_parallel_gridmap_debug(_fn, fn_args, max_jobs=1, filter_results=False):
     logging.captureWarnings(True)
     logging.basicConfig(format=('%(asctime)s - %(name)s - %(levelname)s - ' +
                                 '%(message)s'), level=logging.INFO)
-   
-    # setting env variables for gridmap
-    os.environ['SGE_ROOT'] = '/var/lib/gridengine'
-    os.environ['SGE_CELL'] = 'default'
-    os.environ['DRMAA_LIBRARY_PATH'] = '/usr/lib/gridengine-drmaa/lib/libdrmaa.so.1.0'
-    os.environ['CREATE_PLOTS'] = 'False'
-    
+       
     # input args
     args = [3, 5, 10, 20]
     intermediate_results = grid_map(computeFactorial, args, quiet=False,
@@ -83,25 +84,37 @@ def run_parallel_gridmap_debug(_fn, fn_args, max_jobs=1, filter_results=False):
 
     exit(0)
 
-def _run_parallel_gridmap(_fn, fn_args, max_jobs=1, filter_results=False):    
-    # setting env variables for gridmap
-    os.environ['SGE_ROOT'] = '/var/lib/gridengine'
-    os.environ['SGE_CELL'] = 'default'
-    os.environ['DRMAA_LIBRARY_PATH'] = '/usr/lib/gridengine-drmaa/lib/libdrmaa.so.1.0'
-    os.environ['CREATE_PLOTS'] = 'False'
-    
+def _run_parallel_gridmap(_fn, fn_args, max_jobs=1, filter_results=False):
+    # env params for gridmap
+    try:
+        cpu = int(os.environ['GRIDMAP_CPU'])
+    except KeyError:
+        cpu = max_jobs
+    try:
+        h_vmem = str(os.environ['GRIDMAP_MEMORY'])
+    except KeyError:
+        h_vmem = '6G'
+    try:
+        h_rt = str(os.environ['GRIDMAP_TIME'])
+    except KeyError:
+        h_rt = '12:00:00'
+   
     # input args
     fn_args = [[x[0], x[1], x[2], x[3], x[4], sys.path, x[5]] for x in fn_args]
     #results_tuples = [_fn(*args) for args in fn_args]  # local run
-    logging.info('cluster run of jobs')
+    logging.info('GRIDMAP: STARTING')
+    logging.info('GRIDMAP: cpu = {}'.format(cpu))
+    logging.info('GRIDMAP: h_vmem = {}'.format(h_vmem))
+    logging.info('GRIDMAP: h_rt = {}'.format(h_rt))
     results = grid_map(_fn, fn_args, quiet=False, 
                        temp_dir='/ebio/abt3_scratch/gridmap_tmp/',
-                       cpu=max_jobs, h_vmem='3G', h_rt='12:00:00',
+                       cpu=cpu, h_vmem=h_vmem, h_rt=h_rt,
                        max_processes=max_jobs, queue='long.q')
     
     ref_names = [x[0] for x in results]
     ref_json_texts = [x[1] for x in results]
     ref_notifications = [x[2] for x in results]
+    logging.info('GRIDMAP: FINISHED!')
     
     return ref_names, ref_json_texts, ref_notifications
 
@@ -111,7 +124,7 @@ def run_parallel_gridmap(_fn, fn_args, max_jobs=1, filter_results=False, max_per
     logging.captureWarnings(True)
     logging.basicConfig(format=('%(asctime)s - %(name)s - %(levelname)s - ' +
                                 '%(message)s'), level=logging.INFO)
-
+    
     # batching
     n_batches = int(round(len(fn_args) / max_per_batch + 0.49999, 0))
     if len(fn_args) < n_batches:

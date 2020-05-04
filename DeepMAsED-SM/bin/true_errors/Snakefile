@@ -78,8 +78,27 @@ rule metaquast_ref_genomes:
         {params.exe} {input.refs} {input.abund} $OUTDIR > {output.refs} 2>> {log}
         """
 
-localrules: metaquast
-        
+def metaquast_mem(wildcards, input, threads, attempt):
+    # getting number of references
+    n_refs = 0
+    with open(input.refs) as inF:
+        for line in inF:
+            n_refs += 1
+    # calc mem (Gb)
+    read_depth_mem = float(wildcards.read_depth) / 1000000 * 10
+    mem_total = 0.042 * n_refs + read_depth_mem + attempt ** 2 * 10    
+    return int(round(mem_total / threads, 0))
+
+def metaquast_time(wildcards, input, threads, attempt):
+    # getting number of references
+    n_refs = 0
+    with open(input.refs) as inF:
+        for line in inF:
+            n_refs += 1
+    # calc time (minutes)
+    T_min = 0.8 * n_refs + 1440 * attempt 
+    return int(round(T_min,0))
+
 rule metaquast:
     """
     MetaQUAST assessment of assemblies
@@ -117,9 +136,9 @@ rule metaquast:
     threads:
         8
     resources:
-        time = lambda wildcards, attempt: attempt ** 2 * 60 * 24 + 8640,
+        time = metaquast_time,
         n = lambda wildcards, threads: threads,
-        mem_gb_pt = lambda wildcards, attempt: int(attempt ** 2.3 + 6)
+        mem_gb_pt = metaquast_mem
     conda:
         '../envs/quast.yaml'	
     log:
@@ -139,6 +158,8 @@ rule metaquast:
         rm -rf $OUTDIR"/runs_per_reference/" 2>> {log}
 
         # metaquast run
+        export GRIDMAP_CPU=4
+        export GRIDMAP_MEMORY=4G
         {params.exe} -t {threads} {params.params}  \
           --max-ref-number 0 --no-gzip \
           --reads1 {input.read1} --reads2 {input.read2} \
