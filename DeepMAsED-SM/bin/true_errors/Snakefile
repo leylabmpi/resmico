@@ -96,7 +96,8 @@ def metaquast_time(wildcards, input, threads, attempt):
         for line in inF:
             n_refs += 1
     # calc time (minutes)
-    T_min = 0.8 * n_refs + 1440 * attempt 
+    read_depth_time_min = float(wildcards.read_depth) / 1000000 * 60 * 2
+    T_min = 0.8 * n_refs + read_depth_time_min + 1440 * attempt 
     return int(round(T_min,0))
 
 rule metaquast:
