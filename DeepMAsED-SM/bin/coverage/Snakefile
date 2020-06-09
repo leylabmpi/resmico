@@ -67,10 +67,8 @@ rule nonpareil_summary:
     Summarizing nonpareil data
     """
     input:
-        expand(coverage_dir + '{richness}/{rep}/{read_depth}/nonpareil.npo',
-               richness = config['params']['MGSIM']['community_richness'],
-               rep = config['reps'],                
-               read_depth = config['params']['MGSIM']['read_depth'])
+        Expand(coverage_dir + '{richness}/{rep}/{read_depth}/nonpareil.npo',
+               config['sim_params'])        
     output:
         curves = coverage_dir + 'nonpareil/all_curve.pdf',
         rds = coverage_dir + 'nonpareil/all_summary.RDS',

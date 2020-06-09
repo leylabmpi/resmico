@@ -1,28 +1,3 @@
-localrules: metaquast_env_setup            
-
-rule metaquast_env_setup:
-    """
-    Adding custom code to the metaquast env 
-    """
-    output:
-        done = touch(true_errors_dir + 'metaquast_setup.done')
-    params:
-        d = config['pipeline']['script_folder'] + 'gridmap'
-    conda:
-        '../envs/quast.yaml'	
-    log:
-        log_dir + 'metaquast_env_setup.log'
-    shell:
-        """
-        LOG=`realpath {log}`
-        DONE=`realpath {output.done}`
-        quast.py -h > /dev/null 2> $LOG 1>&2
-
-        cd {params.d} 2>> $LOG
-        python setup.py install 2>> $LOG 1>&2
-        touch $DONE 2>> $LOG
-        """
-
 rule combine_ref_genomes:
     """
     Combining reference genomes.
@@ -75,7 +50,7 @@ rule metaquast_ref_genomes:
         OUTDIR=`dirname {output.refs}`
         rm -rf $OUTDIR 2> {log}
         mkdir -p $OUTDIR 2>> {log}
-        {params.exe} {input.refs} {input.abund} $OUTDIR > {output.refs} 2>> {log}
+        {params.exe} --copy {input.refs} {input.abund} $OUTDIR > {output.refs} 2>> {log}
         """
 
 def metaquast_mem(wildcards, input, threads, attempt):
@@ -86,7 +61,7 @@ def metaquast_mem(wildcards, input, threads, attempt):
             n_refs += 1
     # calc mem (Gb)
     read_depth_mem = float(wildcards.read_depth) / 1000000 * 10
-    mem_total = 0.042 * n_refs + read_depth_mem + attempt ** 2 * 10    
+    mem_total = 0.05 * n_refs + read_depth_mem + attempt ** 2 * 10    
     return int(round(mem_total / threads, 0))
 
 def metaquast_time(wildcards, input, threads, attempt):
@@ -97,7 +72,7 @@ def metaquast_time(wildcards, input, threads, attempt):
             n_refs += 1
     # calc time (minutes)
     read_depth_time_min = float(wildcards.read_depth) / 1000000 * 60 * 2
-    T_min = 0.8 * n_refs + read_depth_time_min + 1440 * attempt 
+    T_min = n_refs + read_depth_time_min + 720 * attempt 
     return int(round(T_min,0))
 
 rule metaquast:
@@ -109,8 +84,7 @@ rule metaquast:
                   '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta',
         refs = config['tmp_dir'] + 'metaquast/{richness}/{rep}/genomes/genomes.tsv',
 	read1 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/1/R1.fq',
-	read2 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/1/R2.fq',
-        done = true_errors_dir + 'metaquast_setup.done'
+	read2 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/1/R2.fq'
     output:
         info_tmp = temp(config['tmp_dir'] + \
 	                '{richness}/{rep}/{read_depth}/{assembler}/' + \
@@ -132,7 +106,7 @@ rule metaquast:
                      '{richness}/{rep}/{read_depth}/{assembler}/metaquast.done')
     params:
         params = config['params']['metaquast'],
-        exe = config['pipeline']['script_folder'] + 'metaquast_gridmap.py',
+        exe = config['pipeline']['script_folder'] + 'metaquast_short.py',
         ionice = config['params']['ionice']
     threads:
         8
@@ -159,15 +133,13 @@ rule metaquast:
         rm -rf $OUTDIR"/runs_per_reference/" 2>> {log}
 
         # metaquast run
-        export GRIDMAP_CPU=4
-        export GRIDMAP_MEMORY=4G
         {params.exe} -t {threads} {params.params}  \
           --max-ref-number 0 --no-gzip \
           --reads1 {input.read1} --reads2 {input.read2} \
           -o $TMPOUTDIR -r $REFDIR \
           {input.contigs} 2>> {log} 1>&2
 
-        # copying
+        # copying to final destination
         mkdir -p $OUTDIR 2>> {log}
         ionice {params.ionice} cp -rf $TMPOUTDIR/* $OUTDIR 2>> {log} 
         touch {output.done_tmp} {output.done} 2>> {log}
@@ -181,10 +153,9 @@ rule metaquast_ref_genomes_rm:
     """
     input:
         refs = config['tmp_dir'] + 'metaquast/{richness}/{rep}/genomes/genomes.tsv',
-        done = expand(true_errors_dir + \
-                      '{{richness}}/{{rep}}/{read_depth}/{assembler}/metaquast.done',
-                      read_depth = config['params']['MGSIM']['read_depth'],
-	              assembler = config['assemblers'])
+        done = Expand(true_errors_dir + \
+                      '{richness}/{rep}/{read_depth}/{assembler}/metaquast.done',
+                      config['sim_params'])
     output:
         done = true_errors_dir + '{richness}/{rep}/metaquast_cleanup.done'
     log:
@@ -192,6 +163,6 @@ rule metaquast_ref_genomes_rm:
     shell:
         """
         > {log}
-        find `dirname {input}` -name "*.fna" 2>> {log} | xargs rm -f 2>> {log}
+        find `dirname {input.refs}` -name "*.fna" 2>> {log} | xargs rm -f 2>> {log}
         touch {output.done}
         """

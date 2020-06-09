@@ -3,6 +3,7 @@ from __future__ import print_function
 import sys,os
 import argparse
 import logging
+import shutil
 
 desc = 'symlinking genomes fasta files'
 epi = """DESCRIPTION:
@@ -17,13 +18,11 @@ parser.add_argument('abund_tbl', metavar='abund_tbl', type=str,
                     help='abundance table created by MGSIM communities')
 parser.add_argument('out_dir', metavar='out_dir', type=str,
                     help='output directory for symlinked genomes')
+parser.add_argument('-c', '--copy', action='store_true', default=False,
+                    help='Copy instead of symlink? (default: %(default)s)')
 parser.add_argument('--version', action='version', version='0.0.1')
-#For default: (default: %(default)s)
-
 
 logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG)
-# logging.info()
-
 
 def read_ref_genome_tbl(genomes_tbl):
     ref_genomes = {}
@@ -83,7 +82,7 @@ def read_abund_tbl(abund_tbl, ref_genomes):
                     raise KeyError(msg.format(taxon))
     return comm_genomes
 
-def symlink_genomes(comm_genomes, out_dir):
+def symlink_genomes(comm_genomes, out_dir, copy=False):
     if not os.path.isdir(out_dir):
         os.makedirs(out_dir)
     print('\t'.join(['Taxon', 'Fasta']))
@@ -93,7 +92,10 @@ def symlink_genomes(comm_genomes, out_dir):
             raise ValueError('input & output files match: {}'.format(out_file))
         if os.path.islink(out_file) or os.path.isfile(out_file):
             os.unlink(out_file)
-        os.symlink(fasta, out_file)
+        if copy is True:
+            shutil.copyfile(fasta, out_file)
+        else:
+            os.symlink(fasta, out_file)
         logging.info('Symlink created: {} => {}'.format(fasta, out_file))
         print('\t'.join([genome, out_file]))
 
@@ -103,7 +105,7 @@ def main(args):
     # loading MGSIM genome abundanc table
     comm_genomes = read_abund_tbl(args.abund_tbl, ref_genomes)
     # symlinking comm genomes    
-    symlink_genomes(comm_genomes, args.out_dir)
+    symlink_genomes(comm_genomes, args.out_dir, args.copy)
 
 if __name__ == '__main__':
     args = parser.parse_args()

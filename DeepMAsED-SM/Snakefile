@@ -7,6 +7,7 @@ import getpass
 import socket
 import pandas as pd
 import random
+import itertools
 
 def skipped(x):
     return str(x).strip().lower().startswith('skip')
@@ -57,12 +58,41 @@ else:
     config['just_features'] = False
 
 # Config calculated parameters
+## if user provided
+config['sim_params'] = {'richness' : [], 'read_depth' : [], 'rep' : [], 'assembler' : []}
+df_dtypes = {'richness' : str, 'read_depth' : int, 'rep' : int, 'assembler' : str}
 if config['just_features']:
     config['taxa_unique'] = config['genomes_tbl'].Taxon.unique().tolist()
     config['samples_unique'] = config['genomes_tbl'].Sample.unique().tolist()    
+elif not skipped(config['params']['MGSIM']['param_file']):
+    user_params = pd.read_csv(config['params']['MGSIM']['param_file'], sep='\t',
+                              comment='#', dtype = df_dtypes)
+    config['sim_params']['richness'] = user_params.richness
+    config['sim_params']['read_depth'] = user_params.read_depth
+    config['sim_params']['rep'] = user_params.rep
+    config['sim_params']['assembler'] = user_params.assembler    
 else:
-    config['reps'] = [x+1 for x in range(config['params']['reps'])]
-    config['assemblers'] = [k for k,v in config['params']['assemblers'].items() if not skipped(v)]
+    reps = [x+1 for x in range(config['params']['reps'])]
+    assemblers = [k for k,v in config['params']['assemblers'].items() if not skipped(v)]
+    read_depth = config['params']['MGSIM']['read_depth']
+    richness = config['params']['MGSIM']['community_richness'] 
+    for x in itertools.product(richness, read_depth, reps, assemblers):
+        config['sim_params']['richness'].append(x[0])
+        config['sim_params']['read_depth'].append(x[1])
+        config['sim_params']['rep'].append(x[2])
+        config['sim_params']['assembler'].append(x[3])
+## data.frame of all varying simulation parameters
+config['sim_params'] = pd.DataFrame.from_dict(config['sim_params'])
+
+def Expand(file_template, param_df, debug=False):
+    """Using colnames as kwargs for file_template.format() 
+    """
+    func = lambda x: file_template.format(**x)
+    files = param_df.apply(func, axis=1).tolist()
+    if debug is True:
+        print('\n'.join(files))
+        print('----------')
+    return(files)
 
 ## Modular snakefiles
 include: snake_dir + 'bin/Snakefile'
@@ -83,6 +113,8 @@ wildcard_constraints:
     richness='[^/]+'
 wildcard_constraints:     
     read_depth='[^/]+'
+wildcard_constraints:     
+    assembler='[^/]+'
     
 def all_feat_tables(genomes_tbl):
     out_files = []
@@ -95,7 +127,7 @@ def all_feat_tables(genomes_tbl):
 
 def all_which_input(wildcards):
     input_files = []
-
+    
     if config['just_features']:
         # feature table
         input_files += all_feat_tables(config['genomes_tbl'])
@@ -103,22 +135,17 @@ def all_which_input(wildcards):
     
     # reads
     if config['params']['keep_reads'] == True:
-        x = expand(mgsim_dir + 'sim_reads/{richness}/{rep}/{read_depth}/Read1.fq.gz',
-                   richness = config['params']['MGSIM']['community_richness'],
-                   read_depth = config['params']['MGSIM']['read_depth'],
-                   rep = config['reps'])
+        x = Expand(mgsim_dir + 'sim_reads/{richness}/{rep}/{read_depth}/Read1.fq.gz',
+                   config['sim_params'])
         input_files += x
-        x = expand(mgsim_dir + 'sim_reads/{richness}/{rep}/{read_depth}/Read2.fq.gz',
-                   richness = config['params']['MGSIM']['community_richness'],
-                   rep = config['reps'],
-                   read_depth = config['params']['MGSIM']['read_depth'])
+        x = Expand(mgsim_dir + 'sim_reads/{richness}/{rep}/{read_depth}/Read2.fq.gz',
+                   config['sim_params'])
         input_files += x
+        
     # coverage
     if not skipped(config['params']['nonpareil']):
-        x = expand(coverage_dir + '{richness}/{rep}/{read_depth}/nonpareil.npo',
-                   richness = config['params']['MGSIM']['community_richness'],
-                   rep = config['reps'],                
-                   read_depth = config['params']['MGSIM']['read_depth'])
+        x = Expand(coverage_dir + '{richness}/{rep}/{read_depth}/nonpareil.npo',
+                   config['sim_params'])  
         input_files += x
         if not skipped(config['params']['nonpareil_summary']):
             input_files.append(coverage_dir + 'nonpareil/all_summary.RDS')
@@ -126,36 +153,25 @@ def all_which_input(wildcards):
             input_files.append(coverage_dir + 'nonpareil/all_curve.pdf')
 
     # MG assemblies
-    x = expand(asmbl_dir + '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta.gz',
-               richness = config['params']['MGSIM']['community_richness'],
-               rep = config['reps'],                
-               read_depth = config['params']['MGSIM']['read_depth'],
-               assembler = config['assemblers'])
+    x = Expand(asmbl_dir + '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta.gz',
+               config['sim_params'])
     input_files += x
     
     ## metaquast
     if not skipped(config['params']['metaquast']):
-        x = expand(true_errors_dir + \
+        x = Expand(true_errors_dir + \
                    '{richness}/{rep}/{read_depth}/{assembler}/metaquast.done',
-                   richness = config['params']['MGSIM']['community_richness'],
-                   rep = config['reps'],                
-                   read_depth = config['params']['MGSIM']['read_depth'],
-	           assembler = config['assemblers'])
+                   config['sim_params'])        
         input_files += x
-        x = expand(true_errors_dir + \
-                   '{richness}/{rep}/metaquast_cleanup.done',
-                   richness = config['params']['MGSIM']['community_richness'],
-                   rep = config['reps'])
+        x = Expand(true_errors_dir + '{richness}/{rep}/metaquast_cleanup.done',
+                   config['sim_params'])        
         input_files += x
-
+        
     # read mapping to contigs
     if not skipped(config['params']['samtools']):
         if not config['params']['keep_bam'] == True:
-            x = expand(map_dir + '{richness}/{rep}/{read_depth}/{assembler}.bam',
-                       richness = config['params']['MGSIM']['community_richness'],
-                       rep = config['reps'],                
-                       read_depth = config['params']['MGSIM']['read_depth'],
-	               assembler = config['assemblers'])
+            x = Expand(map_dir + '{richness}/{rep}/{read_depth}/{assembler}.bam',
+                       config['sim_params']) 
             input_files += x
 
         # feature table
@@ -165,19 +181,13 @@ def all_which_input(wildcards):
     # State of the Art
     ## ALE
     if not skipped(config['params']['ALE']):
-        x = expand(ale_dir + '{richness}/{rep}/{read_depth}/{assembler}/ALE_results.txt.gz',
-                   richness = config['params']['MGSIM']['community_richness'],
-                   rep = config['reps'],                
-                   read_depth = config['params']['MGSIM']['read_depth'],
-	           assembler = config['assemblers'])
+        x = Expand(ale_dir + '{richness}/{rep}/{read_depth}/{assembler}/ALE_results.txt.gz',
+                   config['sim_params']) 
         input_files += x
     ## VALET
     if not skipped(config['params']['VALET']):
-        x = expand(valet_dir + '{richness}/{rep}/{read_depth}/{assembler}/summary.tsv',
-                   richness = config['params']['MGSIM']['community_richness'],
-                   rep = config['reps'],                
-                   read_depth = config['params']['MGSIM']['read_depth'],
-	           assembler = config['assemblers'])
+        x = Expand(valet_dir + '{richness}/{rep}/{read_depth}/{assembler}/summary.tsv',
+                   config['sim_params']) 
         input_files += x
 
     return input_files

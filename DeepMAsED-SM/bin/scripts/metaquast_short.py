@@ -36,14 +36,6 @@ from datetime import datetime
 import logging
 import itertools
 
-# gridmap
-os.environ['SGE_ROOT'] = '/var/lib/gridengine'
-os.environ['SGE_CELL'] = 'default'
-os.environ['DRMAA_LIBRARY_PATH'] = '/usr/lib/gridengine-drmaa/lib/libdrmaa.so.1.0'
-os.environ['CREATE_PLOTS'] = 'False'
-os.environ['CREATE_PLOTS'] = 'False'
-from gridmap import grid_map
-
 
 def sleep_walk(secs):
     '''
@@ -66,90 +58,6 @@ def computeFactorial(n):
         ret = ret * (i + 1)
     return ret
 
-def run_parallel_gridmap_debug(_fn, fn_args, max_jobs=1, filter_results=False):
-    logging.captureWarnings(True)
-    logging.basicConfig(format=('%(asctime)s - %(name)s - %(levelname)s - ' +
-                                '%(message)s'), level=logging.INFO)
-       
-    # input args
-    args = [3, 5, 10, 20]
-    intermediate_results = grid_map(computeFactorial, args, quiet=False,
-                                    temp_dir='/ebio/abt3_scratch/gridmap_tmp/',
-                                    max_processes=max_jobs, queue='long.q')
-
-    # Just print the items instead of really reducing. We could always sum them.
-    logging.info('reducing result')
-    for i, ret in enumerate(intermediate_results):
-        print('f({0}) = {1}'.format(args[i], ret))    
-
-    exit(0)
-
-def _run_parallel_gridmap(_fn, fn_args, max_jobs=1, filter_results=False):
-    # env params for gridmap
-    try:
-        cpu = int(os.environ['GRIDMAP_CPU'])
-    except KeyError:
-        cpu = max_jobs
-    try:
-        h_vmem = str(os.environ['GRIDMAP_MEMORY'])
-    except KeyError:
-        h_vmem = '6G'
-    try:
-        h_rt = str(os.environ['GRIDMAP_TIME'])
-    except KeyError:
-        h_rt = '24:00:00'
-   
-    # input args
-    fn_args = [[x[0], x[1], x[2], x[3], x[4], sys.path, x[5]] for x in fn_args]
-    #results_tuples = [_fn(*args) for args in fn_args]  # local run
-    logging.info('GRIDMAP: STARTING')
-    logging.info('GRIDMAP: cpu = {}'.format(cpu))
-    logging.info('GRIDMAP: h_vmem = {}'.format(h_vmem))
-    logging.info('GRIDMAP: h_rt = {}'.format(h_rt))
-    results = grid_map(_fn, fn_args, quiet=False, 
-                       temp_dir='/ebio/abt3_scratch/gridmap_tmp/',
-                       cpu=cpu, h_vmem=h_vmem, h_rt=h_rt,
-                       max_processes=max_jobs, queue='long.q')
-    
-    ref_names = [x[0] for x in results]
-    ref_json_texts = [x[1] for x in results]
-    ref_notifications = [x[2] for x in results]
-    logging.info('GRIDMAP: FINISHED!')
-    
-    return ref_names, ref_json_texts, ref_notifications
-
-def run_parallel_gridmap(_fn, fn_args, max_jobs=1, filter_results=False, max_per_batch=500):
-    """ Batching, and then feeding each batch to _run_parallel_gridmap
-    """
-    logging.captureWarnings(True)
-    logging.basicConfig(format=('%(asctime)s - %(name)s - %(levelname)s - ' +
-                                '%(message)s'), level=logging.INFO)
-    
-    # batching
-    n_batches = int(round(len(fn_args) / max_per_batch + 0.49999, 0))
-    if len(fn_args) < n_batches:
-        n_batches = len(fn_args)
-    n_per_batch = int(round(len(fn_args) / float(n_batches), 0))
-    logging.info('Number of batches: {}'.format(n_batches))
-    logging.info('Batch size: {}'.format(n_per_batch))
-    batches = {}
-    for args,_bin in zip(fn_args, itertools.cycle(range(0,n_batches))):
-        try:
-            batches[_bin].append(args)
-        except KeyError:
-            batches[_bin] = [args]
-
-    # running each batch
-    ref_names = []
-    ref_json_texts = []
-    ref_notifications = []
-    for binID,args in batches.items():
-        x = _run_parallel_gridmap(_fn, args, max_jobs, filter_results)
-        ref_names += x[0]
-        ref_json_texts += x[1]
-        ref_notifications += x[2]
-    return ref_names, ref_json_texts, ref_notifications
-       
 def _start_quast_main(args, assemblies, reference_fpath=None, output_dirpath=None,
                       num_notifications_tuple=None, labels=None, run_regular_quast=False,
                       is_combined_ref=False, is_parallel_run=False):
@@ -370,7 +278,13 @@ def main(args):
         reference_fpath=combined_ref_fpath,
         output_dirpath=combined_output_dirpath,
         num_notifications_tuple=total_num_notifications,
-        is_combined_ref=True)    
+        is_combined_ref=True)
+
+    #-- early termination --#
+    logger.main_info('Finishing here without doing per-ref quast')
+    sys.exit(0)
+    ###############################
+    
     
     if json_texts is not None:
         json_texts.append(json_saver.json_text)
@@ -449,9 +363,9 @@ def main(args):
         parallel_run_args = [(quast_py_args, output_dirpath_per_ref,
                               ref_fpath, ref_assemblies, num_notifications, True)
                              for ref_fpath, ref_assemblies in assemblies_by_reference]
-        ref_names, ref_json_texts, ref_notifications = \
-            run_parallel_gridmap(_run_quast_per_ref, parallel_run_args,
-                                 qconfig.max_threads, filter_results=True)
+        # ref_names, ref_json_texts, ref_notifications = \
+        #     run_parallel_gridmap(_run_quast_per_ref, parallel_run_args,
+        #                          qconfig.max_threads, filter_results=True)
         per_ref_num_notifications = list(map(sum, zip(*ref_notifications)))
         total_num_notifications = list(map(sum, zip(total_num_notifications,
                                                     per_ref_num_notifications)))
