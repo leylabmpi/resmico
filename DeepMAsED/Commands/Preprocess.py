@@ -25,13 +25,16 @@ def parse_args(test_args=None, subparsers=None):
       * `assembler` = the metadata assembler
 
     #-- Pickled feature files --#
-    DeepMAsED-SM will generate tab-delim feature tables; however,
+    DeepMAsED-SM generates tab-delim feature tables; however,
     DeepMAsED uses formatted & pickled versions of the tab-delim feature tables.
-    `DeepMAsED train` will automatically create pickled versions of the tab-delim
-    tables. These pickled versions are written to the same locations as the tab-delim
-    files. If the user provides tab-delim files, but DeepMAsED finds the pickled
-    versions (same name, but with `pkl` for a file extension), then DeepMAsED
-    will use the pickled versions, unless `--force-overwrite=True`.
+    `DeepMAsED preprocess` need to be applied to the data before training and testing.
+    It works in 3 steps. 
+    Firstly, use `--pickle-tsv` argument to create pickle version of tsv datatables 
+    with selected features. Apply it to both train and test datasets.
+    Secondly, `--compute-mean-std` using pickled version of train dataset.
+    Lastly,run '--standard-data' with precomputed mean and std, this will standartize data
+    and rewrite pickled version of datatables. Apply it to both train and test set.
+    The resulting pickle files could be used as input to the model.
     """
     if subparsers:
         parser = subparsers.add_parser('preprocess', description=desc, epilog=epi,
@@ -48,7 +51,7 @@ def parse_args(test_args=None, subparsers=None):
     parser.add_argument('--standard-data', action='store_true', default=False,
                         help='Standardize data with precomputed mean and std (default: %(default)s)')
     parser.add_argument('--downsample', action='store_true', default=False,
-                        help='NOT SUPPORTED YET')    
+                        help='NOT SUPPORTED YET') #to reduce number of good contigs
     
     parser.add_argument('--feature-file-table',  default='feature_file_table', type=str, 
                         help='Table listing feature table files (see DESCRIPTION)')
@@ -56,10 +59,8 @@ def parse_args(test_args=None, subparsers=None):
                         help='File with precomputed sum, sum of squares and number of elements')    
     parser.add_argument('--technology', default='all-asmbl', type=str, 
                         help='Assembler name in the data_path. "all-asmbl" will use all assemblers (default: %(default)s)')    
-    parser.add_argument('--seed', default=12, type=int, 
-                        help='Seed used for numpy.random (default: %(default)s)')
     parser.add_argument('--set-target', default=True, type=str, 
-                        help='Path to validation data (default: %(default)s)')
+                        help='True if label is known')
     parser.add_argument('--force-overwrite', action='store_true', default=False,
                         help='Force re-creation of pickle files (default: %(default)s)')
     parser.add_argument('--n-procs', default=1, type=int, 

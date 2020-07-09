@@ -52,7 +52,8 @@ def compute_sum_sumsq_n(featurefiles_table, n_feat=21):
     return 
 
 
-def standardize_data(feat_file_table, mean_std_file, set_target=True):
+def standardize_data(feat_file_table, mean_std_file, --pickle-tsvpickle
+                     _target=True):
     
     feat_files = read_feature_file_table(feat_file_table)
     feat_sum, feat_sq_sum, n_el = np.load(mean_std_file, allow_pickle=True)
@@ -195,8 +196,6 @@ def pickle_in_parallel(feature_files, n_procs, set_target=True):
       feature_files : list of file paths
       n_procs : int, number of parallel processes
       set_target : bool, passed to pickle_data_b()
-    Returns:
-      list of 
     """
     if n_procs > 1:        
         logging.info('Pickling in parallel with {} threads...'.format(n_procs))

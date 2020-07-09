@@ -38,12 +38,8 @@ def parse_args(test_args=None, subparsers=None):
 
     #-- Pickled feature files --#
     DeepMAsED-SM will generate tab-delim feature tables; however,
-    DeepMAsED uses formatted & pickled versions of the tab-delim feature tables.
-    `DeepMAsED train` will automatically create pickled versions of the tab-delim
-    tables. These pickled versions are written to the same locations as the tab-delim
-    files. If the user provides tab-delim files, but DeepMAsED finds the pickled
-    versions (same name, but with `pkl` for a file extension), then DeepMAsED
-    will use the pickled versions, unless `--force-overwrite=True`.
+    DeepMAsED uses formatted & pickled versions of the tab-delim feature tables as input.
+    Pickled preprocessed files should be created beforehand with Preprocess command.
     """
     if subparsers:
         parser = subparsers.add_parser('train', description=desc, epilog=epi,
