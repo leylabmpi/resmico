@@ -7,6 +7,7 @@ import argparse
 import logging
 ## application
 from DeepMAsED import Train
+from DeepMAsED import Train_BigD
 
 # functions
 def parse_args(test_args=None, subparsers=None):
@@ -49,7 +50,11 @@ def parse_args(test_args=None, subparsers=None):
                                          formatter_class=argparse.RawTextHelpFormatter)
 
     # args
-    parser.add_argument('feature_file_table',  metavar='feature_file_table', type=str, 
+    parser.add_argument('--big-data', action='store_true', default=False,
+                        help='Use True if work with large dataset in h5 format')
+    parser.add_argument('--feature-files-path',  default='', type=str,
+                        help='Path to h5 feature files')
+    parser.add_argument('--feature-file-table',  default='', type=str,
                         help='Table listing feature table files (see DESCRIPTION)')
     parser.add_argument('--technology', default='all-asmbl', type=str, 
                         help='Assembler name in the data_path. "all-asmbl" will use all assemblers (default: %(default)s)')    
@@ -101,7 +106,10 @@ def main(args=None):
     if args is None:
         args = parse_args()
     # Main interface
-    Train.main(args)
+    if args.big_data:
+        Train_BigD.main(args)
+    else:   
+        Train.main(args)
     
 # main
 if __name__ == '__main__':

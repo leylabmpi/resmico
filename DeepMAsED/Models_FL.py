@@ -199,7 +199,7 @@ class GeneratorBigD(keras.utils.Sequence):
             for s, e in ranges_to_read:
                 mats.append(data_h5[s:e, :])
 
-    return mats, labels
+        return mats, labels
             
     def generate(self, indices_tmp):
         """
