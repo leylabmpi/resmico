@@ -1,6 +1,8 @@
 # import
 ## batteries
 import logging
+from toolz import itertoolz
+import pathos
 ## 3rd party
 import numpy as np
 import keras
@@ -93,9 +95,6 @@ class Generator(keras.utils.Sequence):
 
         # Shuffle data
         self.indices = np.arange(len(x))
-        if self.shuffle: 
-            np.random.shuffle(self.indices)
-
         self.on_epoch_end()
 
     def on_epoch_end(self):
@@ -145,4 +144,112 @@ class Generator(keras.utils.Sequence):
 
 
 
+class GeneratorBigD(keras.utils.Sequence):
+    def __init__(self, data_dict, max_len, batch_size,
+                 shuffle=True, rnd_seed=None, nprocs=4): 
+        self.max_len = max_len
+        self.batch_size = batch_size
+        self.data_dict = data_dict
+        self.shuffle = shuffle
+        self.n_feat = x[0].shape[1]
+        self.rnd_seed = rnd_seed
+        self.nprocs = nprocs
 
+        # Shuffle data
+        self.indices = np.arange(len(x))
+        self.on_epoch_end()
+
+    def on_epoch_end(self):
+        """
+        Reshuffle when epoch ends 
+        """
+        if self.shuffle: 
+            np.random.shuffle(self.indices)
+            
+    def _clip_range(range_orig, seed, max_length):
+        if range_orig[1] - range_orig[0] <= max_length:
+            return range_orig
+
+        np.random.seed(seed)
+        new_start = np.random.randint(range_orig[0], range_orig[1] - max_length)
+
+        return new_start, new_start + max_length
+
+    def _read_data_from_file(f, samples, seed, max_range_length):
+        sample_ids = [ s[0].split('/')[-1] for s in samples]
+
+        mats = []
+        logging.info(f"Reading data from {f}. Reading {len(samples)} samples.")
+        with tables.open_file(f, 'r') as h5f:
+            sample_lookup = { s.decode('utf-8') : i for i, s in enumerate(h5f.get_node('/samples')[:]) }
+
+            # index of s samples within a file
+            sample_idx = [sample_lookup[s] for s in sample_ids]
+
+            labels = h5f.get_node('/labels')[sample_idx]
+
+            offsets = h5f.get_node('/offset_ends')[:]
+            ranges = [(offsets[idx-1] if idx > 0 else 0, offsets[idx]) for idx in sample_idx]
+
+            np.random.seed(seed)
+            range_seeds = np.random.randint(0, 10000000, len(ranges))
+            ranges_to_read = [_clip_range(r, s, max_range_length) for (r, s) in zip(ranges, range_seeds) ]
+
+            data_h5 = h5f.get_node('/data')
+            for s, e in ranges_to_read:
+                mats.append(data_h5[s:e, :])
+
+    return mats, labels
+            
+    def generate(self, indices_tmp):
+        """
+        Generate new mini-batch
+        """
+        sample_keys = np.array(list(self.data_dict.keys()))[indices_tmp]
+        # files to process
+        files_dict = itertoolz.groupby(lambda t: t[1], list(itertoolz.map(lambda s: (s, self.data_dict[s]), sample_keys)))
+        # for every file, associate a random number, which can be used to construct random number to sample a range
+        if self.rnd_seed:
+            np.random.seed(self.rnd_seed)
+        file_seeds = np.random.randint(0, 1000000, len(files_dict.items()))
+        
+        file_items = [(k, v, s) for (k ,v), s in zip(files_dict.items(), file_seeds)]
+
+        with pathos.multiprocessing.Pool(self.nprocs) as pool:
+            pool_res = pool.map(lambda t:_read_data_from_file(t[0], t[1], t[2], self.max_len), file_items)
+        X, y = [], []    
+        for (dl, ll) in pool_res:
+            for (d, l) in zip(dl, ll):
+                X.append(d)
+                y.append(l)        
+                
+        max_contig_len = max(list(map(len,[self.x[ind] for ind in indices_tmp])))
+        mb_max_len = min(max_contig_len, self.max_len)
+      
+        x_mb = np.zeros((len(indices_tmp), mb_max_len, self.n_feat))
+
+        for i, x_i in enumerate(X):
+            x_mb[i, 0:x_i.shape[0]] = x_i
+
+        y_mb = y
+        return x_mb, y_mb
+
+            
+    def __len__(self):
+        return int(np.ceil(len(self.indices) / self.batch_size))
+
+    def __getitem__(self, index):
+        """
+        Get new mb
+        """
+        if self.batch_size * (index + 1) < len(self.indices):
+            indices_tmp = \
+              self.indices[self.batch_size * index : self.batch_size * (index + 1)]
+        else:
+            indices_tmp = \
+              self.indices[self.batch_size * index : ] 
+            
+        x_mb, y_mb = self.generate(indices_tmp)
+        
+        return x_mb, y_mb
+       

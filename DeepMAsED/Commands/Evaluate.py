@@ -53,8 +53,6 @@ def parse_args(test_args=None, subparsers=None):
                         help='Max contig len, fixed input for CNN (default: %(default)s)')
     parser.add_argument('--technology', default='all-asmbl', type=str, 
                         help='Assembler name in the data_path. "all-asmbl" will use all assemblers (default: %(default)s)')    
-    parser.add_argument('--is-synthetic', default=1, type=int, 
-                        help='Whether the data is synthetic and thus has ground truth (default: %(default)s)')
     parser.add_argument('--seed', default=12, type=int, 
                         help='Seed used for numpy.random (default: %(default)s)')
     parser.add_argument('--n-procs', default=1, type=int, 

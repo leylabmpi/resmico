@@ -4,7 +4,6 @@ import os
 import sys
 import logging
 import _pickle as pickle
-#import argparse
 ## 3rd party
 import numpy as np
 import tensorflow as tf
@@ -39,17 +38,12 @@ def main(args):
     model = load_model(h5_file, custom_objects=custom_obj)
    
     # loading features
-    if args.is_synthetic == 1:
-        logging.info('Loading synthetic features')
-        x, y, i2n = Utils.load_features(args.feature_file_table,
-                                        max_len = args.max_len,
-                                        technology = args.technology,
-                                        chunks=False)  #False to use contigs of variable length
-    else:
-        logging.info('Loading non-synthetic features')
-#         x, y, i2n = Utils.load_features_nogt(args.feature_file_table,
-#                                              max_len = args.max_len)
-        
+    logging.info('Loading synthetic features')
+    x, y, i2n = Utils.load_features(args.feature_file_table,
+                                    max_len = args.max_len,
+                                    technology = args.technology,
+                                    chunks=False)  #False to use contigs of variable length
+
     logging.info('Loaded {} contigs'.format(len(set(i2n.values()))))    
     n2i = Utils.reverse_dict(i2n)
     x = [xi for xmeta in x for xi in xmeta]

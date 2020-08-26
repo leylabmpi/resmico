@@ -1,4 +1,4 @@
-name: deepmased_gpu
+name: deepmased_gpu_new
 channels:
   - anaconda
   - defaults
