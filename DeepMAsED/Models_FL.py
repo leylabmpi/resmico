@@ -3,16 +3,16 @@
 import logging
 from toolz import itertoolz
 import pathos
+import tables
 ## 3rd party
 import numpy as np
-import keras
-from keras.models import Model, Sequential
-from keras.layers import Input, BatchNormalization
-from keras.layers import GlobalMaxPooling1D, GlobalAveragePooling1D, concatenate
-from keras.layers import Conv1D, Conv2D, Dropout, Dense
+import tensorflow as tf
+from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.layers import Input, BatchNormalization
+from tensorflow.keras.layers import GlobalMaxPooling1D, GlobalAveragePooling1D, concatenate
+from tensorflow.keras.layers import Conv1D, Conv2D, Dropout, Dense
 ## application
 from DeepMAsED import Utils
-
 
 class deepmased(object):
     """
@@ -28,6 +28,7 @@ class deepmased(object):
         self.lr_init = config.lr_init
         self.n_fc = config.n_fc
         self.n_hid = config.n_hid
+        self.n_gpu = config.n_gpu
 
         #self.net = Sequential()
         inlayer = Input(shape=(None, self.n_features), name='input')
@@ -52,7 +53,7 @@ class deepmased(object):
         avgP = GlobalAveragePooling1D()(x)
         x = concatenate([maxP, avgP])
 
-        optimizer = keras.optimizers.adam(lr=self.lr_init)
+        optimizer = tf.keras.optimizers.Adam(lr=self.lr_init)
 
         for _ in range(1):
             x = Dense(self.n_hid, activation='relu')(x)
@@ -60,13 +61,18 @@ class deepmased(object):
 
         x = Dense(1, activation='sigmoid')(x)
 
-        self.net =  Model(inputs=inlayer,outputs=x)
+        #MirroredStrategy is used instead
+        # if self.n_gpu>1:
+        #     self.net = Utils.make_parallel(Model(inputs=inlayer,outputs=x), self.n_gpu)
+        # else:
+        #     self.net = Model(inputs=inlayer,outputs=x)
+        self.net = Model(inputs=inlayer, outputs=x)
         self.net.compile(loss='binary_crossentropy',
                          optimizer=optimizer,
                          metrics=[Utils.class_recall_0, Utils.class_recall_1])
 
 
-        self.reduce_lr = keras.callbacks.ReduceLROnPlateau(
+        self.reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
                                monitor='val_loss', factor=0.5,
                                patience=5, min_lr = 0.01 * self.lr_init)
 
@@ -83,7 +89,7 @@ class deepmased(object):
         self.net.save(path)
 
 
-class Generator(keras.utils.Sequence):
+class Generator(tf.keras.utils.Sequence):
     def __init__(self, x, y, max_len, batch_size,
                  shuffle=True): 
         self.max_len = max_len
@@ -144,67 +150,77 @@ class Generator(keras.utils.Sequence):
 
 
 
-class GeneratorBigD(keras.utils.Sequence):
+class GeneratorBigD(tf.keras.utils.Sequence):
     def __init__(self, data_dict, max_len, batch_size,
                  shuffle=True, rnd_seed=None, nprocs=4): 
         self.max_len = max_len
         self.batch_size = batch_size
         self.data_dict = data_dict
         self.shuffle = shuffle
-        self.n_feat = x[0].shape[1]
+        self.n_feat = 21
         self.rnd_seed = rnd_seed
         self.nprocs = nprocs
 
-        # Shuffle data
-        self.indices = np.arange(len(x))
+        all_labels = Utils.read_all_labels(self.data_dict)
+        self.inds_pos = np.arange(len(all_labels))[np.array(all_labels) == 1]
+        self.inds_neg = np.arange(len(all_labels))[np.array(all_labels) == 0]
+        self.fraq_neg = 0.3  #downsampling
+        self.num_neg = int(self.fraq_neg*len(self.inds_neg))
         self.on_epoch_end()
 
     def on_epoch_end(self):
         """
-        Reshuffle when epoch ends 
+        Reshuffle when epoch ends
         """
-        if self.shuffle: 
+        if self.shuffle:
+            np.random.shuffle(self.inds_neg)
+            self.indices = np.concatenate((self.inds_pos, self.inds_neg[:self.num_neg]))
             np.random.shuffle(self.indices)
-            
-    def _clip_range(range_orig, seed, max_length):
-        if range_orig[1] - range_orig[0] <= max_length:
-            return range_orig
+        else:
+            self.indices = np.arange(len(self.data_dict))
 
-        np.random.seed(seed)
-        new_start = np.random.randint(range_orig[0], range_orig[1] - max_length)
+        print('len(self.indices)',len(self.indices))
 
-        return new_start, new_start + max_length
-
-    def _read_data_from_file(f, samples, seed, max_range_length):
-        sample_ids = [ s[0].split('/')[-1] for s in samples]
-
-        mats = []
-        logging.info(f"Reading data from {f}. Reading {len(samples)} samples.")
-        with tables.open_file(f, 'r') as h5f:
-            sample_lookup = { s.decode('utf-8') : i for i, s in enumerate(h5f.get_node('/samples')[:]) }
-
-            # index of s samples within a file
-            sample_idx = [sample_lookup[s] for s in sample_ids]
-
-            labels = h5f.get_node('/labels')[sample_idx]
-
-            offsets = h5f.get_node('/offset_ends')[:]
-            ranges = [(offsets[idx-1] if idx > 0 else 0, offsets[idx]) for idx in sample_idx]
-
-            np.random.seed(seed)
-            range_seeds = np.random.randint(0, 10000000, len(ranges))
-            ranges_to_read = [_clip_range(r, s, max_range_length) for (r, s) in zip(ranges, range_seeds) ]
-
-            data_h5 = h5f.get_node('/data')
-            for s, e in ranges_to_read:
-                mats.append(data_h5[s:e, :])
-
-        return mats, labels
             
     def generate(self, indices_tmp):
         """
         Generate new mini-batch
         """
+
+        def clip_range(range_orig, seed, max_length):
+            if range_orig[1] - range_orig[0] <= max_length:
+                return range_orig
+
+            np.random.seed(seed)
+            new_start = np.random.randint(range_orig[0], range_orig[1] - max_length)
+
+            return new_start, new_start + max_length
+
+        def read_data_from_file(f, samples, seed, max_range_length):
+            sample_ids = [s[0].split('/')[-1] for s in samples]
+
+            mats = []
+            # logging.info(f"Reading data from {f}. Reading {len(samples)} samples.")
+            with tables.open_file(f, 'r') as h5f:
+                sample_lookup = {s.decode('utf-8'): i for i, s in enumerate(h5f.get_node('/samples')[:])}
+
+                # index of s samples within a file
+                sample_idx = [sample_lookup[s] for s in sample_ids]
+
+                labels = h5f.get_node('/labels')[sample_idx]
+
+                offsets = h5f.get_node('/offset_ends')[:]
+                ranges = [(offsets[idx - 1] if idx > 0 else 0, offsets[idx]) for idx in sample_idx]
+
+                np.random.seed(seed)
+                range_seeds = np.random.randint(0, 10000000, len(ranges))
+                ranges_to_read = [clip_range(r, s, max_range_length) for (r, s) in zip(ranges, range_seeds)]
+
+                data_h5 = h5f.get_node('/data')
+                for s, e in ranges_to_read:
+                    mats.append(data_h5[s:e, :])
+            return mats, labels
+
         sample_keys = np.array(list(self.data_dict.keys()))[indices_tmp]
         # files to process
         files_dict = itertoolz.groupby(lambda t: t[1], list(itertoolz.map(lambda s: (s, self.data_dict[s]), sample_keys)))
@@ -215,15 +231,24 @@ class GeneratorBigD(keras.utils.Sequence):
         
         file_items = [(k, v, s) for (k ,v), s in zip(files_dict.items(), file_seeds)]
 
-        with pathos.multiprocessing.Pool(self.nprocs) as pool:
-            pool_res = pool.map(lambda t:_read_data_from_file(t[0], t[1], t[2], self.max_len), file_items)
-        X, y = [], []    
-        for (dl, ll) in pool_res:
+        # with pathos.multiprocessing.Pool(10) as pool: #self.nprocs
+        #     pool_res = pool.map(lambda t:read_data_from_file(t[0], t[1], t[2], self.max_len), file_items)
+        #
+        # X, y = [], []
+        # for (dl, ll) in pool_res:
+        #     for (d, l) in zip(dl, ll):
+        #         X.append(d)
+        #         y.append(l)
+
+        X, y = [], []
+        for t_0, t_1, t_2 in file_items:
+            dl, ll = read_data_from_file(t_0, t_1, t_2, self.max_len)
             for (d, l) in zip(dl, ll):
                 X.append(d)
-                y.append(l)        
-                
-        max_contig_len = max(list(map(len,[self.x[ind] for ind in indices_tmp])))
+                y.append(l)
+
+
+        max_contig_len = max(list(map(len,[x_i for x_i in X])))
         mb_max_len = min(max_contig_len, self.max_len)
       
         x_mb = np.zeros((len(indices_tmp), mb_max_len, self.n_feat))
@@ -232,7 +257,7 @@ class GeneratorBigD(keras.utils.Sequence):
             x_mb[i, 0:x_i.shape[0]] = x_i
 
         y_mb = y
-        return x_mb, y_mb
+        return np.array(x_mb), np.array(y_mb)
 
             
     def __len__(self):
@@ -247,9 +272,10 @@ class GeneratorBigD(keras.utils.Sequence):
               self.indices[self.batch_size * index : self.batch_size * (index + 1)]
         else:
             indices_tmp = \
-              self.indices[self.batch_size * index : ] 
-            
+              self.indices[self.batch_size * index : ]
+
+        # logging.info("generate batch {}".format(index))
         x_mb, y_mb = self.generate(indices_tmp)
-        
+        if index<1000: #to see some progress
+            logging.info("new batch {}".format(index))
         return x_mb, y_mb
-       

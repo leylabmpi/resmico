@@ -8,8 +8,7 @@ import _pickle as pickle
 import numpy as np
 import tensorflow as tf
 # tf.debugging.set_log_device_placement(True)
-import keras
-from keras.models import load_model
+from tensorflow.keras.models import load_model
 import IPython
 ## application
 from DeepMAsED import Models_FL as Models  #to use contigs of variable length

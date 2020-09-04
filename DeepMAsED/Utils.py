@@ -5,20 +5,23 @@ import os
 import sys
 import csv
 import gzip
-import glob
+from pathlib import Path
 import logging
+from toolz import itertoolz
 from functools import partial
 from collections import defaultdict
 import multiprocessing as mp
 import tables
 import pathos
 ## 3rd party
-from keras import backend as K
-from keras.callbacks import Callback
+import tensorflow as tf
+from tensorflow.keras import backend as K
+from tensorflow.keras.callbacks import Callback
+from tensorflow.keras.layers import concatenate
+from tensorflow.keras.layers import Lambda
+from tensorflow.keras.models import Model
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import average_precision_score
 import IPython
 ## application
@@ -794,3 +797,68 @@ def build_sample_index(base_path: Path, nprocs: int):
     for d in partial_dicts:
         samples_dict.update(d)
     return samples_dict
+
+def _read_label_from_file(f, samples):
+    sample_ids = [ s[0].split('/')[-1] for s in samples]
+    with tables.open_file(f, 'r') as h5f:
+        sample_lookup = { s.decode('utf-8') : i for i, s in enumerate(h5f.get_node('/samples')[:]) }
+        # index of s samples within a file
+        sample_idx = [sample_lookup[s] for s in sample_ids]
+        labels = h5f.get_node('/labels')[sample_idx]
+    return labels
+
+def read_all_labels(samples_dict):
+    files_dict = itertoolz.groupby(lambda t:t[1], list(itertoolz.map(
+                                   lambda s: (s, samples_dict[s]), samples_dict.keys())))
+    y = []
+    for f, samples in files_dict.items():
+        y.extend(_read_label_from_file(f, samples))
+    return np.array(y)
+
+
+def make_parallel(model, gpu_count):
+    def get_slice(data, idx, parts):
+        shape = tf.shape(data)
+        stride = tf.concat([shape[:1] // parts, shape[1:] * 0], 0)
+        start = stride * idx
+
+        size = tf.concat([shape[:1] // parts, shape[1:]], 0)
+        # Split the batch into equal parts
+
+        return tf.slice(data, start, size)
+
+    outputs_all = []
+    for i in range(len(model.outputs)):
+        outputs_all.append([])
+
+    # Place a copy of the model on each GPU, each getting a slice of the batch
+    for i in range(gpu_count):
+        with tf.device('/gpu:%d' % i):
+
+            with tf.name_scope('tower_%d' % i) as scope:
+
+                inputs = []
+                # Slice each input into a piece for processing on this GPU
+                for x in model.inputs:
+                    input_shape = tuple(x.get_shape().as_list())[1:]
+                    slice_n = Lambda(get_slice, output_shape=input_shape,
+                                     arguments={'idx': i, 'parts': gpu_count})(x)
+                    inputs.append(slice_n)
+
+                outputs = model(inputs)
+
+                if not isinstance(outputs, list):
+                    outputs = [outputs]
+
+                # Save all the outputs for merging back together later
+                for l in range(len(outputs)):
+                    outputs_all[l].append(outputs[l])
+
+    # Merge outputs on CPU
+    with tf.device('/cpu:0'):
+
+        merged = []
+        for outputs in outputs_all:
+            merged.append(concatenate(outputs, axis=0))
+
+        return Model(inputs=model.inputs, outputs=merged)

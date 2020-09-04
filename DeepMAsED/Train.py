@@ -6,9 +6,9 @@ import logging
 import _pickle as pickle
 ## 3rd party
 import numpy as np
-import keras
-from keras.callbacks import EarlyStopping
-from keras.callbacks import ModelCheckpoint
+import tensorflow as tf
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.callbacks import ModelCheckpoint
 from sklearn.metrics import confusion_matrix, roc_curve
 from sklearn.metrics import recall_score, roc_auc_score, average_precision_score
 from sklearn.preprocessing import StandardScaler
@@ -76,7 +76,7 @@ def main(args):
                                            shuffle=False)
 
             #Train model
-            tb_logs = keras.callbacks.TensorBoard(log_dir=os.path.join(save_path, 'logs'), 
+            tb_logs = tf.keras.callbacks.TensorBoard(log_dir=os.path.join(save_path, 'logs'),
                                                   histogram_freq=0, 
                                                   write_graph=True, write_images=True)
             logging.info('Fold {}: Training network...'.format(val_idx))
@@ -114,7 +114,7 @@ def main(args):
         deepmased = Models.deepmased(config)
         deepmased.print_summary()
         dataGen = Models.Generator(x, y, args.max_len, args.batch_size)
-        tb_logs = keras.callbacks.TensorBoard(log_dir=os.path.join(save_path, 'logs_final'), 
+        tb_logs = tf.keras.callbacks.TensorBoard(log_dir=os.path.join(save_path, 'logs_final'),
                                               histogram_freq=0, 
                                               write_graph=True, write_images=True)
                      
@@ -144,8 +144,8 @@ def main(args):
             deepmased.net.fit_generator(generator=dataGen,
                         epochs=args.n_epochs, 
                         use_multiprocessing=args.n_procs > 1,
-                        verbose=2,
-                        callbacks=[tb_logs])
+                        verbose=2)#,
+                        # callbacks=[tb_logs])
 
             
         logging.info('Saving trained model...')

@@ -78,7 +78,7 @@ def parse_args(test_args=None, subparsers=None):
                         help='N of training epochs (default: %(default)s)')
     parser.add_argument('--batch-size', default=6, type=int, 
                         help='Batch size (default: %(default)s)')
-    parser.add_argument('--max-len', default=30000, type=int, 
+    parser.add_argument('--max-len', default=10000, type=int,
                         help='Max contig len, fixed input for CNN (default: %(default)s)')
     parser.add_argument('--dropout', default=0.5, type=float, 
                         help='Rate of dropout (default: %(default)s)')
@@ -92,6 +92,8 @@ def parse_args(test_args=None, subparsers=None):
                         help='Seed used for numpy.random (default: %(default)s)')
     parser.add_argument('--n-procs', default=1, type=int, 
                         help='Number of parallel processes (default: %(default)s)')
+    parser.add_argument('--n-gpu', default=1, type=int,
+                        help='Number of GPUs (default: %(default)s)')
     # running test args
     if test_args:
         args = parser.parse_args(test_args)

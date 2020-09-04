@@ -7,16 +7,16 @@ import _pickle as pickle
 from pathlib import Path
 ## 3rd party
 import numpy as np
-import keras
-from keras.callbacks import EarlyStopping
-from keras.callbacks import ModelCheckpoint
+import tensorflow as tf
+# tf.debugging.set_log_device_placement(True)
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.callbacks import ModelCheckpoint
 from sklearn.metrics import recall_score, roc_auc_score, average_precision_score
 
 import IPython
 ## Application
 from DeepMAsED import Models_FL as Models
 from DeepMAsED import Utils
-
 
 
 class Config(object):
@@ -30,7 +30,7 @@ class Config(object):
         self.pool_window = args.pool_window
         self.dropout = args.dropout
         self.lr_init = args.lr_init
-
+        self.n_gpu = args.n_gpu
 
 
 def main(args):
@@ -47,23 +47,15 @@ def main(args):
     logging.info('Train data dictionary created. number of samples: {}'.format(len(train_data_dict)))
 
 
-
-    x, y = Utils.load_features_tr(args.feature_file_table,
-                                  max_len=args.max_len,
-                                  technology = args.technology, chunks=False)
     # Load and process validation data if given
     if args.val_path:
         val_data_dict = Utils.build_sample_index(Path(args.val_path), args.n_procs)
         logging.info('Validation data dictionary created. number of samples: {}'.format(len(val_data_dict)))
-        x_val, y_val = Utils.load_features_tr(args.val_path,
-                                      max_len=args.max_len, 
-                                      technology = args.technology, chunks=False)
-        x_val = [item for sl in x_val for item in sl]
-        y_val = np.concatenate(y_val)
+
 
     # kfold cross validation
     if args.n_folds >= 0:
-    #     logging.info('Running kfold cross validation. n-folds: {}'.format(args.n_folds))
+        logging.info('Running kfold cross validation. n-folds: {}'.format(args.n_folds))
     #     outfile_h5 = os.path.join(save_path, str(args.n_folds - 1) + '_model.h5')
     #     if os.path.exists(outfile_h5) and args.force_overwrite is False:
     #         msg = 'Output already exists ({}). Use --force-overwrite to overwrite the file'
@@ -87,13 +79,13 @@ def main(args):
     #                                        shuffle=False)
     #
     #         #Train model
-    #         tb_logs = keras.callbacks.TensorBoard(log_dir=os.path.join(save_path, 'logs'),
+    #         tb_logs = tf.keras.callbacks.TensorBoard(log_dir=os.path.join(save_path, 'logs'),
     #                                               histogram_freq=0,
     #                                               write_graph=True, write_images=True)
     #         logging.info('Fold {}: Training network...'.format(val_idx))
     #         ## binary classification (extensive misassembly)
     #
-    #         deepmased.net.fit_generator(generator=dataGen,
+    #         deepmased.net.fit(x=dataGen,
     #                                     validation_data=dataGen_val,
     #                                     epochs=args.n_epochs,
     #                                     use_multiprocessing=args.n_procs > 1,
@@ -120,14 +112,18 @@ def main(args):
         logging.info('NOTE: Training on all pooled data!')
 
         logging.info('Constructing model...')
-        deepmased = Models.deepmased(config)
+        strategy = tf.distribute.MirroredStrategy()
+        print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
+
+        with strategy.scope():
+            deepmased = Models.deepmased(config)
         deepmased.print_summary()
 
 
         dataGen = Models.GeneratorBigD(train_data_dict, args.max_len, args.batch_size,
                                         shuffle = True, rnd_seed = args.seed, nprocs = args.n_procs)
-        tb_logs = keras.callbacks.TensorBoard(log_dir=os.path.join(save_path, 'logs_final'), 
-                                              histogram_freq=0, 
+        tb_logs = tf.keras.callbacks.TensorBoard(log_dir=os.path.join(save_path, 'logs_final'),
+                                              histogram_freq=0,
                                               write_graph=True, write_images=True)
                      
         if args.val_path:
@@ -143,8 +139,7 @@ def main(args):
                 mc_file = os.path.join(save_path, '_'.join(['mc', args.save_name, args.technology, 'model.h5']))
                 mc = ModelCheckpoint(mc_file, monitor='val_loss', verbose=1, save_best_only=True)
                 list_callbacks.append(mc)
-            deepmased.net.fit_generator(generator=dataGen,
-                                        validation_data=dataGen_val,
+            deepmased.net.fit(x=dataGen,validation_data=dataGen_val,
                                         epochs=args.n_epochs, 
                                         use_multiprocessing=args.n_procs > 1,
                                         workers=args.n_procs,
@@ -152,11 +147,16 @@ def main(args):
                                         callbacks=list_callbacks)
         else:
             logging.info('Training network...')
-            deepmased.net.fit_generator(generator=dataGen,
-                        epochs=args.n_epochs, 
+            #save model every epoch
+            mc_file = os.path.join(save_path, '_'.join(['mc_epoch', "ckpt-{epoch}", args.save_name, 'model.h5']))
+            logging.info('mc_file : {}'.format(mc_file))
+            mc = ModelCheckpoint(mc_file, save_freq="epoch", verbose=1)
+            deepmased.net.fit(x=dataGen,
+                        epochs=args.n_epochs,
+                        workers=args.n_procs,
                         use_multiprocessing=args.n_procs > 1,
                         verbose=2,
-                        callbacks=[tb_logs])
+                        callbacks=[tb_logs, mc])
 
             
         logging.info('Saving trained model...')
