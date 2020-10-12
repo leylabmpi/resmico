@@ -30,7 +30,6 @@ class Config(object):
         self.pool_window = args.pool_window
         self.dropout = args.dropout
         self.lr_init = args.lr_init
-        self.n_gpu = args.n_gpu
 
 
 def main(args):
@@ -113,7 +112,7 @@ def main(args):
 
         logging.info('Constructing model...')
         strategy = tf.distribute.MirroredStrategy()
-        print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
+        logging.info('Number of devices: {}'.format(strategy.num_replicas_in_sync))
 
         with strategy.scope():
             deepmased = Models.deepmased(config)
@@ -121,7 +120,8 @@ def main(args):
 
 
         dataGen = Models.GeneratorBigD(train_data_dict, args.max_len, args.batch_size,
-                                        shuffle = True, rnd_seed = args.seed, nprocs = args.n_procs)
+                                        shuffle = True, fraq_neg=args.fraq_neg,
+                                        rnd_seed = args.seed, nprocs = args.n_procs)
         tb_logs = tf.keras.callbacks.TensorBoard(log_dir=os.path.join(save_path, 'logs_final'),
                                               histogram_freq=0,
                                               write_graph=True, write_images=True)
@@ -129,7 +129,8 @@ def main(args):
         if args.val_path:
             logging.info('Training network with validation...')
             dataGen = Models.GeneratorBigD(train_data_dict, args.max_len, args.batch_size,
-                                           shuffle=False, rnd_seed=args.seed, nprocs=args.n_procs)
+                                           shuffle=False,
+                                           rnd_seed=args.seed, nprocs=args.n_procs)
             list_callbacks = [tb_logs, 
                               deepmased.reduce_lr,
                               Utils.roc_callback(dataGen_val)]
@@ -148,7 +149,7 @@ def main(args):
         else:
             logging.info('Training network...')
             #save model every epoch
-            mc_file = os.path.join(save_path, '_'.join(['mc_epoch', "ckpt-{epoch}", args.save_name, 'model.h5']))
+            mc_file = os.path.join(save_path, '_'.join(['mc_epoch', "{epoch}", args.save_name, 'model.h5']))
             logging.info('mc_file : {}'.format(mc_file))
             mc = ModelCheckpoint(mc_file, save_freq="epoch", verbose=1)
             deepmased.net.fit(x=dataGen,

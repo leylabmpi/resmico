@@ -28,7 +28,6 @@ class deepmased(object):
         self.lr_init = config.lr_init
         self.n_fc = config.n_fc
         self.n_hid = config.n_hid
-        self.n_gpu = config.n_gpu
 
         #self.net = Sequential()
         inlayer = Input(shape=(None, self.n_features), name='input')
@@ -36,18 +35,18 @@ class deepmased(object):
         x = Conv1D(self.filters, kernel_size=(5), 
                             input_shape=(None, self.n_features),
                             activation='relu', padding='valid', name='1st_conv')(inlayer)
-        x = BatchNormalization(axis=-1)(x)
+       # x = BatchNormalization(axis=-1)(x) todo: bn
 
         for i in range(1, self.n_conv-1):
             x = Conv1D(2 ** i * self.filters, kernel_size=(3), 
                                 strides=1, dilation_rate=2,
                                 activation='relu')(x)
-            x = BatchNormalization(axis=-1)(x)
+            # x = BatchNormalization(axis=-1)(x) todo: bn
             
         x = Conv1D(2 ** self.n_conv * self.filters, kernel_size=(3), 
                     strides=1, dilation_rate=2,
                     activation='relu')(x)
-        x = BatchNormalization(axis=-1)(x)
+        # x = BatchNormalization(axis=-1)(x) todo: bn
         
         maxP = GlobalMaxPooling1D()(x)
         avgP = GlobalAveragePooling1D()(x)
@@ -152,7 +151,7 @@ class Generator(tf.keras.utils.Sequence):
 
 class GeneratorBigD(tf.keras.utils.Sequence):
     def __init__(self, data_dict, max_len, batch_size,
-                 shuffle=True, rnd_seed=None, nprocs=4): 
+                 shuffle=True, fraq_neg=1, rnd_seed=None, nprocs=4):
         self.max_len = max_len
         self.batch_size = batch_size
         self.data_dict = data_dict
@@ -164,7 +163,7 @@ class GeneratorBigD(tf.keras.utils.Sequence):
         all_labels = Utils.read_all_labels(self.data_dict)
         self.inds_pos = np.arange(len(all_labels))[np.array(all_labels) == 1]
         self.inds_neg = np.arange(len(all_labels))[np.array(all_labels) == 0]
-        self.fraq_neg = 0.3  #downsampling
+        self.fraq_neg = fraq_neg  #downsampling
         self.num_neg = int(self.fraq_neg*len(self.inds_neg))
         self.on_epoch_end()
 
@@ -173,13 +172,15 @@ class GeneratorBigD(tf.keras.utils.Sequence):
         Reshuffle when epoch ends
         """
         if self.shuffle:
+            logging.info("shuffle and downsample over-represented class by  {}".format(self.fraq_neg))
             np.random.shuffle(self.inds_neg)
             self.indices = np.concatenate((self.inds_pos, self.inds_neg[:self.num_neg]))
             np.random.shuffle(self.indices)
         else:
+            #we do not shuffle and do not downsample when test
             self.indices = np.arange(len(self.data_dict))
 
-        print('len(self.indices)',len(self.indices))
+        logging.info("len(self.indices) {}".format(len(self.indices)))
 
             
     def generate(self, indices_tmp):
@@ -276,6 +277,6 @@ class GeneratorBigD(tf.keras.utils.Sequence):
 
         # logging.info("generate batch {}".format(index))
         x_mb, y_mb = self.generate(indices_tmp)
-        if index<1000: #to see some progress
+        if index%100==0: #to see some progress
             logging.info("new batch {}".format(index))
         return x_mb, y_mb

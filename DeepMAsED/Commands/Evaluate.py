@@ -35,8 +35,12 @@ def parse_args(test_args=None, subparsers=None):
     pkg_path, pkg_model = os.path.split(pkg_model)
     _, pkg_mstd  = os.path.split(pkg_mstd)
     # args
-    parser.add_argument('feature_file_table',  metavar='feature_file_table', type=str, 
-                        help='Table listing feature table files (see Train docs)')
+    parser.add_argument('--big-data', action='store_true', default=False,
+                        help='Use True if work with large dataset in h5 format')
+    parser.add_argument('--feature-files-path',  default='', type=str,
+                        help='Path to h5 feature files')
+    parser.add_argument('--feature-file-table',  default='', type=str,
+                        help='Table listing feature table files (see DESCRIPTION)')
     parser.add_argument('--model-path',  default=pkg_path, type=str, 
                         help='Directory containing the model (default: %(default)s)')
     parser.add_argument('--model-name', default=pkg_model, type=str, 
@@ -52,11 +56,16 @@ def parse_args(test_args=None, subparsers=None):
     parser.add_argument('--max-len', default=10000, type=int, 
                         help='Max contig len, fixed input for CNN (default: %(default)s)')
     parser.add_argument('--technology', default='all-asmbl', type=str, 
-                        help='Assembler name in the data_path. "all-asmbl" will use all assemblers (default: %(default)s)')    
+                        help='Assembler name in the data_path. "all-asmbl" will use all assemblers (default: %(default)s)')
+    parser.add_argument('--sdepth', default=None, type=str,
+                        help='Use only data with this sequencing depth (default: %(default)s)')
+    parser.add_argument('--rich', default=None, type=str,
+                        help='Use only data with this comunity richness (default: %(default)s)')
     parser.add_argument('--seed', default=12, type=int, 
                         help='Seed used for numpy.random (default: %(default)s)')
     parser.add_argument('--n-procs', default=1, type=int, 
                         help='Number of parallel processes (default: %(default)s)')
+
     # running test args
     if test_args:
         args = parser.parse_args(test_args)

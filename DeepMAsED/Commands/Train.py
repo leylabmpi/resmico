@@ -92,8 +92,8 @@ def parse_args(test_args=None, subparsers=None):
                         help='Seed used for numpy.random (default: %(default)s)')
     parser.add_argument('--n-procs', default=1, type=int, 
                         help='Number of parallel processes (default: %(default)s)')
-    parser.add_argument('--n-gpu', default=1, type=int,
-                        help='Number of GPUs (default: %(default)s)')
+    parser.add_argument('--fraq_neg', default=1., type=float,
+                        help='Portion of samples to keep in overrepresented class (default: %(default)s)')
     # running test args
     if test_args:
         args = parser.parse_args(test_args)

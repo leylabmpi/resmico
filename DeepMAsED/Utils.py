@@ -787,8 +787,18 @@ def _get_sample_index_from_file(f, metadata_func):
 def _metadata_func(p: Path):
     return p.parts[-5:-1]
 
-def build_sample_index(base_path: Path, nprocs: int):
-    part_files = base_path.glob('**/*.h5')
+def build_sample_index(base_path: Path, nprocs: int, sdepth=None, rich=None):
+    pattern = '**/'
+    if rich:
+        pattern += rich
+        if sdepth:
+            pattern += '/*/'
+        else:
+            pattern += '/**'
+    if sdepth:
+        pattern += sdepth+'/*'
+    pattern += '/*.h5'
+    part_files = base_path.glob(pattern)
 
     with pathos.multiprocessing.Pool(nprocs) as pool:
         partial_dicts = pool.map(lambda f: _get_sample_index_from_file(f, _metadata_func), part_files)
