@@ -72,7 +72,7 @@ class deepmased(object):
 
 
         self.reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
-                               monitor='val_loss', factor=0.5,
+                               monitor='val_loss', factor=0.8,
                                patience=5, min_lr = 0.01 * self.lr_init)
 
     def predict(self, x):
@@ -177,7 +177,7 @@ class GeneratorBigD(tf.keras.utils.Sequence):
             self.indices = np.concatenate((self.inds_pos, self.inds_neg[:self.num_neg]))
             np.random.shuffle(self.indices)
         else:
-            #we do not shuffle and do not downsample when test
+            #we do not shuffle and do not downsample for test and validation data
             self.indices = np.arange(len(self.data_dict))
 
         logging.info("len(self.indices) {}".format(len(self.indices)))

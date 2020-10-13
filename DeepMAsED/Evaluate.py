@@ -54,8 +54,6 @@ def main(args):
             model.compile(loss='binary_crossentropy',
                              optimizer=optimizer,
                              metrics=[Utils.class_recall_0, Utils.class_recall_1])
-
-
             score_val = model.predict(dataGen, use_multiprocessing=args.n_procs > 1, workers=args.n_procs)
         aupr = average_precision_score(labels_val, score_val)
         logging.info('average_precision_score: {}'.format(aupr))

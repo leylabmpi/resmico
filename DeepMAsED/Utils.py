@@ -649,7 +649,7 @@ def class_recall_1(y_true, y_pred):
     return class_acc
 
 
-class roc_callback(Callback):
+class auc_callback(Callback):
     def __init__(self,val_gen):
         self.val_gen = val_gen   
     

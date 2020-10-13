@@ -12,6 +12,7 @@ import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.callbacks import ModelCheckpoint
 from sklearn.metrics import recall_score, roc_auc_score, average_precision_score
+from sklearn.model_selection import train_test_split
 
 import IPython
 ## Application
@@ -45,12 +46,7 @@ def main(args):
     train_data_dict = Utils.build_sample_index(Path(args.feature_files_path), args.n_procs)
     logging.info('Train data dictionary created. number of samples: {}'.format(len(train_data_dict)))
 
-
-    # Load and process validation data if given
-    if args.val_path:
-        val_data_dict = Utils.build_sample_index(Path(args.val_path), args.n_procs)
-        logging.info('Validation data dictionary created. number of samples: {}'.format(len(val_data_dict)))
-
+    train_full = False #if we want at the very end to use all data
 
     # kfold cross validation
     if args.n_folds >= 0:
@@ -118,47 +114,74 @@ def main(args):
             deepmased = Models.deepmased(config)
         deepmased.print_summary()
 
-
-        dataGen = Models.GeneratorBigD(train_data_dict, args.max_len, args.batch_size,
-                                        shuffle = True, fraq_neg=args.fraq_neg,
-                                        rnd_seed = args.seed, nprocs = args.n_procs)
         tb_logs = tf.keras.callbacks.TensorBoard(log_dir=os.path.join(save_path, 'logs_final'),
                                               histogram_freq=0,
                                               write_graph=True, write_images=True)
-                     
+        # save model every epoch
+        mc_file = os.path.join(save_path, '_'.join(['mc_epoch', "{epoch}", args.save_name, 'model.h5']))
+        logging.info('mc_file : {}'.format(mc_file))
+        mc = ModelCheckpoint(mc_file, save_freq="epoch", verbose=1)
+
         if args.val_path:
             logging.info('Training network with validation...')
-            dataGen = Models.GeneratorBigD(train_data_dict, args.max_len, args.batch_size,
+            val_data_dict = Utils.build_sample_index(Path(args.val_path), args.n_procs)
+            logging.info('Validation data dictionary created. number of samples: {}'.format(len(val_data_dict)))
+            dataGen_val = Models.GeneratorBigD(val_data_dict, args.max_len, args.batch_size,
                                            shuffle=False,
                                            rnd_seed=args.seed, nprocs=args.n_procs)
-            list_callbacks = [tb_logs, 
+            list_callbacks = [tb_logs, mc,
                               deepmased.reduce_lr,
-                              Utils.roc_callback(dataGen_val)]
-            if args.early_stop:
-                es = EarlyStopping(monitor='val_loss', verbose=1, patience=9)
-                list_callbacks.append(es)
-                mc_file = os.path.join(save_path, '_'.join(['mc', args.save_name, args.technology, 'model.h5']))
-                mc = ModelCheckpoint(mc_file, monitor='val_loss', verbose=1, save_best_only=True)
-                list_callbacks.append(mc)
+                              Utils.auc_callback(dataGen_val)]
+            # if args.early_stop:
+            #     es = EarlyStopping(monitor='val_loss', verbose=1, patience=9)
+            #     list_callbacks.append(es)
+            #     mc_file = os.path.join(save_path, '_'.join(['mc', args.save_name, args.technology, 'model.h5']))
+            #     mc = ModelCheckpoint(mc_file, monitor='val_loss', verbose=1, save_best_only=True)
+            #     list_callbacks.append(mc)
+
             deepmased.net.fit(x=dataGen,validation_data=dataGen_val,
-                                        epochs=args.n_epochs, 
+                                        epochs=args.n_epochs,
                                         use_multiprocessing=args.n_procs > 1,
                                         workers=args.n_procs,
                                         verbose=2,
                                         callbacks=list_callbacks)
-        else:
+        elif train_full==False:
+            logging.info('split data')
+            contigs = list(train_data_dict.items())
+            items_train, items_test = train_test_split(contigs, test_size=0.1, random_state=args.seed)
+            split_train_dict = dict(items_train)
+            split_val_dict = dict(items_test)
+            dataGen_split_train = Models.GeneratorBigD(split_train_dict, args.max_len, args.batch_size,
+                                           shuffle=True, fraq_neg=args.fraq_neg,
+                                           rnd_seed=args.seed, nprocs=args.n_procs)
+            dataGen_split_val = Models.GeneratorBigD(split_val_dict, args.max_len, args.batch_size,
+                                           shuffle=False,
+                                           rnd_seed=args.seed, nprocs=args.n_procs)
+
+            list_callbacks = [mc, #tb_logs
+                              deepmased.reduce_lr,
+                              Utils.auc_callback(dataGen_split_val)]
+
             logging.info('Training network...')
-            #save model every epoch
-            mc_file = os.path.join(save_path, '_'.join(['mc_epoch', "{epoch}", args.save_name, 'model.h5']))
-            logging.info('mc_file : {}'.format(mc_file))
-            mc = ModelCheckpoint(mc_file, save_freq="epoch", verbose=1)
+            deepmased.net.fit(x=dataGen_split_train, validation_data=dataGen_split_val,
+                        epochs=args.n_epochs,
+                        workers=args.n_procs,
+                        use_multiprocessing=args.n_procs > 1,
+                        verbose=2,
+                        callbacks=list_callbacks)
+
+        else:
+            dataGen = Models.GeneratorBigD(train_data_dict, args.max_len, args.batch_size,
+                                           shuffle=True, fraq_neg=args.fraq_neg,
+                                           rnd_seed=args.seed, nprocs=args.n_procs)
+            logging.info('Training network...')
+
             deepmased.net.fit(x=dataGen,
                         epochs=args.n_epochs,
                         workers=args.n_procs,
                         use_multiprocessing=args.n_procs > 1,
                         verbose=2,
                         callbacks=[tb_logs, mc])
-
             
         logging.info('Saving trained model...')
         x = [args.save_name, args.technology, 'model.h5']
