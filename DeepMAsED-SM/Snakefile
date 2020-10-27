@@ -95,7 +95,7 @@ def Expand(file_template, param_df, debug=False):
     return(files)
 
 ## Modular snakefiles
-include: snake_dir + 'bin/Snakefile'
+include: snake_dir + 'bin/ll_pipeline_utils/Snakefile'
 if config['just_features']:
     include: snake_dir + 'bin/gs_map/Snakefile'
 else:
