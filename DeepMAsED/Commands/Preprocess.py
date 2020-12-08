@@ -35,6 +35,8 @@ def parse_args(test_args=None, subparsers=None):
     Lastly,run '--standard-data' with precomputed mean and std, this will standartize data
     and rewrite pickled version of datatables. Apply it to both train and test set.
     The resulting pickle files could be used as input to the model.
+    
+    The new data loader relies on .h5 format, so in addition run convert_pickles_to_hdf.sh
     """
     if subparsers:
         parser = subparsers.add_parser('preprocess', description=desc, epilog=epi,

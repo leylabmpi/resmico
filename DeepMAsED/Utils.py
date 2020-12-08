@@ -26,7 +26,6 @@ from sklearn.metrics import average_precision_score
 import IPython
 ## application
 
-
 def nested_dict():
     return defaultdict(nested_dict)
 
@@ -439,7 +438,7 @@ def load_features(feat_file_table, max_len=10000,
     Returns:
         x, y, i2n: lists, where each element comes from one metagenome, and 
           a dictionary with idx -> (rich, depth, rep, contig_name)
-          Dictionary is needed to track number of chuncks corresponding to the same contig.
+          Dictionary is needed to track number of chunks corresponding to the same contig.
     """
 
 
@@ -663,7 +662,7 @@ class auc_callback(Callback):
         return
  
     def on_epoch_end(self, epoch, logs={}): 
-        y_pred_val = self.model.predict_generator(self.val_gen)
+        y_pred_val = self.model.predict(self.val_gen)
         y_true_val = self.val_gen.y
         auc_val = average_precision_score(y_true_val, y_pred_val)
 #         auc_val = average_precision_score(y_true_val[:len(y_pred_val)], y_pred_val)   #last batch was not readed    
@@ -825,6 +824,24 @@ def read_all_labels(samples_dict):
         y.extend(_read_label_from_file(f, samples))
     return np.array(y)
 
+def _read_len_from_file(f, samples):
+    sample_ids = [ s[0].split('/')[-1] for s in samples]
+    with tables.open_file(f, 'r') as h5f:
+        sample_lookup = { s.decode('utf-8') : i for i, s in enumerate(h5f.get_node('/samples')[:]) }
+        # index of s samples within a file
+        sample_idx = [sample_lookup[s] for s in sample_ids]
+        ends = h5f.get_node('/offset_ends')[sample_idx]
+        lens = [x - y for x, y in zip(ends, np.concatenate(([0],ends[:-1])))]
+    return lens
+
+def read_all_lens(samples_dict):
+    files_dict = itertoolz.groupby(lambda t:t[1], list(itertoolz.map(
+                                   lambda s: (s, samples_dict[s]), samples_dict.keys())))
+    y = []
+    for f, samples in files_dict.items():
+        y.extend(_read_len_from_file(f, samples))
+    return np.array(y)
+
 
 def make_parallel(model, gpu_count):
     def get_slice(data, idx, parts):
@@ -872,3 +889,51 @@ def make_parallel(model, gpu_count):
             merged.append(concatenate(outputs, axis=0))
 
         return Model(inputs=model.inputs, outputs=merged)
+
+
+#data reading
+def clip_range(range_orig, seed, max_length):
+    if range_orig[1] - range_orig[0] <= max_length:
+        return range_orig
+
+    np.random.seed(seed)
+    new_start = np.random.randint(range_orig[0], range_orig[1] - max_length)
+    
+    return new_start, new_start + max_length
+
+
+def read_data_from_file(f, samples, seed, max_range_length):
+    sample_ids = [s[0].split('/')[-1] for s in samples]
+
+    mats = []
+    # logging.info(f"Reading data from {f}. Reading {len(samples)} samples.")
+    with tables.open_file(f, 'r') as h5f:
+        sample_lookup = {s.decode('utf-8'): i for i, s in enumerate(h5f.get_node('/samples')[:])}
+
+        # index of s samples within a file
+        sample_idx = [sample_lookup[s] for s in sample_ids]
+
+        labels = h5f.get_node('/labels')[sample_idx]
+
+        offsets = h5f.get_node('/offset_ends')[:]
+        ranges = [(offsets[idx - 1] if idx > 0 else 0, offsets[idx]) for idx in sample_idx]
+
+        np.random.seed(seed)
+        range_seeds = np.random.randint(0, 10000000, len(ranges))
+        ranges_to_read = [clip_range(r, s, max_range_length) for (r, s) in zip(ranges, range_seeds)]
+
+        data_h5 = h5f.get_node('/data')
+        for s, e in ranges_to_read:
+            mats.append(data_h5[s:e, :])
+        return mats, labels
+
+
+def file_reading(file_items, max_len):
+    with pathos.multiprocessing.Pool(16) as pool:
+        pool_res = pool.map(lambda t:read_data_from_file(t[0], t[1], t[2], max_len), file_items)
+    X, y = [], []
+    for (dl, ll) in pool_res:
+        for (d, l) in zip(dl, ll):
+            X.append(d)
+            y.append(l)
+    return X, y

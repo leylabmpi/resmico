@@ -40,7 +40,7 @@ def main(args):
         # do not distinguish megahit and metaspades
         data_dict = Utils.build_sample_index(Path(args.feature_files_path), args.n_procs,
                                              sdepth=args.sdepth, rich=args.rich)
-        logging.info('Train data dictionary created. number of samples: {}'.format(len(data_dict)))
+        logging.info('Data dictionary created. Number of samples: {}'.format(len(data_dict)))
         dataGen = Models.GeneratorBigD(data_dict, args.max_len, args.batch_size,
                                       shuffle=False, rnd_seed=args.seed, nprocs=args.n_procs)
         labels_val = Utils.read_all_labels(data_dict)
