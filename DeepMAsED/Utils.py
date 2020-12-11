@@ -17,9 +17,8 @@ import pathos
 import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.callbacks import Callback
-from tensorflow.keras.layers import concatenate
-from tensorflow.keras.layers import Lambda
-from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Conv1D, ReLU, BatchNormalization, Add, AveragePooling2D, Flatten, Dense
+
 import numpy as np
 import pandas as pd
 from sklearn.metrics import average_precision_score
@@ -786,19 +785,27 @@ def _get_sample_index_from_file(f, metadata_func):
 def _metadata_func(p: Path):
     return p.parts[-5:-1]
 
-def build_sample_index(base_path: Path, nprocs: int, sdepth=None, rich=None):
+def build_sample_index(base_path: Path, nprocs: int, sdepth=None, rich=None, rep10=False, filter10=False):
     pattern = '**/'
     if rich:
-        pattern += rich
-        if sdepth:
-            pattern += '/*/'
-        else:
-            pattern += '/**'
-    if sdepth:
-        pattern += sdepth+'/*'
-    pattern += '/*.h5'
-    part_files = base_path.glob(pattern)
+        pattern += rich+'/'
+    else:
+        pattern += '*/'
 
+    if rep10:
+        pattern += '10/'
+    elif filter10:
+        pattern += '?/' #any 1digit number
+    else:
+        pattern += '*/'
+
+    if sdepth:
+        pattern += sdepth+'/'
+    else:
+        pattern += '*/'
+
+    pattern += '*/*.h5'
+    part_files = base_path.glob(pattern)
     with pathos.multiprocessing.Pool(nprocs) as pool:
         partial_dicts = pool.map(lambda f: _get_sample_index_from_file(f, _metadata_func), part_files)
 
@@ -841,54 +848,6 @@ def read_all_lens(samples_dict):
     for f, samples in files_dict.items():
         y.extend(_read_len_from_file(f, samples))
     return np.array(y)
-
-
-def make_parallel(model, gpu_count):
-    def get_slice(data, idx, parts):
-        shape = tf.shape(data)
-        stride = tf.concat([shape[:1] // parts, shape[1:] * 0], 0)
-        start = stride * idx
-
-        size = tf.concat([shape[:1] // parts, shape[1:]], 0)
-        # Split the batch into equal parts
-
-        return tf.slice(data, start, size)
-
-    outputs_all = []
-    for i in range(len(model.outputs)):
-        outputs_all.append([])
-
-    # Place a copy of the model on each GPU, each getting a slice of the batch
-    for i in range(gpu_count):
-        with tf.device('/gpu:%d' % i):
-
-            with tf.name_scope('tower_%d' % i) as scope:
-
-                inputs = []
-                # Slice each input into a piece for processing on this GPU
-                for x in model.inputs:
-                    input_shape = tuple(x.get_shape().as_list())[1:]
-                    slice_n = Lambda(get_slice, output_shape=input_shape,
-                                     arguments={'idx': i, 'parts': gpu_count})(x)
-                    inputs.append(slice_n)
-
-                outputs = model(inputs)
-
-                if not isinstance(outputs, list):
-                    outputs = [outputs]
-
-                # Save all the outputs for merging back together later
-                for l in range(len(outputs)):
-                    outputs_all[l].append(outputs[l])
-
-    # Merge outputs on CPU
-    with tf.device('/cpu:0'):
-
-        merged = []
-        for outputs in outputs_all:
-            merged.append(concatenate(outputs, axis=0))
-
-        return Model(inputs=model.inputs, outputs=merged)
 
 
 #data reading
@@ -937,3 +896,29 @@ def file_reading(file_items, max_len):
             X.append(d)
             y.append(l)
     return X, y
+
+#for resnet
+def relu_bn(inputs):
+    relu = ReLU()(inputs)
+    bn = BatchNormalization()(relu)
+    return bn
+
+def residual_block(x, downsample: bool, filters, kernel_size):
+    y = Conv1D(kernel_size=kernel_size,
+               strides=(1 if not downsample else 2),
+               filters=filters,
+               padding="same")(x)
+    y = relu_bn(y)
+    y = Conv1D(kernel_size=kernel_size,
+               strides=1,
+               filters=filters,
+               padding="same")(y)
+
+    if downsample:
+        x = Conv1D(kernel_size=1,
+                   strides=2,
+                   filters=filters,
+                   padding="same")(x)
+    out = Add()([x, y])
+    out = relu_bn(out)
+    return out

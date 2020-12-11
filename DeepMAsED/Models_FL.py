@@ -12,6 +12,7 @@ from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import Input, BatchNormalization
 from tensorflow.keras.layers import GlobalMaxPooling1D, GlobalAveragePooling1D, concatenate
 from tensorflow.keras.layers import Conv1D, Conv2D, Dropout, Dense
+from tensorflow.keras.layers import Bidirectional, LSTM
 ## application
 from DeepMAsED import Utils
 
@@ -29,34 +30,80 @@ class deepmased(object):
         self.lr_init = config.lr_init
         self.n_fc = config.n_fc
         self.n_hid = config.n_hid
+        self.net_type = config.net_type #'lstm', 'cnn_globpool', 'cnn_resnet', 'cnn_lstm'
+        self.num_blocks = config.num_blocks
+        self.ker_size = config.ker_size
 
-        #self.net = Sequential()
         inlayer = Input(shape=(None, self.n_features), name='input')
 
-        x = Conv1D(self.filters, kernel_size=(10),
-                            input_shape=(None, self.n_features),
-                            activation='relu', padding='valid', name='1st_conv')(inlayer)
-       # x = BatchNormalization(axis=-1)(x) todo: bn
-       #  x = Dropout(rate=self.dropout)(x)
 
-        for i in range(1, self.n_conv-1):
-            x = Conv1D(2 ** i * self.filters, kernel_size=(5),
-                                strides=1, dilation_rate=2,
-                                activation='relu')(x)
+        if self.net_type=='cnn_globpool':
+            x = Conv1D(self.filters, kernel_size=(10),
+                                input_shape=(None, self.n_features),
+                                activation='relu', padding='valid', name='1st_conv')(inlayer)
+           # x = BatchNormalization(axis=-1)(x) todo: bn
+           #  x = Dropout(rate=self.dropout)(x)
+
+            for i in range(1, self.n_conv-1):
+                x = Conv1D(2 ** i * self.filters, kernel_size=(5),
+                                    strides=1, dilation_rate=2,
+                                    activation='relu')(x)
+                # x = BatchNormalization(axis=-1)(x) todo: bn
+                x = Dropout(rate=self.dropout)(x)
+
+            x = Conv1D(2 ** self.n_conv * self.filters, kernel_size=(3),
+                        strides=1, dilation_rate=2,
+                        activation='relu')(x)
             # x = BatchNormalization(axis=-1)(x) todo: bn
             x = Dropout(rate=self.dropout)(x)
-            
-        x = Conv1D(2 ** self.n_conv * self.filters, kernel_size=(3),
-                    strides=1, dilation_rate=2,
-                    activation='relu')(x)
-        # x = BatchNormalization(axis=-1)(x) todo: bn
-        x = Dropout(rate=self.dropout)(x)
-        
-        maxP = GlobalMaxPooling1D()(x)
-        avgP = GlobalAveragePooling1D()(x)
-        x = concatenate([maxP, avgP])
 
-        optimizer = tf.keras.optimizers.Adam(lr=self.lr_init)
+            maxP = GlobalMaxPooling1D()(x)
+            avgP = GlobalAveragePooling1D()(x)
+            x = concatenate([maxP, avgP])
+
+        elif self.net_type=='lstm':
+            x = Bidirectional(LSTM(20, return_sequences=True), merge_mode="concat")(inlayer)
+            x = Bidirectional(LSTM(40, return_sequences=True, dropout = 0.0), merge_mode="ave")(x)
+            x = Bidirectional(LSTM(60, return_sequences=True, dropout=0.0), merge_mode="ave")(x)
+            x = Bidirectional(LSTM(80, return_sequences=False, dropout=0.0), merge_mode="concat")(x)
+
+        elif self.net_type=='cnn_lstm':
+            x = Conv1D(self.filters, kernel_size=(10),
+                       input_shape=(None, self.n_features),
+                       activation='relu', padding='valid', name='1st_conv')(inlayer)
+            for i in range(1, self.n_conv - 1):
+                x = Conv1D(2 ** i * self.filters, kernel_size=(5),
+                           strides=1, dilation_rate=2,
+                           activation='relu')(x)
+                x = Dropout(rate=self.dropout)(x)
+            x = Conv1D(2 ** self.n_conv * self.filters, kernel_size=(3),
+                       strides=1, dilation_rate=2,
+                       activation='relu')(x)
+            x = Dropout(rate=self.dropout)(x)
+            x = Bidirectional(LSTM(40, return_sequences=False, dropout=0.0), merge_mode="concat")(x)
+
+        elif self.net_type=='cnn_resnet':
+            x = BatchNormalization()(inlayer)
+            x = Conv1D(self.filters, kernel_size=10,
+                                input_shape=(None, self.n_features),
+                                padding='valid', name='1st_conv')(x)
+            x = Utils.relu_bn(x)
+            num_filters=self.filters
+            if self.num_blocks == 3:
+                num_blocks_list = [2, 5, 2]
+            if self.num_blocks == 4:
+                num_blocks_list = [2, 5, 5, 2]
+            for i in range(len(num_blocks_list)):
+                num_blocks = num_blocks_list[i]
+                for j in range(num_blocks):
+                    x = Utils.residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
+                                             kernel_size=self.ker_size)
+                num_filters *= 2
+
+            maxP = GlobalMaxPooling1D()(x)
+            avgP = GlobalAveragePooling1D()(x)
+            x = concatenate([maxP, avgP])
+
 
         for _ in range(self.n_fc):
             x = Dense(self.n_hid, activation='relu')(x)
@@ -64,26 +111,19 @@ class deepmased(object):
 
         x = Dense(1, activation='sigmoid')(x)
 
-        #MirroredStrategy is used instead
-        # if self.n_gpu>1:
-        #     self.net = Utils.make_parallel(Model(inputs=inlayer,outputs=x), self.n_gpu)
-        # else:
-        #     self.net = Model(inputs=inlayer,outputs=x)
+        optimizer = tf.keras.optimizers.Adam(lr=self.lr_init)
         self.net = Model(inputs=inlayer, outputs=x)
         self.net.compile(loss='binary_crossentropy',
                          optimizer=optimizer,
                          metrics=[Utils.class_recall_0, Utils.class_recall_1])
 
 
-        self.reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
-                               monitor='val_loss', factor=0.8,
-                               patience=5, min_lr = 0.01 * self.lr_init)
+        # self.reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
+        #                        monitor='val_loss', factor=0.8,
+        #                        patience=5, min_lr = 0.01 * self.lr_init)
 
-    def predict(self, x):
-        return self.net.predict(x)
-
-    def predict_generator(self, x):
-        return self.net.predict_generator(x)
+    def predict(self, x, **kwargs):
+        return self.net.predict(x, **kwargs)
 
     def print_summary(self):
         print(self.net.summary())
@@ -172,6 +212,9 @@ class GeneratorBigD(tf.keras.utils.Sequence):
         self.num_neg = int(self.fraq_neg*len(self.inds_neg))
         self.on_epoch_end()
 
+        np.random.seed(self.rnd_seed)
+        logging.info('init generator')
+
     def on_epoch_end(self):
         """
         Reshuffle when epoch ends
@@ -236,6 +279,6 @@ class GeneratorBigD(tf.keras.utils.Sequence):
 
         # logging.info("generate batch {}".format(index))
         x_mb, y_mb = self.generate(indices_tmp)
-        if index%20==0: #to see some progress
+        if index%50==0: #to see some progress
             logging.info("new batch {}".format(index))
         return x_mb, y_mb
