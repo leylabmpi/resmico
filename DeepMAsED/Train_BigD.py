@@ -106,10 +106,10 @@ def main(args):
             all_contigs = list(train_data_dict.items())
             train_data_dict = dict(np.array(all_contigs)[inds_short])
             logging.info('from {}, {} short contigs left'.format(len(all_lens), len(inds_short)))
-            # validation is not downsampled and always the same max len 5k
+            # validation is not downsampled and always the same max len 5k -- YES
             logging.info('max_len for validation: {}'.format(5000))
             all_lens = Utils.read_all_lens(val_data_dict)
-            inds_short = np.arange(len(all_lens))[np.array(all_lens) <= 5000]
+            inds_short = np.arange(len(all_lens))[np.array(all_lens) <= args.max_len]
             all_contigs = list(val_data_dict.items())
             val_data_dict = dict(np.array(all_contigs)[inds_short])
             logging.info('from {}, {} short contigs left'.format(len(all_lens), len(inds_short)))
@@ -148,7 +148,7 @@ def main(args):
 
         logging.info('Training network...')
         num_epochs = 3
-        auc_val_best = 0.7
+        auc_val_best = 0.77
         for iter in range(math.ceil(args.n_epochs/num_epochs)):
             start = time.time()
             deepmased.net.fit(x=dataGen_split_train,
@@ -172,17 +172,16 @@ def main(args):
             loss_val = log_loss(y_true_val, y_pred_val)
             recall1_val = recall_score(y_true_val, y_pred_val>0.5, pos_label=1)
             recall0_val = recall_score(y_true_val, y_pred_val>0.5, pos_label=0)
-            logging.info('Validation scores after {} epochs: aucPR: {} - loss: {} ' /
-                         '- recall1: {} - recall0: {} - mean: {}'.format(
+            logging.info('Validation scores after {} epochs: aucPR: {} - loss: {} - recall1: {} - recall0: {} - mean: {}'.format(
                 (iter+1)*num_epochs, auc_val, loss_val, recall1_val, recall0_val, np.mean(y_pred_val)))
             duration = time.time() - start
             logging.info("time validation {}".format(duration))
 
             # update the learning rate
-            if ((iter+1)*num_epochs>5) and (auc_val < auc_val_best):
+            if ((iter+1)*num_epochs>15) and (auc_val < auc_val_best):
                 lr_old = K.get_value(deepmased.net.optimizer.lr)
                 print("[INFO] old learning rate: {}".format(lr_old))
-                K.set_value(deepmased.net.optimizer.lr, lr_old*0.5)
+                K.set_value(deepmased.net.optimizer.lr, lr_old*0.8) #changed for 120h jobs
                 print("[INFO] new learning rate: {}".format(K.get_value(deepmased.net.optimizer.lr)))
 
             if auc_val > auc_val_best:

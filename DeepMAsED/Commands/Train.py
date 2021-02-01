@@ -68,9 +68,9 @@ def parse_args(test_args=None, subparsers=None):
                         help='Early stopping. Can be used only if val-path provided (default: %(default)s)')
     parser.add_argument('--net-type', default='cnn_globpool', type=str,
                         help='Type of NN: lstm, cnn_globpool, cnn_resnet, cnn_lstm (default: %(default)s)')
-    parser.add_argument('--num-blocks', default=4, type=int,
-                        help='Number of residual blocks (3 or 4) (default: %(default)s)')
-    parser.add_argument('--filters', default=8, type=int, 
+    parser.add_argument('--num-blocks', default=5, type=int,
+                        help='Number of residual blocks (3 or 4, 5, 6) (default: %(default)s)')
+    parser.add_argument('--filters', default=16, type=int,
                         help='N of filters for first conv layer. Then x2 (default: %(default)s)')
     parser.add_argument('--ker-size', default=5, type=int,
                         help='CNN kernel size (default: %(default)s)')

@@ -93,6 +93,10 @@ class deepmased(object):
                 num_blocks_list = [2, 5, 2]
             if self.num_blocks == 4:
                 num_blocks_list = [2, 5, 5, 2]
+            if self.num_blocks == 5:
+                num_blocks_list = [2, 3, 5, 5, 2]
+            if self.num_blocks == 6:
+                num_blocks_list = [2, 3, 5, 5, 3, 2]
             for i in range(len(num_blocks_list)):
                 num_blocks = num_blocks_list[i]
                 for j in range(num_blocks):
@@ -282,3 +286,79 @@ class GeneratorBigD(tf.keras.utils.Sequence):
         if index%50==0: #to see some progress
             logging.info("new batch {}".format(index))
         return x_mb, y_mb
+
+
+class GeneratorPredLong(tf.keras.utils.Sequence):
+    def __init__(self, data_dict, batch_list, window, nprocs): # data_dict contains all data, because indexes are global
+        self.data_dict = data_dict
+        self.batch_list = batch_list
+        self.window = window
+        self.step = window / 2
+        self.n_feat = 21
+        self.all_lens = Utils.read_all_lens(data_dict)
+        self.indices = np.arange(len(batch_list))
+        self.nprocs = nprocs
+
+    def generate(self, ind):
+        sample_keys = np.array(list(self.data_dict.keys()))[self.batch_list[ind]]
+        files_dict = itertoolz.groupby(lambda t: t[1], list(
+            itertoolz.map(lambda s: (s, self.data_dict[s]), sample_keys)))
+        X = Utils.load_full_contigs(files_dict)
+
+        batch_size = 0
+        for cont_ind in self.batch_list[ind]:
+            batch_size += 1+Utils.n_moves_window(self.all_lens[cont_ind], self.window, self.step)
+
+        x_mb = np.zeros((int(batch_size), self.window, self.n_feat))
+        mb_pos = 0
+        for i, xi in enumerate(X):
+            len_contig = xi.shape[0]
+            for idx_chunk in range(int(1+Utils.n_moves_window(len_contig, self.window, self.step))):
+                start_pos = int(idx_chunk * self.step)
+                end_pos = start_pos + self.window
+                chunked = xi[start_pos: int(min(end_pos, len_contig)), :]
+                x_mb[mb_pos, 0:chunked.shape[0]] = chunked  # padding is happenning here
+                mb_pos += 1
+        return x_mb
+
+    def __len__(self):
+        return len(self.batch_list)
+
+    def __getitem__(self, index):
+        x_mb = self.generate(index)
+        if index%50==0: #to see some progress
+            logging.info("new batch {}".format(index))
+        return x_mb
+
+
+class GeneratorFullLen(tf.keras.utils.Sequence):
+    def __init__(self, data_dict, batch_list, nprocs):  # data_dict contains all data, because indexes are global
+        self.data_dict = data_dict
+        self.batch_list = batch_list
+        self.n_feat = 21
+        self.all_lens = Utils.read_all_lens(data_dict)
+        self.indices = np.arange(len(batch_list))
+        self.nprocs = nprocs
+
+    def generate(self, ind):
+        sample_keys = np.array(list(self.data_dict.keys()))[self.batch_list[ind]]
+        files_dict = itertoolz.groupby(lambda t: t[1], list(
+            itertoolz.map(lambda s: (s, self.data_dict[s]), sample_keys)))
+        X = Utils.load_full_contigs(files_dict)
+
+        max_len = max([self.all_lens[cont_ind] for cont_ind in self.batch_list[ind]])
+
+        x_mb = np.zeros((len(self.batch_list[ind]), max_len, self.n_feat))
+
+        for i, xi in enumerate(X):
+            x_mb[i, 0:xi.shape[0]] = xi  # padding is happenning here
+        return x_mb
+
+    def __len__(self):
+        return len(self.batch_list)
+
+    def __getitem__(self, index):
+        x_mb = self.generate(index)
+        if index%50==0: #to see some progress
+            logging.info("new batch {}".format(index))
+        return x_mb

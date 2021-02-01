@@ -48,8 +48,8 @@ def parse_args(test_args=None, subparsers=None):
     parser.add_argument('--save-path', default='.', type=str, 
                         help='Directory where to save output (default: %(default)s)')
     parser.add_argument('--save-name', default='deepmased', type=str, 
-                        help='Prefix for name in the save_path (default: %(default)s)')        
-    parser.add_argument('--save-plot', default=None, type=str, 
+                        help='Prefix for name in the save_path (default: %(default)s)')
+    parser.add_argument('--save-plot', default=None, type=str,                          #not implemented
                         help='Where to save plots (default: %(default)s)')
     parser.add_argument('--batch-size', default=4, type=int, 
                         help='Batch size (default: %(default)s)')
@@ -65,6 +65,18 @@ def parse_args(test_args=None, subparsers=None):
                         help='Seed used for numpy.random (default: %(default)s)')
     parser.add_argument('--n-procs', default=1, type=int, 
                         help='Number of parallel processes (default: %(default)s)')
+    parser.add_argument('--filter10', action='store_true', default=False,
+                        help='Use True if want to train on 1-9 reps')
+    parser.add_argument('--rep10', action='store_true', default=False,
+                        help='use only rep 10 (validation set)')
+    parser.add_argument('--method-pred', default='random', type=str,
+                        help='How to predict: random, fulllength, chunks')
+    parser.add_argument('--long-def', default=1000, type=int,
+                        help='Definition of -long- contig. If want predict for all use(default: %(default)s)')
+    parser.add_argument('--mem-lim', default=500000, type=int,
+                        help='Max contig that fits in one batch (default: %(default)s)')
+    parser.add_argument('--window', default=5000, type=int,
+                        help='Window size for chunks method, size of piece for random method (default: %(default)s)')
 
     # running test args
     if test_args:

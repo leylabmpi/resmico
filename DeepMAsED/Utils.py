@@ -922,3 +922,106 @@ def residual_block(x, downsample: bool, filters, kernel_size):
     out = Add()([x, y])
     out = relu_bn(out)
     return out
+
+#for predictions for long contigs
+def load_full_contigs(files_dict):
+    with pathos.multiprocessing.Pool(2) as pool:
+        pool_res = pool.map(lambda t:read_cont_from_file(t[0], t[1]), files_dict.items())
+    X = []
+    for dl in pool_res:
+        for d in dl:
+            X.append(d)
+    return X
+
+def read_cont_from_file(f, samples):
+    sample_ids = [s[0].split('/')[-1] for s in samples]
+
+    mats = []
+    with tables.open_file(f, 'r') as h5f:
+        sample_lookup = {s.decode('utf-8'): i for i, s in enumerate(h5f.get_node('/samples')[:])}
+
+        # index of s samples within a file
+        sample_idx = [sample_lookup[s] for s in sample_ids]
+
+        offsets = h5f.get_node('/offset_ends')[:]
+        ranges = [(offsets[idx - 1] if idx > 0 else 0, offsets[idx]) for idx in sample_idx]
+
+        data_h5 = h5f.get_node('/data')
+        for s, e in ranges:
+            mats.append(data_h5[s:e, :])
+        return mats
+
+def n_moves_window(cont_len, window, step):
+    if cont_len < window:
+        return 0
+    else:
+        return np.ceil((cont_len - window) / step)
+
+
+def create_batch_inds(all_lens, inds_long, memory_limit, fulllen=False):
+    batches_inds = []
+
+    if fulllen:
+        cur_batch_ind = []
+        cur_max_len = 0
+        for i, ind_long in enumerate(inds_long):
+            cont_len = all_lens[ind_long]
+            if cur_max_len < cont_len:
+                cur_max_len = cont_len
+            if cur_max_len * (len(cur_batch_ind) + 1) < memory_limit:
+                cur_batch_ind.append(ind_long)
+            else:
+                batches_inds.append(cur_batch_ind)
+                cur_batch_ind = []
+                cur_max_len = cont_len
+                cur_batch_ind.append(ind_long)
+        batches_inds.append(cur_batch_ind)
+
+    else:
+        cur_batch_ind = []
+        cur_sum_lens = 0
+        for i, ind_long in enumerate(inds_long):
+            cont_len = all_lens[ind_long]
+            if cur_sum_lens + cont_len < memory_limit:
+                cur_sum_lens += cont_len
+                cur_batch_ind.append(ind_long)
+            else:
+                batches_inds.append(cur_batch_ind)
+                cur_batch_ind = []
+                cur_sum_lens = 0
+                cur_sum_lens += cont_len
+                cur_batch_ind.append(ind_long)
+        batches_inds.append(cur_batch_ind)
+    return batches_inds
+
+
+def add_stats(df, column_name='chunk_scores'):
+    chunk_scores = np.array(df[column_name])
+    df['min'] = [np.min(list_scores) for list_scores in chunk_scores]
+    df['mean'] = [np.mean(list_scores) for list_scores in chunk_scores]
+    df['std'] = [np.std(list_scores) for list_scores in chunk_scores]
+    df['max'] = [np.max(list_scores) for list_scores in chunk_scores]
+
+    percent_names = ['p10', 'p20', 'p30', 'p40', 'p50', 'p60', 'p70', 'p80', 'p90']
+    pers = np.arange(10, 100, 10)
+    result_shape = (df.shape[0], len(pers))
+    compute_pers = [np.percentile(list_scores, pers) for list_scores in chunk_scores]
+    df[percent_names] = np.array(compute_pers).reshape(result_shape)
+
+    return df
+
+def agregate_chunks(batches_list, all_lens, all_labels, all_preds, window):
+    dic_predictions = {'cont_glob_index': [], 'length': [], 'label': [], 'chunk_scores': []}
+    step = window / 2
+    start_pos = 0
+    for cont_inds in batches_list:
+        for cont_ind in cont_inds:
+            dic_predictions['cont_glob_index'].append(cont_ind)
+            dic_predictions['length'].append(all_lens[cont_ind])
+            dic_predictions['label'].append(all_labels[cont_ind])
+
+            end_pos = start_pos + int(1 + n_moves_window(all_lens[cont_ind], window, step))
+            cont_preds = all_preds[start_pos:end_pos].reshape(-1)
+            dic_predictions['chunk_scores'].append(cont_preds)
+            start_pos = end_pos
+    return dic_predictions
