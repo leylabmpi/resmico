@@ -34,7 +34,7 @@ def predict_with_method(model, args):
     all_lens = Utils.read_all_lens(data_dict)
     all_labels = Utils.read_all_labels(data_dict)
 
-    inds_long = np.arange(len(all_lens))[np.array(all_lens) >= args.long_def]
+    inds_long = np.arange(len(all_lens))[np.array(all_lens) > args.long_def]
     inds_toolong = np.arange(len(all_lens))[np.array(all_lens) > args.mem_lim]  # change if want 3k
     inds_long = np.array([el for el in inds_long if el not in inds_toolong])
 
@@ -48,10 +48,11 @@ def predict_with_method(model, args):
         max_len = args.window
         batch_size = 100
 
+        num_runs = 5
         aupr_scores = []
         labels_val = Utils.read_all_labels(data_dict)
-        for i in range(1):  # set to 3 if interested in std estimation
-            dataGen = Models.GeneratorBigD(data_dict, max_len, batch_size,  # only long contigs should be given?
+        for i in range(num_runs):
+            dataGen = Models.GeneratorBigD(data_dict, max_len, batch_size,  # only contigs to pred for should be given
                                            shuffle=False, nprocs=args.n_procs, rnd_seed=i)
             logging.info("Number of batches: {}".format(len(dataGen)))
             start = time.time()
@@ -62,17 +63,24 @@ def predict_with_method(model, args):
             logging.info('AUC_PR: {:3f}, mean_label: {:3f}, mean_pred: {:3f}'.format(
                 aupr, np.mean(labels_val), np.mean(score_val)))
             aupr_scores.append(aupr)
-        logging.info('Mean AUC_PR: {}, std: {}'.format(np.mean(aupr_scores), np.std(aupr_scores)))
-        # save last dictionary
-        dic_predictions = {'cont_glob_index': inds_long, 'length': all_lens[inds_long],
-                           'label': labels_val, 'score': np.array(score_val).reshape(-1)}
-        logging.info('Dictionary created')
+
+            logging.info('Mean AUC_PR: {}, std: {}'.format(np.mean(aupr_scores), np.std(aupr_scores)))
+            # save last dictionary
+            dic_predictions = {'cont_glob_index': inds_long, 'length': all_lens[inds_long],
+                               'label': labels_val, 'score': np.array(score_val).reshape(-1)}
+            logging.info('Dictionary created')
+
+            if num_runs > 1:
+                df_preds = pd.DataFrame.from_dict(dic_predictions)
+                df_name = args.save_path + '/' + 'r'+str(i) + args.save_name + '.csv'
+                df_preds.to_csv(df_name, index=False)
+                logging.info("csv table saved: {}".format(df_name))
 
 
     elif args.method_pred == 'fulllength':
         batches_list = Utils.create_batch_inds(all_lens, inds_long, args.mem_lim, fulllen=True)
         logging.info("Number of batches: {}".format(len(batches_list)))
-        dataGen = Models.GeneratorFullLen(data_dict, batches_list, nprocs=args.n_procs)
+        dataGen = Models.GeneratorFullLen(data_dict, batches_list, nprocs=args.n_procs) #contigs filtered by indexing
         start = time.time()
         score_val = model.predict(dataGen, use_multiprocessing=args.n_procs > 1, workers=args.n_procs)
         duration = time.time() - start
@@ -88,6 +96,7 @@ def predict_with_method(model, args):
         batches_list = Utils.create_batch_inds(all_lens, inds_long, args.mem_lim)
         logging.info("Number of batches: {}".format(len(batches_list)))
         dataGen = Models.GeneratorPredLong(data_dict, batches_list, window=args.window, nprocs=args.n_procs)
+        # contigs filtered by indexing
         start = time.time()
         score_val = model.predict(dataGen, use_multiprocessing=args.n_procs > 1, workers=args.n_procs)
         duration = time.time() - start

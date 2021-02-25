@@ -51,7 +51,7 @@ def parse_args(test_args=None, subparsers=None):
                         help='Prefix for name in the save_path (default: %(default)s)')
     parser.add_argument('--save-plot', default=None, type=str,                          #not implemented
                         help='Where to save plots (default: %(default)s)')
-    parser.add_argument('--batch-size', default=4, type=int, 
+    parser.add_argument('--batch-size', default=100, type=int,
                         help='Batch size (default: %(default)s)')
     parser.add_argument('--max-len', default=10000, type=int, 
                         help='Max contig len, fixed input for CNN (default: %(default)s)')

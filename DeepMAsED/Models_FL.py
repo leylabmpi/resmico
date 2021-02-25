@@ -33,6 +33,9 @@ class deepmased(object):
         self.net_type = config.net_type #'lstm', 'cnn_globpool', 'cnn_resnet', 'cnn_lstm'
         self.num_blocks = config.num_blocks
         self.ker_size = config.ker_size
+        self.seed = config.seed
+
+        tf.random.set_seed(self.seed)
 
         inlayer = Input(shape=(None, self.n_features), name='input')
 
@@ -199,40 +202,56 @@ class Generator(tf.keras.utils.Sequence):
 
 class GeneratorBigD(tf.keras.utils.Sequence):
     def __init__(self, data_dict, max_len, batch_size,
-                 shuffle=True, fraq_neg=1, rnd_seed=None, nprocs=4):
+                 shuffle_data=True, fraq_neg=1, rnd_seed=None, nprocs=4):
         self.max_len = max_len
         self.batch_size = batch_size
         self.data_dict = data_dict
-        self.shuffle = shuffle
-        self.n_feat = 21
+        self.shuffle_data = shuffle_data
+        # self.shuffle = False
+        self.n_feat = 20 #todo: features_sel
         self.rnd_seed = rnd_seed
         self.nprocs = nprocs
         self.time_load = 0
 
-        all_labels = Utils.read_all_labels(self.data_dict)
-        self.inds_pos = np.arange(len(all_labels))[np.array(all_labels) == 1]
-        self.inds_neg = np.arange(len(all_labels))[np.array(all_labels) == 0]
-        self.fraq_neg = fraq_neg  #downsampling
-        self.num_neg = int(self.fraq_neg*len(self.inds_neg))
-        self.on_epoch_end()
+        self.count_epoch = -1
 
-        np.random.seed(self.rnd_seed)
+        if self.rnd_seed:
+            np.random.seed(self.rnd_seed)
+            tf.random.set_seed(self.rnd_seed)
+
+        if self.shuffle_data:
+            all_labels = Utils.read_all_labels(self.data_dict)
+            self.inds_pos = np.arange(len(all_labels))[np.array(all_labels) == 1]
+            self.inds_neg = np.arange(len(all_labels))[np.array(all_labels) == 0]
+            self.fraq_neg = fraq_neg  # downsampling
+            self.num_neg = int(self.fraq_neg * len(self.inds_neg))
+            self.size = self.num_neg + len(self.inds_pos)
+            self.on_epoch_end()
+        else:
+            self.indices = np.arange(len(self.data_dict))
+            self.size = len(self.indices)
+
         logging.info('init generator')
 
     def on_epoch_end(self):
         """
         Reshuffle when epoch ends
         """
-        if self.shuffle:
-            logging.info("shuffle and downsample over-represented class by  {}".format(self.fraq_neg))
-            np.random.shuffle(self.inds_neg)
-            self.indices = np.concatenate((self.inds_pos, self.inds_neg[:self.num_neg]))
+        self.count_epoch += 1
+
+        if self.shuffle_data:
+            if self.count_epoch%3==0: #todo: this IF was implemented to update negative class every 3 epochs
+                logging.info('self.count_epoch: {}'.format(self.count_epoch))
+                logging.info("downsample over-represented class by  {}".format(self.fraq_neg))
+                np.random.shuffle(self.inds_neg)
+                self.indices = np.concatenate((self.inds_pos, self.inds_neg[:self.num_neg]))
+
+            logging.info("shuffle")
             np.random.shuffle(self.indices)
-        else:
             #we do not shuffle and do not downsample for test and validation data
-            self.indices = np.arange(len(self.data_dict))
+
         logging.info("len(self.indices) {}".format(len(self.indices)))
-        
+        logging.info("self.indices[:10] {}".format(self.indices[:10]))
             
     def generate(self, indices_tmp):
         """
@@ -243,13 +262,12 @@ class GeneratorBigD(tf.keras.utils.Sequence):
         # files to process
         files_dict = itertoolz.groupby(lambda t: t[1], list(itertoolz.map(lambda s: (s, self.data_dict[s]), sample_keys)))
         # for every file, associate a random number, which can be used to construct random number to sample a range
-        if self.rnd_seed:
-            np.random.seed(self.rnd_seed)
+
         file_seeds = np.random.randint(0, 1000000, len(files_dict.items()))
         
         file_items = [(k, v, s) for (k ,v), s in zip(files_dict.items(), file_seeds)]
 
-        start_load = time.time()
+        # start_load = time.time()
         X, y = Utils.file_reading(file_items, self.max_len)
 
         # duration_load = time.time() - start_load
@@ -268,7 +286,7 @@ class GeneratorBigD(tf.keras.utils.Sequence):
 
             
     def __len__(self):
-        return int(np.ceil(len(self.indices) / self.batch_size))
+        return int(np.ceil(self.size / self.batch_size))
 
     def __getitem__(self, index):
         """
@@ -285,6 +303,10 @@ class GeneratorBigD(tf.keras.utils.Sequence):
         x_mb, y_mb = self.generate(indices_tmp)
         if index%50==0: #to see some progress
             logging.info("new batch {}".format(index))
+        # if index == 111:
+        #     logging.info("index {}".format(index))
+        #     logging.info("x_mb[:2] {}".format(x_mb[:2]))
+        #     logging.info("y_mb[:10] {}".format(y_mb[:10]))
         return x_mb, y_mb
 
 
@@ -294,7 +316,7 @@ class GeneratorPredLong(tf.keras.utils.Sequence):
         self.batch_list = batch_list
         self.window = window
         self.step = window / 2
-        self.n_feat = 21
+        self.n_feat = 21 #todo: features_sel
         self.all_lens = Utils.read_all_lens(data_dict)
         self.indices = np.arange(len(batch_list))
         self.nprocs = nprocs
@@ -335,7 +357,7 @@ class GeneratorFullLen(tf.keras.utils.Sequence):
     def __init__(self, data_dict, batch_list, nprocs):  # data_dict contains all data, because indexes are global
         self.data_dict = data_dict
         self.batch_list = batch_list
-        self.n_feat = 21
+        self.n_feat = 21 #todo: features_sel
         self.all_lens = Utils.read_all_lens(data_dict)
         self.indices = np.arange(len(batch_list))
         self.nprocs = nprocs

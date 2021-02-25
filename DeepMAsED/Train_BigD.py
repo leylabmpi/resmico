@@ -29,13 +29,14 @@ class Config(object):
         self.n_conv = args.n_conv
         self.n_fc = args.n_fc
         self.n_hid = args.n_hid
-        self.n_features = 21
+        self.n_features = 20 #todo: features_sel
         # self.pool_window = args.pool_window
         self.dropout = args.dropout
         self.lr_init = args.lr_init
         self.net_type = args.net_type
         self.num_blocks = args.num_blocks
         self.ker_size = args.ker_size
+        self.seed = args.seed
 
 def main(args):
     #flags
@@ -58,6 +59,14 @@ def main(args):
         deepmased = Models.deepmased(config)
     deepmased.print_summary()
 
+    #check if seed works, print weights for the first 5 layers -> seed works
+    # for n, layer in enumerate(deepmased.net.layers):
+    #     if n<5:
+    #         logging.info('layer: {}, config: {}, weights: {}'.format(
+    #             n, layer.get_config(), layer.get_weights()))
+    #     else:
+    #         break
+
     tb_logs = tf.keras.callbacks.TensorBoard(log_dir=os.path.join(save_path, 'logs_final'),
                                           histogram_freq=0,
                                           write_graph=True, write_images=True)
@@ -67,7 +76,7 @@ def main(args):
     mc = ModelCheckpoint(mc_file, save_freq="epoch", verbose=1)
 
     if args.val_path:
-        logging.info('Code requirs update...')
+        logging.info('Code needs update...')
         # val_data_dict = Utils.build_sample_index(Path(args.val_path), args.n_procs)
         # logging.info('Validation data dictionary created. number of samples: {}'.format(len(val_data_dict)))
         # dataGen_val = Models.GeneratorBigD(val_data_dict, args.max_len, args.batch_size,
@@ -107,7 +116,7 @@ def main(args):
             train_data_dict = dict(np.array(all_contigs)[inds_short])
             logging.info('from {}, {} short contigs left'.format(len(all_lens), len(inds_short)))
             # validation is not downsampled and always the same max len 5k -- YES
-            logging.info('max_len for validation: {}'.format(5000))
+            logging.info('max_len for validation: {}'.format(args.max_len))
             all_lens = Utils.read_all_lens(val_data_dict)
             inds_short = np.arange(len(all_lens))[np.array(all_lens) <= args.max_len]
             all_contigs = list(val_data_dict.items())
@@ -125,11 +134,11 @@ def main(args):
 
         logging.info('Train dataset:')
         dataGen_split_train = Models.GeneratorBigD(train_data_dict, args.max_len, args.batch_size,
-                                       shuffle=True, fraq_neg=args.fraq_neg,
+                                       shuffle_data=True, fraq_neg=args.fraq_neg,
                                        rnd_seed=args.seed, nprocs=args.n_procs)
         logging.info('Validation dataset:')
         dataGen_split_val = Models.GeneratorBigD(val_data_dict, args.max_len, args.batch_size,
-                                       shuffle=False, nprocs=args.n_procs)
+                                       shuffle_data=False, nprocs=args.n_procs)
         y_true_val = Utils.read_all_labels(val_data_dict)
 
 
@@ -206,7 +215,7 @@ def main(args):
             logging.info('{} long contigs are filtered out, {} contigs left'.format(len(inds_long), len(inds_short)))
 
         dataGen = Models.GeneratorBigD(train_data_dict, args.max_len, args.batch_size,
-                                       shuffle=True, fraq_neg=args.fraq_neg,
+                                       shuffle_data=True, fraq_neg=args.fraq_neg,
                                        rnd_seed=args.seed, nprocs=args.n_procs)
         logging.info('Training network...')
 

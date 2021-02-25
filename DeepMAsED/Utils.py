@@ -29,7 +29,7 @@ def nested_dict():
     return defaultdict(nested_dict)
 
 
-def compute_sum_sumsq_n(featurefiles_table, n_feat=21):
+def compute_sum_sumsq_n(featurefiles_table, n_feat=20): #todo: features_sel
     """
     This function is applied once to the whole training data to compute
     mean and standard deviation. File is saved in the same directory.
@@ -45,7 +45,7 @@ def compute_sum_sumsq_n(featurefiles_table, n_feat=21):
             for rep,infooo in infoo.items():
                 for tech,filename in infooo.items():
                     with open(filename, 'rb') as feat:
-                        print('openning file: ',filename)
+                        logging.info('openning file: {}'.format(filename))
                         x, _, _ = pickle.load(feat)
                         for xi in x:
                             sum_xi = np.sum(xi, 0)
@@ -70,6 +70,9 @@ def standardize_data(feat_file_table, mean_std_file, set_target=True):
     mean[0:8] = 0
     std[0:8] = 1
     std[std==0]=1.
+
+    print(mean)
+    print(std)
 
     for rich,info in feat_files['pkl'].items():
         for dep,infoo in info.items():
@@ -292,14 +295,14 @@ def pickle_data_b(x, set_target=True):
         w_min_mq = col_names.index('min_mapq_Match')
         w_std_mq = col_names.index('stdev_mapq_Match')
         w_gc = col_names.index('seq_window_perc_gc') #try without
-        w_npropV = col_names.index('num_proper_SNP') #try without
+        # w_npropV = col_names.index('num_proper_SNP') #try without
         w_cov = col_names.index('coverage')  # WARNING: predict assumes coverage in -2 position
         w_countN = [w_nA, w_nC, w_nT, w_nG]
         w_features = [w_npropM, w_orpM, 
                       w_max_is, w_min_is, w_mean_is, w_std_is,
                       w_min_mq, w_mean_mq, w_std_mq, 
-                      w_npropV, w_gc, w_cov]
-        nf=21 #4 for refrence feature, 4 count features, 12 important features, 1 seq depth
+                      w_gc, w_cov]
+        nf=20 #4 for refrence feature, 4 count features, 12 important features, 1 seq depth #todo: features_sel
         
         # formatting rows
 
@@ -785,6 +788,7 @@ def _get_sample_index_from_file(f, metadata_func):
 def _metadata_func(p: Path):
     return p.parts[-5:-1]
 
+
 def build_sample_index(base_path: Path, nprocs: int, sdepth=None, rich=None, rep10=False, filter10=False):
     pattern = '**/'
     if rich:
@@ -814,6 +818,7 @@ def build_sample_index(base_path: Path, nprocs: int, sdepth=None, rich=None, rep
         samples_dict.update(d)
     return samples_dict
 
+
 def _read_label_from_file(f, samples):
     sample_ids = [ s[0].split('/')[-1] for s in samples]
     with tables.open_file(f, 'r') as h5f:
@@ -823,6 +828,7 @@ def _read_label_from_file(f, samples):
         labels = h5f.get_node('/labels')[sample_idx]
     return labels
 
+
 def read_all_labels(samples_dict):
     files_dict = itertoolz.groupby(lambda t:t[1], list(itertoolz.map(
                                    lambda s: (s, samples_dict[s]), samples_dict.keys())))
@@ -830,6 +836,7 @@ def read_all_labels(samples_dict):
     for f, samples in files_dict.items():
         y.extend(_read_label_from_file(f, samples))
     return np.array(y)
+
 
 def _read_len_from_file(f, samples):
     sample_ids = [ s[0].split('/')[-1] for s in samples]
@@ -840,6 +847,7 @@ def _read_len_from_file(f, samples):
         ends = h5f.get_node('/offset_ends')[sample_idx]
         lens = [x - y for x, y in zip(ends, np.concatenate(([0],ends[:-1])))]
     return lens
+
 
 def read_all_lens(samples_dict):
     files_dict = itertoolz.groupby(lambda t:t[1], list(itertoolz.map(
@@ -897,11 +905,13 @@ def file_reading(file_items, max_len):
             y.append(l)
     return X, y
 
+
 #for resnet
 def relu_bn(inputs):
     relu = ReLU()(inputs)
     bn = BatchNormalization()(relu)
     return bn
+
 
 def residual_block(x, downsample: bool, filters, kernel_size):
     y = Conv1D(kernel_size=kernel_size,
@@ -922,6 +932,7 @@ def residual_block(x, downsample: bool, filters, kernel_size):
     out = Add()([x, y])
     out = relu_bn(out)
     return out
+
 
 #for predictions for long contigs
 def load_full_contigs(files_dict):
@@ -994,7 +1005,7 @@ def create_batch_inds(all_lens, inds_long, memory_limit, fulllen=False):
         batches_inds.append(cur_batch_ind)
     return batches_inds
 
-
+#look at predictions
 def add_stats(df, column_name='chunk_scores'):
     chunk_scores = np.array(df[column_name])
     df['min'] = [np.min(list_scores) for list_scores in chunk_scores]

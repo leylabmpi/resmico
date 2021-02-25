@@ -93,7 +93,7 @@ def parse_args(test_args=None, subparsers=None):
     parser.add_argument('--lr-init', default=0.001, type=float,
                         help='Size of test set (default: %(default)s)')
     parser.add_argument('--seed', default=12, type=int, 
-                        help='Seed used for numpy.random (default: %(default)s)')
+                        help='Seed used for numpy.random and tf (default: %(default)s)')
     parser.add_argument('--n-procs', default=1, type=int, 
                         help='Number of parallel processes (default: %(default)s)')
     parser.add_argument('--fraq_neg', default=1., type=float,

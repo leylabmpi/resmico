@@ -8,7 +8,7 @@ def main(args):
                                                           args.force_overwrite, technology=args.technology)
         Utils.pickle_in_parallel(feature_files_dic, args.n_procs, args.set_target)
     if args.compute_mean_std:
-        Utils.compute_sum_sumsq_n(args.feature_file_table, n_feat=21)
+        Utils.compute_sum_sumsq_n(args.feature_file_table, n_feat=20) #todo: features_sel
     if args.standard_data:
         Utils.standardize_data(args.feature_file_table, args.mean_std_file, args.set_target)
     return
