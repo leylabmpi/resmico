@@ -32,6 +32,7 @@ rule bam_to_DL_features:
         benchmark_dir + 'bam_to_DL_features/{richness}/{rep}/{read_depth}/{assembler}.txt'
     shell:
         """
+        export PATH=$CONDA_PREFIX/bin:$PATH
         {params.exe} {params.params} \
           -p {threads} --chunks 200 \
           --batches {resources.batches} \
@@ -70,6 +71,7 @@ rule metaquast_masmbl_feature_join:
             'metaquast_masmbl_feature_join/{richness}/{rep}/{read_depth}/{assembler}.txt'
     shell:
         """
+        export PATH=$CONDA_PREFIX/bin:$PATH
         {params.exe} {input.fasta} {input.masmbl} {input.feats} > {output} 2> {log}
         """
 

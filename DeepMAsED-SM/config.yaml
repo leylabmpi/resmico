@@ -1,14 +1,15 @@
 # Input table
-genomes_file: tests/data/genome_download_n10.tsv
+genomes_file: tests/data/genomes_n10.tsv
 
 # Output directory
-output_dir: tests/output_n10/
+output_dir: tests/output_n10
 
 # Temporary output directory (/dev/shm/ for shared memory)
-tmp_dir: /tmp/
+#tmp_dir: /tmp/
+tmp_dir: /ebio/abt3_scratch/
 
 # Email for notifications ("Skip" to skip)
-email: Skip
+email: nyoungblut@tuebingen.mpg.de
 
 # software parameters
 ## Use "Skip" to skip  steps. If no params for rule, use ""
@@ -17,22 +18,24 @@ email: Skip
 params:
   ionice: -c 3
   # simulating metagenomes
-  reps: 2
+  reps: 3
   MGSIM:
     genome_download: ""
-    community_richness:
-      - 1
-    reads: --art-paired --art-mflen 250 --art-sdev 10
+    community:
+      richness:
+        - 0.8
+      other_params: --rnd-seed 8712
+    reads: --art-paired --art-mflen 250 --art-sdev 10 --rndSeed 8712
     read_depth:
       - 1000000
-  keep_reads: True #False
+  keep_reads: True # False
   # coverage
   nonpareil: -T kmer
   nonpareil_summary: 1e9   # this is target seq. depth
   # assemblying metagenomes
   assemblers:
     metaspades: -k auto --only-assembler
-    megahit: --min-count 3 --min-contig-len 1000 --presets meta-sensitive
+    megahit: --min-count 1 --min-contig-len 1000
   # assembly filtering
   contig_length_cutoff: 1000       # length in bp 
   # assessing assembly errors
@@ -53,4 +56,4 @@ params:
 pipeline:
   snakemake_folder: ./
   script_folder: ./bin/scripts/
-  rnd_seed: 9384
+  name: DeepMAsED-SM

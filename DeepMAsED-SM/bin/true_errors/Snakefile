@@ -72,7 +72,7 @@ def metaquast_time(wildcards, input, threads, attempt):
             n_refs += 1
     # calc time (minutes)
     read_depth_time_min = float(wildcards.read_depth) / 1000000 * 60 * 2
-    T_min = n_refs + read_depth_time_min + 720 * attempt 
+    T_min = n_refs + read_depth_time_min + 720 * attempt + 480
     return int(round(T_min,0))
 
 rule metaquast:
@@ -122,6 +122,7 @@ rule metaquast:
         benchmark_dir + 'metaquast/{richness}/{rep}/{read_depth}/{assembler}.txt'
     shell:
         """
+        export PATH=$CONDA_PREFIX/bin:$PATH
         # params
         REFDIR=`dirname {input.refs}`
         TMPOUTDIR=`dirname {output.done_tmp}`

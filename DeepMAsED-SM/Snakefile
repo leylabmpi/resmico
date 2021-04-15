@@ -15,8 +15,6 @@ def skipped(x):
 # setup
 ## config
 configfile: 'config.yaml'
-## random seed
-random.seed(config['pipeline']['rnd_seed'])
 ## dirs 
 snake_dir = config['pipeline']['snakemake_folder']
 include: snake_dir + 'bin/dirs'
@@ -64,18 +62,18 @@ df_dtypes = {'richness' : str, 'read_depth' : int, 'rep' : int, 'assembler' : st
 if config['just_features']:
     config['taxa_unique'] = config['genomes_tbl'].Taxon.unique().tolist()
     config['samples_unique'] = config['genomes_tbl'].Sample.unique().tolist()    
-elif not skipped(config['params']['MGSIM']['param_file']):
-    user_params = pd.read_csv(config['params']['MGSIM']['param_file'], sep='\t',
-                              comment='#', dtype = df_dtypes)
-    config['sim_params']['richness'] = user_params.richness
-    config['sim_params']['read_depth'] = user_params.read_depth
-    config['sim_params']['rep'] = user_params.rep
-    config['sim_params']['assembler'] = user_params.assembler    
+# elif not skipped(config['params']['MGSIM']['param_file']):
+#     user_params = pd.read_csv(config['params']['MGSIM']['param_file'], sep='\t',
+#                               comment='#', dtype = df_dtypes)
+#     config['sim_params']['richness'] = user_params.richness
+#     config['sim_params']['read_depth'] = user_params.read_depth
+#     config['sim_params']['rep'] = user_params.rep
+#     config['sim_params']['assembler'] = user_params.assembler    
 else:
     reps = [x+1 for x in range(config['params']['reps'])]
     assemblers = [k for k,v in config['params']['assemblers'].items() if not skipped(v)]
     read_depth = config['params']['MGSIM']['read_depth']
-    richness = config['params']['MGSIM']['community_richness'] 
+    richness = config['params']['MGSIM']['community']['richness'] 
     for x in itertools.product(richness, read_depth, reps, assemblers):
         config['sim_params']['richness'].append(x[0])
         config['sim_params']['read_depth'].append(x[1])

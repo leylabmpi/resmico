@@ -67,6 +67,7 @@ rule VALET:
         benchmark_dir + 'VALET/{richness}/{rep}/{read_depth}/{assembler}.txt'
     shell:
         """
+        export PATH=$CONDA_PREFIX/bin:$PATH
         # tmp directory
         TMPDIR=`dirname {params.tmp_dir}`
         rm -rf $TMPDIR 2> {log}

@@ -1,4 +1,4 @@
-channels: !!python/tuple
+channels:
 - conda-forge
 - bioconda
 dependencies:
@@ -9,7 +9,8 @@ dependencies:
 - conda-forge::pandas=0.23
 - conda-forge::scipy=1.1
 - bioconda::biopython
+- bioconda::pyfastx
 - bioconda::pyfasta=0.5
 - bioconda::art
 - pip:
-  - MGSIM>=0.1.9
+  - MGSIM>=0.2.3

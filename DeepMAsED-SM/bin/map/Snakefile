@@ -24,6 +24,7 @@ rule map_bowtie2_build:
             'map_bowtie2_build/{richness}/{rep}/{read_depth}/{assembler}.txt'
     shell:
         """
+        export PATH=$CONDA_PREFIX/bin:$PATH
 	PREF=`echo {input} | perl -pe 's/\.[^.]+$//'`
 
         bowtie2-build --threads {threads} \
@@ -63,12 +64,13 @@ rule map_bowtie2:
         benchmark_dir + 'map_bowtie2/{richness}/{rep}/{read_depth}/{assembler}.txt'
     shell:
         """
-        rm -f {log.sam}
+        export PATH=$CONDA_PREFIX/bin:$PATH
+        rm -f {log.sam} 2> {log}
 	PREF=`echo {input.ref} | perl -pe 's/\.[^.]+$//'`
         TMPDIR=`dirname {output.bam}`
  
         bowtie2 -p {threads} -q --no-unal \
-          -x $PREF -1 {input.read1} -2 {input.read2} 2> {log.bt2} | \
+          -x $PREF -1 {input.read1} -2 {input.read2} 2>> {log.bt2} | \
           samtools view {params.samtools} -h -o - 2>> {log.sam}| \
           samtools sort -@ {threads} -T $TMPDIR -o - \
           > {output.bam} 2>> {log.sam}
@@ -118,6 +120,7 @@ rule map_bowtie2_index_bam:
             'map_bowtie2_index_bam/{richness}/{rep}/{read_depth}/{assembler}.txt'
     shell:
         """
+        export PATH=$CONDA_PREFIX/bin:$PATH
         samtools index -@ {threads} {input.bam} 2> {log}
         """
 
@@ -142,6 +145,7 @@ rule samtools_faidx:
         benchmark_dir + 'samtools_faidx/{richness}/{rep}/{read_depth}/{assembler}.txt'
     shell:
         """
+        export PATH=$CONDA_PREFIX/bin:$PATH
         samtools faidx {input} 2> {log} 1>&2
         """
 

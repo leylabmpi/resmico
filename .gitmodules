@@ -1,3 +1,6 @@
 [submodule "DeepMAsED-SM/bin/ll_pipeline_utils"]
 	path = DeepMAsED-SM/bin/ll_pipeline_utils
 	url = git@gitlab.tuebingen.mpg.de:leylabmpi/pipelines/ll_pipeline_utils.git
+[submodule "DeepMAsED-Eval/bin/ll_pipeline_utils"]
+	path = DeepMAsED-Eval/bin/ll_pipeline_utils
+	url = git@github.com:leylabmpi/ll_pipeline_utils.git
