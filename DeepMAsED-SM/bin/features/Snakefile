@@ -96,8 +96,7 @@ rule features_compress:
         gzip -c {input} > {output} 2> {log}
         """
 
-localrules: features_file_table
-        
+localrules: features_file_table        
 rule features_file_table:
     """
     Creating a table that lists all feature files

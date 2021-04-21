@@ -35,8 +35,7 @@ config['genomes_tbl'] = pd.read_csv(config['genomes_file'], sep='\t', comment='#
 for x in ['Taxon']:
     if x not in config['genomes_tbl'].columns:
         msg = 'Column "{}" not found in genomes file'
-        print(msg.format(x))
-        sys.exit(1)
+        raise ValueError(msg.format(x))
 func = lambda x: re.sub('[^A-Za-z0-9_]+', '_', x)
 config['genomes_tbl']['Taxon'] = config['genomes_tbl']['Taxon'].apply(func)
 #### Genome fasta
@@ -54,7 +53,7 @@ if 'Sample' in config['genomes_tbl'].columns:
     config['just_features'] = True
 else:
     config['just_features'] = False
-
+    
 # Config calculated parameters
 ## if user provided
 config['sim_params'] = {'richness' : [], 'read_depth' : [], 'rep' : [], 'assembler' : []}
@@ -62,13 +61,6 @@ df_dtypes = {'richness' : str, 'read_depth' : int, 'rep' : int, 'assembler' : st
 if config['just_features']:
     config['taxa_unique'] = config['genomes_tbl'].Taxon.unique().tolist()
     config['samples_unique'] = config['genomes_tbl'].Sample.unique().tolist()    
-# elif not skipped(config['params']['MGSIM']['param_file']):
-#     user_params = pd.read_csv(config['params']['MGSIM']['param_file'], sep='\t',
-#                               comment='#', dtype = df_dtypes)
-#     config['sim_params']['richness'] = user_params.richness
-#     config['sim_params']['read_depth'] = user_params.read_depth
-#     config['sim_params']['rep'] = user_params.rep
-#     config['sim_params']['assembler'] = user_params.assembler    
 else:
     reps = [x+1 for x in range(config['params']['reps'])]
     assemblers = [k for k,v in config['params']['assemblers'].items() if not skipped(v)]
@@ -83,7 +75,8 @@ else:
 config['sim_params'] = pd.DataFrame.from_dict(config['sim_params'])
 
 def Expand(file_template, param_df, debug=False):
-    """Using colnames as kwargs for file_template.format() 
+    """
+    Using colnames as kwargs for file_template.format() 
     """
     func = lambda x: file_template.format(**x)
     files = param_df.apply(func, axis=1).tolist()
@@ -114,81 +107,64 @@ wildcard_constraints:
 wildcard_constraints:     
     assembler='[^/]+'
     
-def all_feat_tables(genomes_tbl):
-    out_files = []
-    for i,x in genomes_tbl.iterrows():
-        f = '{genome}/{sample}/features.tsv.gz'
-	f = f.format(genome=x['Taxon'], sample=x['Sample'])
-	f = map_dir + f
-	out_files.append(f)
-    return out_files
 
 def all_which_input(wildcards):
-    input_files = []
+    F = []
     
     if config['just_features']:
-        # feature table
-        input_files += all_feat_tables(config['genomes_tbl'])
-        return input_files
+        # feature table        
+        F.append(map_dir + 'feature_files.tsv')
+        return F
     
     # reads
     if config['params']['keep_reads'] == True:
-        x = Expand(mgsim_dir + 'sim_reads/{richness}/{rep}/{read_depth}/Read1.fq.gz',
+        F += Expand(mgsim_dir + 'sim_reads/{richness}/{rep}/{read_depth}/Read1.fq.gz',
                    config['sim_params'])
-        input_files += x
-        x = Expand(mgsim_dir + 'sim_reads/{richness}/{rep}/{read_depth}/Read2.fq.gz',
+        F += Expand(mgsim_dir + 'sim_reads/{richness}/{rep}/{read_depth}/Read2.fq.gz',
                    config['sim_params'])
-        input_files += x
         
     # coverage
     if not skipped(config['params']['nonpareil']):
-        x = Expand(coverage_dir + '{richness}/{rep}/{read_depth}/nonpareil.npo',
+        F += Expand(coverage_dir + '{richness}/{rep}/{read_depth}/nonpareil.npo',
                    config['sim_params'])  
-        input_files += x
         if not skipped(config['params']['nonpareil_summary']):
-            input_files.append(coverage_dir + 'nonpareil/all_summary.RDS')
-            input_files.append(coverage_dir + 'nonpareil/all_summary.txt')
-            input_files.append(coverage_dir + 'nonpareil/all_curve.pdf')
+            F.append(coverage_dir + 'nonpareil/all_summary.RDS')
+            F.append(coverage_dir + 'nonpareil/all_summary.txt')
+            F.append(coverage_dir + 'nonpareil/all_curve.pdf')
 
     # MG assemblies
-    x = Expand(asmbl_dir + '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta.gz',
+    F += Expand(asmbl_dir + '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta.gz',
                config['sim_params'])
-    input_files += x
     
     ## metaquast
     if not skipped(config['params']['metaquast']):
-        x = Expand(true_errors_dir + \
-                   '{richness}/{rep}/{read_depth}/{assembler}/metaquast.done',
-                   config['sim_params'])        
-        input_files += x
-        x = Expand(true_errors_dir + '{richness}/{rep}/metaquast_cleanup.done',
-                   config['sim_params'])        
-        input_files += x
+        F += Expand(true_errors_dir + \
+                    '{richness}/{rep}/{read_depth}/{assembler}/metaquast.done',
+                    config['sim_params'])        
+        F += Expand(true_errors_dir + '{richness}/{rep}/metaquast_cleanup.done',
+                    config['sim_params'])        
         
     # read mapping to contigs
     if not skipped(config['params']['samtools']):
         if not config['params']['keep_bam'] == True:
-            x = Expand(map_dir + '{richness}/{rep}/{read_depth}/{assembler}.bam',
+            F += Expand(map_dir + '{richness}/{rep}/{read_depth}/{assembler}.bam',
                        config['sim_params']) 
-            input_files += x
 
         # feature table
         if not skipped(config['params']['make_features']):    
-            input_files.append(features_dir + 'feature_files.tsv')
+            F.append(features_dir + 'feature_files.tsv')
 
     # State of the Art
     ## ALE
     if not skipped(config['params']['ALE']):
-        x = Expand(ale_dir + '{richness}/{rep}/{read_depth}/{assembler}/ALE_results.txt.gz',
-                   config['sim_params']) 
-        input_files += x
+        F += Expand(ale_dir + '{richness}/{rep}/{read_depth}/{assembler}/ALE_results.txt.gz',
+                    config['sim_params']) 
     ## VALET
     if not skipped(config['params']['VALET']):
-        x = Expand(valet_dir + '{richness}/{rep}/{read_depth}/{assembler}/summary.tsv',
+        F += Expand(valet_dir + '{richness}/{rep}/{read_depth}/{assembler}/summary.tsv',
                    config['sim_params']) 
-        input_files += x
-
-    return input_files
+    # return
+    return F
 
 
 localrules: all
