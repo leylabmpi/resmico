@@ -39,7 +39,6 @@ params:
   # assembly filtering
   contig_length_cutoff: 1000       # length in bp 
   # assessing assembly errors
-  minimap2: ""
   metaquast: --max-ref-number 0 --min-contig 1000 --min-identity 95 --extensive-mis-size 100 --no-html --no-plots --no-icarus --no-gc --no-snps --no-sv
   # mapping reads to contigs  
   samtools: ""
