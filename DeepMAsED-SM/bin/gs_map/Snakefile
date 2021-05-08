@@ -230,7 +230,7 @@ rule bam_to_DL_features:
     threads:
         12
     resources:
-        time = lambda wildcards, attempt: attempt ** 2 * 60 * 8,
+        time = lambda wildcards, attempt: attempt ** 2 * 60 * 24,
         n = lambda wildcards, threads: threads,
         mem_gb_pt = lambda wildcards, attempt: int(round(attempt ** 2.5 * 2 + 1, 0))
     conda:
