@@ -50,7 +50,11 @@ params:
   ALE: ""
   ## VALET
   VALET: ""
-  
+
+# params just for creating feature tables for non-simulated data
+nonsim_params:
+  subsample_reads: 100000000
+
 # snakemake pipeline
 pipeline:
   snakemake_folder: ./

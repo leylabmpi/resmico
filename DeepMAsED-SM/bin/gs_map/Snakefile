@@ -18,27 +18,85 @@ rule ref_genome_rename:
         {params.exe} {input.fna} > {output.fna} 2> {log}
         """
 
-localrules: symlink_reads
-rule symlink_reads:
-    """
-    Uncompressing reads
-    """
-    input:
-        read1 = lambda wildcards: config['genomes_tbl'].loc[config['genomes_tbl'].Sample == wildcards.sample, 'Read1'].unique().tolist(),
-        read2 = lambda wildcards: config['genomes_tbl'].loc[config['genomes_tbl'].Sample == wildcards.sample, 'Read2'].unique().tolist(),
-    output:
-        read1 = temp(config['tmp_dir'] + '{sample}_R1.fq.gz'),
-        read2 = temp(config['tmp_dir'] + '{sample}_R2.fq.gz')
-    log:
-        log_dir + 'symlink_reads/{sample}.log'
-    benchmark:
-        benchmark_dir + 'symlink_reads/{sample}.txt'
-    shell:
+if not skipped(config['nonsim_params']['subsample_reads']):
+    rule subsample_read1:
         """
-        ln -s -f {input.read1} {output.read1} 2> {log}
-        ln -s -f {input.read2} {output.read2} 2>> {log}
+        Subsampling reads
         """
-
+        input:
+            reads = lambda wildcards: config['genomes_tbl'].loc[config['genomes_tbl'].Sample == wildcards.sample, 'Read1'].unique().tolist()
+        output:
+            reads = temp(config['tmp_dir'] + '{sample}_R1.fq.gz')
+        params:
+            n = config['nonsim_params']['subsample_reads']
+        threads:
+            4
+        resources:
+            time = lambda wildcards, attempt: attempt ** 3 * 59,
+            n = lambda wildcards, threads: threads,
+	    mem_gb_pt = lambda wildcards, attempt: attempt ** 3 * 4 + 8
+        conda:
+            '../envs/bowtie2.yaml'
+        log:
+            log_dir + 'subsample_read1/{sample}.log'
+        benchmark:
+            benchmark_dir + 'subsample_read1/{sample}.txt'
+        shell:
+            """
+            export PATH=$CONDA_PREFIX/bin:$PATH
+            seqkit sample --two-pass --threads {threads} -n {params.n} \
+              {input.reads} | gzip -c > {output.reads} 2> {log}
+            """
+    rule subsample_read2:
+        """
+        Subsampling reads
+        """
+        input:
+            reads = lambda wildcards: config['genomes_tbl'].loc[config['genomes_tbl'].Sample == wildcards.sample, 'Read2'].unique().tolist()
+        output:
+            reads = temp(config['tmp_dir'] + '{sample}_R2.fq.gz')
+        params:
+            n = config['nonsim_params']['subsample_reads']
+        threads:
+            4
+        resources:
+            time = lambda wildcards, attempt: attempt ** 3 * 59,
+            n = lambda wildcards, threads: threads,
+	    mem_gb_pt = lambda wildcards, attempt: attempt ** 3 * 4 + 8
+        conda:
+            '../envs/bowtie2.yaml'
+        log:
+            log_dir + 'subsample_read2/{sample}.log'
+        benchmark:
+            benchmark_dir + 'subsample_read2/{sample}.txt'
+        shell:
+            """
+            export PATH=$CONDA_PREFIX/bin:$PATH
+            seqkit sample --two-pass --threads {threads} -n {params.n} \
+              {input.reads} | gzip -c > {output.reads} 2> {log}
+            """
+else:
+    localrules: symlink_reads
+    rule symlink_reads:
+        """
+        Uncompressing reads
+        """
+        input:
+            read1 = lambda wildcards: config['genomes_tbl'].loc[config['genomes_tbl'].Sample == wildcards.sample, 'Read1'].unique().tolist(),
+            read2 = lambda wildcards: config['genomes_tbl'].loc[config['genomes_tbl'].Sample == wildcards.sample, 'Read2'].unique().tolist()
+        output:
+            read1 = temp(config['tmp_dir'] + '{sample}_R1.fq.gz'),
+            read2 = temp(config['tmp_dir'] + '{sample}_R2.fq.gz')
+        log:
+            log_dir + 'symlink_reads/{sample}.log'
+        benchmark:
+            benchmark_dir + 'symlink_reads/{sample}.txt'
+        shell:
+            """
+            ln -s -f {input.read1} {output.read1} 2> {log}
+            ln -s -f {input.read2} {output.read2} 2>> {log}
+            """
+        
 rule map_bowtie2_build:
     """
     Building bowtie2 index for each genome
