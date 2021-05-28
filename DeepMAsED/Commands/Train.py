@@ -66,8 +66,9 @@ def parse_args(test_args=None, subparsers=None):
                         help='Path to validation data (default: %(default)s)')
     parser.add_argument('--early-stop', action='store_true', default=False,
                         help='Early stopping. Can be used only if val-path provided (default: %(default)s)')
-    parser.add_argument('--net-type', default='cnn_globpool', type=str,
-                        help='Type of NN: lstm, cnn_globpool, cnn_resnet, cnn_lstm (default: %(default)s)')
+    parser.add_argument('--net-type', default='cnn_resnet', type=str,
+                        help='Type of NN: lstm, cnn_globpool, cnn_resnet, cnn_lstm, fixlen_cnn_resnet'
+                             ' (default: %(default)s)')
     parser.add_argument('--num-blocks', default=5, type=int,
                         help='Number of residual blocks (3 or 4, 5, 6) (default: %(default)s)')
     parser.add_argument('--filters', default=16, type=int,
@@ -86,7 +87,7 @@ def parse_args(test_args=None, subparsers=None):
                         help='Batch size (default: %(default)s)')
     parser.add_argument('--max-len', default=10000, type=int,
                         help='Max contig len, fixed input for CNN (default: %(default)s)')
-    parser.add_argument('--dropout', default=0.2, type=float,
+    parser.add_argument('--dropout', default=0, type=float,
                         help='Rate of dropout (default: %(default)s)')
     parser.add_argument('--n-folds', default=-1, type=int, 
                         help='How many folds for CV. Use "-1" to skip & pool all data for training (default: %(default)s)')
@@ -98,6 +99,8 @@ def parse_args(test_args=None, subparsers=None):
                         help='Number of parallel processes (default: %(default)s)')
     parser.add_argument('--fraq_neg', default=1., type=float,
                         help='Portion of samples to keep in overrepresented class (default: %(default)s)')
+    parser.add_argument('--n-feat', default=28, type=int,
+                        help='Number of features per position (default: %(default)s)')
     # running test args
     if test_args:
         args = parser.parse_args(test_args)

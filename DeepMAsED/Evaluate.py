@@ -34,16 +34,16 @@ def predict_with_method(model, args):
     all_lens = Utils.read_all_lens(data_dict)
     all_labels = Utils.read_all_labels(data_dict)
 
-    inds_long = np.arange(len(all_lens))[np.array(all_lens) > args.long_def]
+    inds_sel = np.arange(len(all_lens))[np.array(all_lens) >= args.min_len]
     inds_toolong = np.arange(len(all_lens))[np.array(all_lens) > args.mem_lim]  # change if want 3k
-    inds_long = np.array([el for el in inds_long if el not in inds_toolong])
+    inds_sel = np.array([el for el in inds_sel if el not in inds_toolong])
 
     logging.info('{} -- too long contigs'.format(len(inds_toolong)))
-    logging.info('{} -- selected contigs'.format(len(inds_long)))
+    logging.info('{} -- selected contigs'.format(len(inds_sel)))
 
     if args.method_pred == 'random':
         np.random.seed(args.seed)
-        long_test_data_dict = dict(np.array(all_contigs)[inds_long])
+        long_test_data_dict = dict(np.array(all_contigs)[inds_sel])
         data_dict = long_test_data_dict
         max_len = args.window
         batch_size = 100
@@ -66,7 +66,7 @@ def predict_with_method(model, args):
 
             logging.info('Mean AUC_PR: {}, std: {}'.format(np.mean(aupr_scores), np.std(aupr_scores)))
             # save last dictionary
-            dic_predictions = {'cont_glob_index': inds_long, 'length': all_lens[inds_long],
+            dic_predictions = {'cont_glob_index': inds_sel, 'length': all_lens[inds_sel],
                                'label': labels_val, 'score': np.array(score_val).reshape(-1)}
             logging.info('Dictionary created')
 
@@ -78,22 +78,22 @@ def predict_with_method(model, args):
 
 
     elif args.method_pred == 'fulllength':
-        batches_list = Utils.create_batch_inds(all_lens, inds_long, args.mem_lim, fulllen=True)
+        batches_list = Utils.create_batch_inds(all_lens, inds_sel, args.mem_lim, fulllen=True)
         logging.info("Number of batches: {}".format(len(batches_list)))
         dataGen = Models.GeneratorFullLen(data_dict, batches_list, nprocs=args.n_procs) #contigs filtered by indexing
         start = time.time()
         score_val = model.predict(dataGen, use_multiprocessing=args.n_procs > 1, workers=args.n_procs)
         duration = time.time() - start
         logging.info("measured time {}".format(duration))
-        aupr = average_precision_score(all_labels[inds_long], score_val)
+        aupr = average_precision_score(all_labels[inds_sel], score_val)
         logging.info('AUC_PR: {:3f}'.format(aupr))
-        dic_predictions = {'cont_glob_index': inds_long, 'length': all_lens[inds_long],
-                           'label': all_labels[inds_long], 'score': np.array(score_val).reshape(-1)}
+        dic_predictions = {'cont_glob_index': inds_sel, 'length': all_lens[inds_sel],
+                           'label': all_labels[inds_sel], 'score': np.array(score_val).reshape(-1)}
         logging.info('Dictionary created')
 
 
     elif args.method_pred == 'chunks':
-        batches_list = Utils.create_batch_inds(all_lens, inds_long, args.mem_lim)
+        batches_list = Utils.create_batch_inds(all_lens, inds_sel, args.mem_lim)
         logging.info("Number of batches: {}".format(len(batches_list)))
         dataGen = Models.GeneratorPredLong(data_dict, batches_list, window=args.window, nprocs=args.n_procs)
         # contigs filtered by indexing
@@ -101,7 +101,7 @@ def predict_with_method(model, args):
         score_val = model.predict(dataGen, use_multiprocessing=args.n_procs > 1, workers=args.n_procs)
         duration = time.time() - start
         logging.info("measured time {}".format(duration))
-        dic_predictions = Utils.agregate_chunks(batches_list, all_lens, all_labels,
+        dic_predictions = Utils.aggregate_chunks(batches_list, all_lens, all_labels,
                                           all_preds=score_val, window=args.window)
         logging.info('Dictionary created')
 

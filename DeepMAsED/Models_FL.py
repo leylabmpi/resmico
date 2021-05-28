@@ -10,7 +10,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import Input, BatchNormalization
-from tensorflow.keras.layers import GlobalMaxPooling1D, GlobalAveragePooling1D, concatenate
+from tensorflow.keras.layers import GlobalMaxPooling1D, GlobalAveragePooling1D, concatenate, AveragePooling1D, MaxPooling1D, Flatten
 from tensorflow.keras.layers import Conv1D, Conv2D, Dropout, Dense
 from tensorflow.keras.layers import Bidirectional, LSTM
 ## application
@@ -24,7 +24,7 @@ class deepmased(object):
         self.max_len = config.max_len
         self.filters = config.filters
         self.n_conv = config.n_conv
-        self.n_features = config.n_features
+        self.n_feat = config.n_feat
         # self.pool_window = config.pool_window
         self.dropout = config.dropout
         self.lr_init = config.lr_init
@@ -37,27 +37,29 @@ class deepmased(object):
 
         tf.random.set_seed(self.seed)
 
-        inlayer = Input(shape=(None, self.n_features), name='input')
-
+        if self.net_type == 'fixlen_cnn_resnet':
+            inlayer = Input(shape=(self.max_len, self.n_feat), name='input')
+        else:
+            inlayer = Input(shape=(None, self.n_feat), name='input')
 
         if self.net_type=='cnn_globpool':
             x = Conv1D(self.filters, kernel_size=(10),
-                                input_shape=(None, self.n_features),
+                                input_shape=(None, self.n_feat),
                                 activation='relu', padding='valid', name='1st_conv')(inlayer)
-           # x = BatchNormalization(axis=-1)(x) todo: bn
+           # x = BatchNormalization(axis=-1)(x)
            #  x = Dropout(rate=self.dropout)(x)
 
             for i in range(1, self.n_conv-1):
                 x = Conv1D(2 ** i * self.filters, kernel_size=(5),
                                     strides=1, dilation_rate=2,
                                     activation='relu')(x)
-                # x = BatchNormalization(axis=-1)(x) todo: bn
+                # x = BatchNormalization(axis=-1)(x)
                 x = Dropout(rate=self.dropout)(x)
 
             x = Conv1D(2 ** self.n_conv * self.filters, kernel_size=(3),
                         strides=1, dilation_rate=2,
                         activation='relu')(x)
-            # x = BatchNormalization(axis=-1)(x) todo: bn
+            # x = BatchNormalization(axis=-1)(x)
             x = Dropout(rate=self.dropout)(x)
 
             maxP = GlobalMaxPooling1D()(x)
@@ -72,7 +74,7 @@ class deepmased(object):
 
         elif self.net_type=='cnn_lstm':
             x = Conv1D(self.filters, kernel_size=(10),
-                       input_shape=(None, self.n_features),
+                       input_shape=(None, self.n_feat),
                        activation='relu', padding='valid', name='1st_conv')(inlayer)
             for i in range(1, self.n_conv - 1):
                 x = Conv1D(2 ** i * self.filters, kernel_size=(5),
@@ -88,7 +90,7 @@ class deepmased(object):
         elif self.net_type=='cnn_resnet':
             x = BatchNormalization()(inlayer)
             x = Conv1D(self.filters, kernel_size=10,
-                                input_shape=(None, self.n_features),
+                                input_shape=(None, self.n_feat),
                                 padding='valid', name='1st_conv')(x)
             x = Utils.relu_bn(x)
             num_filters=self.filters
@@ -110,6 +112,33 @@ class deepmased(object):
             maxP = GlobalMaxPooling1D()(x)
             avgP = GlobalAveragePooling1D()(x)
             x = concatenate([maxP, avgP])
+
+        elif self.net_type == 'fixlen_cnn_resnet':
+            x = BatchNormalization()(inlayer)
+            x = Conv1D(self.filters, kernel_size=10,
+                                input_shape=(self.max_len, self.n_feat),
+                                padding='valid', name='1st_conv')(x)
+            x = Utils.relu_bn(x)
+            num_filters=self.filters
+            if self.num_blocks == 3:
+                num_blocks_list = [2, 5, 2]
+            if self.num_blocks == 4:
+                num_blocks_list = [2, 5, 5, 2]
+            if self.num_blocks == 5:
+                num_blocks_list = [2, 3, 5, 5, 2]
+            if self.num_blocks == 6:
+                num_blocks_list = [2, 3, 5, 5, 3, 2]
+            for i in range(len(num_blocks_list)):
+                num_blocks = num_blocks_list[i]
+                for j in range(num_blocks):
+                    x = Utils.residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
+                                             kernel_size=self.ker_size)
+                num_filters *= 2
+
+            avgP = AveragePooling1D(pool_size=100, padding='valid')(x)
+            maxP = MaxPooling1D(pool_size=100, padding='valid')(x)
+            x = concatenate([maxP, avgP])
+            x = Flatten()(x)
 
 
         for _ in range(self.n_fc):
@@ -208,7 +237,7 @@ class GeneratorBigD(tf.keras.utils.Sequence):
         self.data_dict = data_dict
         self.shuffle_data = shuffle_data
         # self.shuffle = False
-        self.n_feat = 20 #todo: features_sel
+        # self.n_feat = 28 #todo: features_sel
         self.rnd_seed = rnd_seed
         self.nprocs = nprocs
         self.time_load = 0
@@ -240,7 +269,7 @@ class GeneratorBigD(tf.keras.utils.Sequence):
         self.count_epoch += 1
 
         if self.shuffle_data:
-            if self.count_epoch%3==0: #todo: this IF was implemented to update negative class every 3 epochs
+            if self.count_epoch%1==0: #todo: this IF was implemented to update negative class every n epochs
                 logging.info('self.count_epoch: {}'.format(self.count_epoch))
                 logging.info("downsample over-represented class by  {}".format(self.fraq_neg))
                 np.random.shuffle(self.inds_neg)
@@ -250,8 +279,8 @@ class GeneratorBigD(tf.keras.utils.Sequence):
             np.random.shuffle(self.indices)
             #we do not shuffle and do not downsample for test and validation data
 
-        logging.info("len(self.indices) {}".format(len(self.indices)))
-        logging.info("self.indices[:10] {}".format(self.indices[:10]))
+        # logging.info("len(self.indices) {}".format(len(self.indices)))
+        # logging.info("self.indices[:10] {}".format(self.indices[:10]))
             
     def generate(self, indices_tmp):
         """
@@ -274,9 +303,9 @@ class GeneratorBigD(tf.keras.utils.Sequence):
         # logging.info("time to read one batch {} {}".format(len(indices_tmp), duration_load))
 
         max_contig_len = max(list(map(len,[x_i for x_i in X])))
-        mb_max_len = min(max_contig_len, self.max_len)
-      
-        x_mb = np.zeros((len(indices_tmp), mb_max_len, self.n_feat))
+        mb_max_len =  min(max_contig_len, self.max_len) #todo: fixed length NN self.max_len
+        n_feat = X[0].shape[1]
+        x_mb = np.zeros((len(indices_tmp), mb_max_len, n_feat))
 
         for i, x_i in enumerate(X):
             x_mb[i, 0:x_i.shape[0]] = x_i
@@ -292,6 +321,7 @@ class GeneratorBigD(tf.keras.utils.Sequence):
         """
         Get new mb
         """
+        start_time = time.time()
         if self.batch_size * (index + 1) < len(self.indices):
             indices_tmp = \
               self.indices[self.batch_size * index : self.batch_size * (index + 1)]
@@ -303,6 +333,7 @@ class GeneratorBigD(tf.keras.utils.Sequence):
         x_mb, y_mb = self.generate(indices_tmp)
         if index%50==0: #to see some progress
             logging.info("new batch {}".format(index))
+            # print("--- {:.1f} seconds ---".format(time.time() - start_time))
         # if index == 111:
         #     logging.info("index {}".format(index))
         #     logging.info("x_mb[:2] {}".format(x_mb[:2]))
@@ -316,7 +347,7 @@ class GeneratorPredLong(tf.keras.utils.Sequence):
         self.batch_list = batch_list
         self.window = window
         self.step = window / 2
-        self.n_feat = 21 #todo: features_sel
+        # self.n_feat = 28 #todo: features_sel
         self.all_lens = Utils.read_all_lens(data_dict)
         self.indices = np.arange(len(batch_list))
         self.nprocs = nprocs
@@ -331,16 +362,7 @@ class GeneratorPredLong(tf.keras.utils.Sequence):
         for cont_ind in self.batch_list[ind]:
             batch_size += 1+Utils.n_moves_window(self.all_lens[cont_ind], self.window, self.step)
 
-        x_mb = np.zeros((int(batch_size), self.window, self.n_feat))
-        mb_pos = 0
-        for i, xi in enumerate(X):
-            len_contig = xi.shape[0]
-            for idx_chunk in range(int(1+Utils.n_moves_window(len_contig, self.window, self.step))):
-                start_pos = int(idx_chunk * self.step)
-                end_pos = start_pos + self.window
-                chunked = xi[start_pos: int(min(end_pos, len_contig)), :]
-                x_mb[mb_pos, 0:chunked.shape[0]] = chunked  # padding is happenning here
-                mb_pos += 1
+        x_mb = Utils.gen_sliding_mb(X, batch_size,  self.window, self.step)
         return x_mb
 
     def __len__(self):
@@ -357,7 +379,7 @@ class GeneratorFullLen(tf.keras.utils.Sequence):
     def __init__(self, data_dict, batch_list, nprocs):  # data_dict contains all data, because indexes are global
         self.data_dict = data_dict
         self.batch_list = batch_list
-        self.n_feat = 21 #todo: features_sel
+        # self.n_feat = 28 #todo: features_sel
         self.all_lens = Utils.read_all_lens(data_dict)
         self.indices = np.arange(len(batch_list))
         self.nprocs = nprocs
@@ -369,8 +391,8 @@ class GeneratorFullLen(tf.keras.utils.Sequence):
         X = Utils.load_full_contigs(files_dict)
 
         max_len = max([self.all_lens[cont_ind] for cont_ind in self.batch_list[ind]])
-
-        x_mb = np.zeros((len(self.batch_list[ind]), max_len, self.n_feat))
+        n_feat = X[0].shape[1]
+        x_mb = np.zeros((len(self.batch_list[ind]), max_len, n_feat))
 
         for i, xi in enumerate(X):
             x_mb[i, 0:xi.shape[0]] = xi  # padding is happenning here

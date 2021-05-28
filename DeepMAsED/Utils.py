@@ -29,7 +29,7 @@ def nested_dict():
     return defaultdict(nested_dict)
 
 
-def compute_sum_sumsq_n(featurefiles_table, n_feat=20): #todo: features_sel
+def compute_sum_sumsq_n(featurefiles_table, n_feat=18): #todo: 20 or 21 features_sel
     """
     This function is applied once to the whole training data to compute
     mean and standard deviation. File is saved in the same directory.
@@ -59,9 +59,11 @@ def compute_sum_sumsq_n(featurefiles_table, n_feat=20): #todo: features_sel
     return 
 
 
-def standardize_data(feat_file_table, mean_std_file, set_target=True):
-    
-    feat_files = read_feature_file_table(feat_file_table)
+def standardize_data(feat_file_table, mean_std_file, set_target=True, real_data=False):
+    if real_data:
+        feat_files = read_feature_ft_realdata(feat_file_table)
+    else:
+        feat_files = read_feature_file_table(feat_file_table)
     feat_sum, feat_sq_sum, n_el = np.load(mean_std_file, allow_pickle=True)
 
     mean = feat_sum / n_el
@@ -74,26 +76,160 @@ def standardize_data(feat_file_table, mean_std_file, set_target=True):
     print(mean)
     print(std)
 
-    for rich,info in feat_files['pkl'].items():
-        for dep,infoo in info.items():
-            for rep,infooo in infoo.items():
-                for tech,filename in infooo.items():
-                    with open(filename, 'rb') as feat:
-                        if set_target == True:
-                            x, target_contig, name_to_id = pickle.load(feat)
-                        else:
-                            x, name_to_id = pickle.load(feat)
-                        standard_x = []
-                        for xi in x:
-                            standard_x.append((xi - mean) / std)
+    if real_data:
+        for sample, info in feat_files['pkl'].items():
+            for genome, filename in info.items():
+                with open(filename, 'rb') as feat:
+                    if set_target == True:
+                        x, target_contig, name_to_id = pickle.load(feat)
+                    else:
+                        x, name_to_id = pickle.load(feat)
+                    standard_x = []
+                    for xi in x:
+                        standard_x.append((xi - mean) / std)
 
-                    with open(filename, 'wb') as f:
-                        logging.info('Dumping: {}'.format(filename))
-                        if set_target == True:
-                            pickle.dump([standard_x, target_contig, name_to_id], f)
-                        else:
-                            pickle.dump([standard_x, name_to_id], f)  
+                with open(filename, 'wb') as f:
+                    logging.info('Dumping: {}'.format(filename))
+                    if set_target == True:
+                        pickle.dump([standard_x, target_contig, name_to_id], f)
+                    else:
+                        pickle.dump([standard_x, name_to_id], f)
+
+
+    else:
+        for rich,info in feat_files['pkl'].items():
+            for dep,infoo in info.items():
+                for rep,infooo in infoo.items():
+                    for tech,filename in infooo.items():
+                        with open(filename, 'rb') as feat:
+                            if set_target == True:
+                                x, target_contig, name_to_id = pickle.load(feat)
+                            else:
+                                x, name_to_id = pickle.load(feat)
+                            standard_x = []
+                            for xi in x:
+                                standard_x.append((xi - mean) / std)
+
+                        with open(filename, 'wb') as f:
+                            logging.info('Dumping: {}'.format(filename))
+                            if set_target == True:
+                                pickle.dump([standard_x, target_contig, name_to_id], f)
+                            else:
+                                pickle.dump([standard_x, name_to_id], f)
     return 
+
+def add_feat_h5(input_folder, output_folder, rch):
+    if len(rch)>1:
+        input_folder = input_folder+rch
+        output_folder = output_folder+rch
+    #precomputed values based on all train data
+    mean_sum_len = 29817373
+    std_sum_len = 28720860
+    
+    for in_file in Path(input_folder).rglob('*.pkl.h5'):
+        out_file = str(in_file).replace(input_folder, output_folder)
+        add_f_h5f(in_file, out_file, mean_sum_len, std_sum_len)
+    return
+
+def add_f_h5f(in_file, out_file, mean_sum_len, std_sum_len):
+    logging.info(f"working on {in_file} {os.path.getsize(in_file)}")
+
+    if Path(out_file).exists():
+        Path(out_file).unlink()
+    Path(out_file).parent.mkdir(exist_ok=True, parents=True)
+
+    with tables.open_file(in_file, 'r') as h5f:
+        #read
+        samples = h5f.get_node('/samples')[:]
+        labels = h5f.get_node('/labels')[:]
+        offsets = h5f.get_node('/offset_ends')[:]
+        data_h5 = h5f.get_node('/data')[:]
+        
+        num_pos = len(data_h5) 
+        
+        #add seq depth feature
+        #extract depth from filr name
+        #standartise using known values
+        #creat array
+        #concatenate to the data
+
+        # sum_len_f = ((num_pos-mean_sum_len)/std_sum_len*
+        #             np.array([1]*(num_pos))).reshape(-1,1)
+        # new_data_h5 = np.concatenate((data_h5, sum_len_f), axis=1)
+
+        #delete last feature:seq depth
+        # new_data_h5 = data_h5[:,:-1]
+
+        #delete depth, GC and proper SNP
+        new_data_h5 = data_h5[:, [*np.arange(17), 19]]
+
+    with tables.open_file(out_file, "a") as h5_file:
+        h5_file.create_array(h5_file.root, 'offset_ends', offsets)
+        h5_file.create_array(h5_file.root, 'samples', samples)
+        h5_file.create_array(h5_file.root, 'labels', labels)
+        h5_file.create_array(h5_file.root, 'data', new_data_h5)
+        
+
+def add_pos_feat(feature_file_table, rch='', set_target=True, name_input_folder='features'):
+    name_output_folder = name_input_folder + '_pos'
+    Data_dic = read_feature_file_table(feature_file_table)
+    all_input_pickles = []
+    if len(rch)>1:
+        keys1 = [rch]
+    else:
+        keys1 =  Data_dic['pkl'].keys()
+
+    for key1 in keys1:
+        for key2 in Data_dic['pkl'][key1].keys():
+            for key3 in Data_dic['pkl'][key1][key2].keys():
+                for key4 in Data_dic['pkl'][key1][key2][key3].keys():
+                    all_input_pickles.append(Data_dic['pkl'][key1][key2][key3][key4])
+
+    for input_pickle_path in all_input_pickles:
+        pickle_with_posf(input_pickle_path, set_target,
+                         name_input_folder, name_output_folder)
+
+    return
+
+
+def pickle_with_posf(input_pickle_path, set_target=True,
+                     name_input_folder='features_sel', name_output_folder='features_pos'):
+    with open(input_pickle_path, 'rb') as feat:
+        if set_target == True:
+            xi, yi, n2ii = pickle.load(feat)
+        else:
+            xi, n2ii = pickle.load(feat)
+
+    new_xi = []
+    for cont in xi:
+        new_fs = []
+        for T in [len(cont) - 1, 1000, 5000]:
+            new_fs.append(pos_sin(len(cont), T))
+            new_fs.append(pos_cos(len(cont), T))
+
+        new_cont = np.concatenate((cont, np.array(new_fs).T), axis=1)
+        new_xi.append(new_cont)
+
+    path_parts = list(Path(input_pickle_path).parts)
+    path_parts[path_parts.index(name_input_folder)] = name_output_folder
+    features_out = Path(*path_parts)
+    Path(features_out.parent).mkdir(parents=True, exist_ok=True)
+    with open(features_out, 'wb') as f:
+        logging.info('Dumping pickle file {}'.format(features_out))
+        if set_target == True:
+            pickle.dump([new_xi, yi, n2ii], f)
+        else:
+            pickle.dump([xi, n2ii], f)
+
+
+def pos_cos(lencont, T):
+    pos_f = np.cos(np.arange(lencont) * 2 * np.pi / T)
+    return pos_f
+
+
+def pos_sin(lencont, T):
+    pos_f = np.sin(np.arange(lencont) * 2 * np.pi / T)
+    return pos_f
 
 
 def get_row_val(row, row_num, col_idx, col):
@@ -206,7 +342,43 @@ def read_feature_file_table(feat_file_table, force_overwrite=False, technology='
     return D
 
 
-def pickle_in_parallel(feature_files, n_procs, set_target=True):
+def read_feature_ft_realdata(feat_file_table, force_overwrite=False):
+    """ Loads feature file table, which lists all feature tables & associated
+    metadata. The table is loaded based on column names.
+    Params:
+      feat_file_table : str, file path of tsv table
+      force_overwrite : bool, force create pkl files?
+    Returns:
+      dict{file_type : {sample: {genome : feature_file }}}
+    """
+    df = pd.read_csv(feat_file_table, sep = '\t')
+    base_dir = os.path.split(feat_file_table)[0]
+    D = nested_dict()
+
+    for raw_id in range(df.shape[0]):
+        genome = df.loc[raw_id, 'genome']
+        sample = df.loc[raw_id, 'sample']
+        feature_file = df.loc[raw_id, 'feature_file']
+        feature_file = os.path.join(base_dir, feature_file)
+        if not os.path.isfile(feature_file):
+            msg = 'Feature file table, Row{} => Cannot find file; '
+            msg += 'The file provided: {}'
+            raise ValueError(msg.format(raw_id + 2, feature_file))
+        if feature_file.endswith('.pkl'):
+            file_type = 'pkl'
+        elif feature_file.endswith('.tsv') or feature_file.endswith('.tsv.gz'):
+            feature_file, file_type = find_pkl_file(feature_file, force_overwrite)
+        else:
+            msg = 'Feature file table, Row{} => file extension'
+            msg += ' must be ".tsv", ".tsv.gz", or ".pkl"'
+            msg += '; The file provided: {}'
+            raise ValueError(msg.format(raw_id + 2, feature_file))
+
+        D[file_type][sample][genome] = feature_file
+    return D
+
+
+def pickle_in_parallel(feature_files, n_procs, set_target=True, real_data=False):
     """
     Pickling feature files using multiproessing.Pool.
     Params:
@@ -221,13 +393,21 @@ def pickle_in_parallel(feature_files, n_procs, set_target=True):
     pool = mp.Pool(processes = n_procs)
     # list of lists for input to pool.map
     x = []
-    for rich,info in feature_files['tsv'].items():
-        for depth,infoo in info.items():
-            for rep,infooo in infoo.items():
-                for tech,filename in infooo.items():
-                    F = filename
-                    pklF = os.path.join(os.path.split(F)[0], 'features.pkl')
-                    x.append([F, pklF, tech, depth])
+    if real_data:
+        for sample, info in feature_files['tsv'].items():
+            for genome, filename in info.items():
+                F = filename
+                pklF = os.path.join(os.path.split(F)[0], 'features.pkl')
+                x.append([F, pklF])
+    else:
+        for rich,info in feature_files['tsv'].items():
+            for depth,infoo in info.items():
+                for rep,infooo in infoo.items():
+                    for tech,filename in infooo.items():
+                        F = filename
+                        pklF = os.path.join(os.path.split(F)[0], 'features.pkl')
+                        x.append([F, pklF, tech, depth])
+
     # Pickle in parallel and saving file paths in dict
     func = partial(pickle_data_b, set_target=set_target)
     if n_procs > 1:
@@ -236,7 +416,7 @@ def pickle_in_parallel(feature_files, n_procs, set_target=True):
         ret = map(func, x)
     for y in ret:
         logging.info(" ")
-    return 
+    return
 
 def pickle_data_b(x, set_target=True):
     """
@@ -250,8 +430,8 @@ def pickle_data_b(x, set_target=True):
       features_out       
     """
     features_in, features_out = x[:2]
-    depth = x[3]
-    #add tech as a feature x[2]
+    # depth = x[3] #todo: not used when real data, in future never used
+    #add tech as a feature x[2] - can increase performance, less generalisable
 
     msg = 'Pickling feature data: {} => {}'
 #    logging.info(msg.format(features_in, features_out))
@@ -279,7 +459,6 @@ def pickle_data_b(x, set_target=True):
         col_names = next(tsv)
         # indexing
         w_contig = col_names.index('contig')
-        w_ext = col_names.index('Extensive_misassembly')
         w_ref = col_names.index('ref_base')
         w_nA = col_names.index('num_query_A')
         w_nC = col_names.index('num_query_C')
@@ -295,14 +474,17 @@ def pickle_data_b(x, set_target=True):
         w_min_mq = col_names.index('min_mapq_Match')
         w_std_mq = col_names.index('stdev_mapq_Match')
         w_gc = col_names.index('seq_window_perc_gc') #try without
-        # w_npropV = col_names.index('num_proper_SNP') #try without
+        w_npropV = col_names.index('num_proper_SNP') #try without
         w_cov = col_names.index('coverage')  # WARNING: predict assumes coverage in -2 position
         w_countN = [w_nA, w_nC, w_nT, w_nG]
-        w_features = [w_npropM, w_orpM, 
+        w_features = [w_npropM, w_orpM,
                       w_max_is, w_min_is, w_mean_is, w_std_is,
-                      w_min_mq, w_mean_mq, w_std_mq, 
-                      w_gc, w_cov]
-        nf=20 #4 for refrence feature, 4 count features, 12 important features, 1 seq depth #todo: features_sel
+                      w_min_mq, w_mean_mq, w_std_mq,
+                      w_npropV, #todo: features_sel 20 or 21
+                      w_gc,
+                      w_cov]
+        nf=20 #4 for refrence feature, 4 count features, 11/12 important features, 1 seq depth #todo: features_sel
+        #20 for first run for real data, everything except depth is there
         
         # formatting rows
 
@@ -322,6 +504,7 @@ def pickle_data_b(x, set_target=True):
                
                 #Set target (0 or 1; 1=misassembly)
                 if set_target == True:
+                    w_ext = col_names.index('Extensive_misassembly')
                     tgt = int(row[w_ext])
                     
                 # index
@@ -342,7 +525,8 @@ def pickle_data_b(x, set_target=True):
                         f_flt_values.append(None) # will be filled
                     else: print(ind, row[ind])
     
-            feat.append(np.concatenate((4 * [0], f_countN, f_flt_values, [int(depth)]))[None, :])
+            # feat.append(np.concatenate((4 * [0], f_countN, f_flt_values, [int(depth)]))[None, :]) #todo:depth
+            feat.append(np.concatenate((4 * [0], f_countN, f_flt_values))[None, :])
             feat[-1][0][letter_idx[row[w_ref]]] = 1
 
     # Append last
@@ -859,13 +1043,60 @@ def read_all_lens(samples_dict):
 
 
 #data reading
+# def clip_range(range_orig, seed, max_length):
+#     if range_orig[1] - range_orig[0] <= max_length:
+#         return range_orig
+#
+#     np.random.seed(seed)
+#     new_start = np.random.randint(range_orig[0], range_orig[1] - max_length)
+#
+#     return new_start, new_start + max_length
+#
+#
+# def read_data_from_file(f, samples, seed, max_range_length):
+#     sample_ids = [s[0].split('/')[-1] for s in samples]
+#
+#     mats = []
+#     # logging.info(f"Reading data from {f}. Reading {len(samples)} samples.")
+#     with tables.open_file(f, 'r') as h5f:
+#         sample_lookup = {s.decode('utf-8'): i for i, s in enumerate(h5f.get_node('/samples')[:])}
+#
+#         # index of s samples within a file
+#         sample_idx = [sample_lookup[s] for s in sample_ids]
+#
+#         labels = h5f.get_node('/labels')[sample_idx]
+#
+#         offsets = h5f.get_node('/offset_ends')[:]
+#         ranges = [(offsets[idx - 1] if idx > 0 else 0, offsets[idx]) for idx in sample_idx]
+#
+#         np.random.seed(seed)
+#         range_seeds = np.random.randint(0, 10000000, len(ranges))
+#         ranges_to_read = [clip_range(r, s, max_range_length) for (r, s) in zip(ranges, range_seeds)]
+#
+#         data_h5 = h5f.get_node('/data')
+#         for s, e in ranges_to_read:
+#             mats.append(data_h5[s:e, :])
+#         return mats, labels
+#
+#
+# def file_reading(file_items, max_len):
+#     with pathos.multiprocessing.Pool(1) as pool: #doesn't work together with tf.dataset
+#         pool_res = pool.map(lambda t:read_data_from_file(t[0], t[1], t[2], max_len), file_items)
+#     X, y = [], []
+#     for (dl, ll) in pool_res:
+#         for (d, l) in zip(dl, ll):
+#             X.append(d)
+#             y.append(l)
+#     return X, y
+# data reading
+
 def clip_range(range_orig, seed, max_length):
     if range_orig[1] - range_orig[0] <= max_length:
         return range_orig
 
-    np.random.seed(seed)
+    # np.random.seed(seed)
     new_start = np.random.randint(range_orig[0], range_orig[1] - max_length)
-    
+
     return new_start, new_start + max_length
 
 
@@ -885,8 +1116,8 @@ def read_data_from_file(f, samples, seed, max_range_length):
         offsets = h5f.get_node('/offset_ends')[:]
         ranges = [(offsets[idx - 1] if idx > 0 else 0, offsets[idx]) for idx in sample_idx]
 
-        np.random.seed(seed)
-        range_seeds = np.random.randint(0, 10000000, len(ranges))
+        # np.random.seed(seed)
+        range_seeds = np.random.randint(0, 1000000, len(ranges))
         ranges_to_read = [clip_range(r, s, max_range_length) for (r, s) in zip(ranges, range_seeds)]
 
         data_h5 = h5f.get_node('/data')
@@ -895,15 +1126,26 @@ def read_data_from_file(f, samples, seed, max_range_length):
         return mats, labels
 
 
+# def file_reading(file_items, max_len):
+#     X, y = [], []
+#     for t in file_items:
+#         dl, ll = read_data_from_file(t[0], t[1], t[2], max_len)
+#         for (d, l) in zip(dl, ll):
+#             X.append(d)
+#             y.append(l)
+#     return X, y
+
 def file_reading(file_items, max_len):
-    with pathos.multiprocessing.Pool(16) as pool:
+    with pathos.multiprocessing.Pool(4) as pool:
         pool_res = pool.map(lambda t:read_data_from_file(t[0], t[1], t[2], max_len), file_items)
-    X, y = [], []
+    X, y = [], []    
     for (dl, ll) in pool_res:
-        for (d, l) in zip(dl, ll):
-            X.append(d)
-            y.append(l)
-    return X, y
+        X.extend(dl)
+        y.extend(ll)        
+#         for (d, l) in zip(dl, ll):
+#             X.append(d)
+#             y.append(l)
+    return X,y  
 
 
 #for resnet
@@ -969,13 +1211,13 @@ def n_moves_window(cont_len, window, step):
         return np.ceil((cont_len - window) / step)
 
 
-def create_batch_inds(all_lens, inds_long, memory_limit, fulllen=False):
+def create_batch_inds(all_lens, inds_sel, memory_limit, fulllen=False):
     batches_inds = []
 
     if fulllen:
         cur_batch_ind = []
         cur_max_len = 0
-        for i, ind_long in enumerate(inds_long):
+        for i, ind_long in enumerate(inds_sel):
             cont_len = all_lens[ind_long]
             if cur_max_len < cont_len:
                 cur_max_len = cont_len
@@ -991,7 +1233,7 @@ def create_batch_inds(all_lens, inds_long, memory_limit, fulllen=False):
     else:
         cur_batch_ind = []
         cur_sum_lens = 0
-        for i, ind_long in enumerate(inds_long):
+        for i, ind_long in enumerate(inds_sel):
             cont_len = all_lens[ind_long]
             if cur_sum_lens + cont_len < memory_limit:
                 cur_sum_lens += cont_len
@@ -1004,6 +1246,20 @@ def create_batch_inds(all_lens, inds_long, memory_limit, fulllen=False):
                 cur_batch_ind.append(ind_long)
         batches_inds.append(cur_batch_ind)
     return batches_inds
+
+def gen_sliding_mb(X, batch_size, window, step):
+    n_feat = X[0].shape[1]
+    x_mb = np.zeros((int(batch_size), window, n_feat))
+    mb_pos = 0
+    for i, xi in enumerate(X):
+        len_contig = xi.shape[0]
+        for idx_chunk in range(int(1 + n_moves_window(len_contig, window, step))):
+            start_pos = int(idx_chunk * step)
+            end_pos = start_pos + window
+            chunked = xi[start_pos: int(min(end_pos, len_contig)), :]
+            x_mb[mb_pos, 0:chunked.shape[0]] = chunked  # padding is happenning here
+            mb_pos += 1
+    return x_mb
 
 #look at predictions
 def add_stats(df, column_name='chunk_scores'):
@@ -1021,18 +1277,28 @@ def add_stats(df, column_name='chunk_scores'):
 
     return df
 
-def agregate_chunks(batches_list, all_lens, all_labels, all_preds, window):
-    dic_predictions = {'cont_glob_index': [], 'length': [], 'label': [], 'chunk_scores': []}
+def aggregate_chunks(batches_list, all_lens, all_labels, all_preds, window):
+    if all_labels:
+        dic_predictions = {'cont_glob_index': [], 'length': [], 'label': [], 'chunk_scores': []}
+    else:
+        dic_predictions = {'cont_index': [], 'length': [], 'chunk_scores': []}
+
     step = window / 2
     start_pos = 0
+
     for cont_inds in batches_list:
         for cont_ind in cont_inds:
-            dic_predictions['cont_glob_index'].append(cont_ind)
             dic_predictions['length'].append(all_lens[cont_ind])
-            dic_predictions['label'].append(all_labels[cont_ind])
 
             end_pos = start_pos + int(1 + n_moves_window(all_lens[cont_ind], window, step))
             cont_preds = all_preds[start_pos:end_pos].reshape(-1)
             dic_predictions['chunk_scores'].append(cont_preds)
             start_pos = end_pos
+            if all_labels:
+                dic_predictions['cont_glob_index'].append(cont_ind)
+                dic_predictions['label'].append(all_labels[cont_ind])
+
+            else:
+                dic_predictions['cont_index'].append(cont_ind)
+
     return dic_predictions

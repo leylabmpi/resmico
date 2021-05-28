@@ -18,7 +18,16 @@ def process_file(in_file, out_file):
         out_file.unlink()
 
     with open(in_file, 'rb') as f:
-        mats, labels, sample_dict = pickle.load(f)
+        loaded_info = pickle.load(f)
+        mats = loaded_info[0] 
+        sample_dict = loaded_info[-1]
+        if len(loaded_info)==3:
+            labels = loaded_info[1]
+            real_data = False
+        elif len(loaded_info)==2:
+            real_data = True
+        else:
+            print('pickle file has only {} dimension'.format(len(loaded_info)))
 
     logging.info(f"loaded {in_file}")
     id2sample = { v:k for (k,v) in sample_dict.items()}
@@ -48,7 +57,8 @@ def process_file(in_file, out_file):
     with tables.open_file(out_file, "r+") as h5_file:
         h5_file.create_array(h5_file.root, 'offset_ends', offset_ends)
         h5_file.create_array(h5_file.root, 'samples', samples_str)
-        h5_file.create_array(h5_file.root, 'labels', np.array(labels))
+        if not real_data:
+            h5_file.create_array(h5_file.root, 'labels', np.array(labels))
 
 
 @click.command()

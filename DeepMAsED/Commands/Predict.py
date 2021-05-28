@@ -44,20 +44,30 @@ def parse_args(test_args=None, subparsers=None):
                         help='Directory containing the model (default: %(default)s)')
     parser.add_argument('--model-name', default=pkg_model, type=str, 
                         help='Model name in the model_path (default: %(default)s)')
-    parser.add_argument('--mstd-name', default=pkg_mstd, type=str, 
-                        help='Data mean and std name in the model_path (default: %(default)s)') 
+    # parser.add_argument('--mstd-name', default=pkg_mstd, type=str,
+    #                     help='Data mean and std name in the model_path (default: %(default)s)')
     parser.add_argument('--save-path', default='.', type=str, 
                         help='Directory where to save output (default: %(default)s)')
     parser.add_argument('--save-name', default='deepmased', type=str, 
                         help='Prefix for name in the save_path (default: %(default)s)')        
-    parser.add_argument('--cpu-only', action='store_true', default=False,
-                        help='Only use CPUs, and no GPUs (default: %(default)s)')
+    # parser.add_argument('--cpu-only', action='store_true', default=False,
+    #                     help='Only use CPUs, and no GPUs (default: %(default)s)')
     parser.add_argument('--seed', default=12, type=int, 
                         help='Seed used for numpy.random (default: %(default)s)')
-    parser.add_argument('--batch-size', default=4, type=int, 
+    parser.add_argument('--batch-size', default=64, type=int,
                         help='Batch size (default: %(default)s)')
     parser.add_argument('--n-procs', default=1, type=int, 
                         help='Number of parallel processes; just used for pickling (default: %(default)s)')
+    parser.add_argument('--min-len', default=1000, type=int,
+                        help='Definition of -long- contig. If want predict for all use(default: %(default)s)')
+    parser.add_argument('--max-len', default=10000, type=int,
+                        help='Max contig len, fixed input CNN (default: %(default)s)')
+    parser.add_argument('--method-pred', default='chunks', type=str,
+                        help='How to predict: only chunks supported in a final version')
+    parser.add_argument('--mem-lim', default=500000, type=int,
+                        help='Max contig that fits in one batch (default: %(default)s)')
+    parser.add_argument('--window', default=5000, type=int,
+                        help='Window size for chunks method, size of piece for random method (default: %(default)s)')
     # test args
     if test_args:
         args = parser.parse_args(test_args)

@@ -52,8 +52,24 @@ def parse_args(test_args=None, subparsers=None):
                         help='Compute mean and std from pickle (default: %(default)s)')
     parser.add_argument('--standard-data', action='store_true', default=False,
                         help='Standardize data with precomputed mean and std (default: %(default)s)')
-    parser.add_argument('--downsample', action='store_true', default=False,
-                        help='NOT SUPPORTED YET') #to reduce number of good contigs
+
+    parser.add_argument('--add_pos_feat', action='store_true', default=False,
+                        help='Add positional features (default: %(default)s)')
+    parser.add_argument('--name_input_folder',  default='features', type=str,
+                        help='Name in a path that need to be changed -> + _pos (see DESCRIPTION)')
+   
+    parser.add_argument('--rch',  default='', type=str,
+                        help='Richness to process parts of data in parallel (see DESCRIPTION)')
+    
+    parser.add_argument('--add_feat_h5', action='store_true', default=False,
+                        help='Add features to h5 files (default: %(default)s)')
+    parser.add_argument('--input_folder',  default='', type=str,
+                        help='path with oiginal h5 files')
+    parser.add_argument('--output_folder',  default='', type=str,
+                        help='path for h5 files with new feature')
+
+    parser.add_argument('--real_data', action='store_true', default=False,
+                        help='Preprocessing is different for real data (default: %(default)s)')
     
     parser.add_argument('--feature-file-table',  default='feature_file_table', type=str, 
                         help='Table listing feature table files (see DESCRIPTION)')

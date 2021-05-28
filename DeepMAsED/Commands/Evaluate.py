@@ -49,8 +49,6 @@ def parse_args(test_args=None, subparsers=None):
                         help='Directory where to save output (default: %(default)s)')
     parser.add_argument('--save-name', default='deepmased', type=str, 
                         help='Prefix for name in the save_path (default: %(default)s)')
-    parser.add_argument('--save-plot', default=None, type=str,                          #not implemented
-                        help='Where to save plots (default: %(default)s)')
     parser.add_argument('--batch-size', default=100, type=int,
                         help='Batch size (default: %(default)s)')
     parser.add_argument('--max-len', default=10000, type=int, 
@@ -71,7 +69,7 @@ def parse_args(test_args=None, subparsers=None):
                         help='use only rep 10 (validation set)')
     parser.add_argument('--method-pred', default='random', type=str,
                         help='How to predict: random, fulllength, chunks')
-    parser.add_argument('--long-def', default=1000, type=int,
+    parser.add_argument('--min-len', default=1000, type=int,
                         help='Definition of -long- contig. If want predict for all use(default: %(default)s)')
     parser.add_argument('--mem-lim', default=500000, type=int,
                         help='Max contig that fits in one batch (default: %(default)s)')

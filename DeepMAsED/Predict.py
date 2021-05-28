@@ -1,19 +1,17 @@
 # import
 ## batteries
 import os
-import sys
+
 import logging
 ## 3rd party
 import numpy as np
-import tensorflow as tf
+import pandas as pd
+
 from tensorflow.keras.models import load_model
-from sklearn.metrics import confusion_matrix, roc_curve
-from sklearn.metrics import recall_score, roc_auc_score
-from sklearn.preprocessing import StandardScaler
-import IPython
-import _pickle as pickle
+from sklearn.linear_model import LogisticRegression
+
+import pickle
 ## application
-from DeepMAsED import Models_FL as Models
 from DeepMAsED import Utils
 
 
@@ -21,25 +19,25 @@ def main(args):
     np.random.seed(args.seed)
 
     # CPU only instead of GPU
-    if args.cpu_only:
-        logging.info('Setting env for CPU-only mode...')
-        os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
-        os.environ["CUDA_VISIBLE_DEVICES"] = '-1'
+    # if args.cpu_only:
+    #     logging.info('Setting env for CPU-only mode...')
+    #     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
+    #     os.environ["CUDA_VISIBLE_DEVICES"] = '-1'
     
     # Load and process data
     # Provide objective to load
     custom_obj = {'class_recall_0':Utils.class_recall_0, 'class_recall_1': Utils.class_recall_1}
     logging.info('Loading model...')
     ## pkl
-    logging.info('  Loading mstd...')
-    F = os.path.join(args.model_path, args.mstd_name)
-    if not os.path.exists(F):
-        msg = 'Model file not available at data-path: {}'
-        raise IOError(msg.format(F))        
-    with open(F, 'rb') as mstd:
-        mean_tr, std_tr = pickle.load(mstd)
+    # logging.info('  Loading mstd...')
+    # F = os.path.join(args.model_path, args.mstd_name)
+    # if not os.path.exists(F):
+    #     msg = 'mstd file is not available at data-path: {}'
+    #     raise IOError(msg.format(F))
+    # with open(F, 'rb') as mstd:
+    #     mean_tr, std_tr = pickle.load(mstd)
     ## h5
-    logging.info('  Loading h5...')
+    # logging.info('  Loading h5...')
     F = os.path.join(args.model_path, args.model_name)
     if not os.path.exists(F):
         msg = 'Model file not available at data-path: {}'
@@ -50,25 +48,92 @@ def main(args):
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
 
-    logging.info('Loading features...')
-    x, y, i2n = Utils.load_features_nogt(args.feature_file_table,
-                                         force_overwrite=args.force_overwrite,
-                                         pickle_only=args.pickle_only,
-                                         n_procs=args.n_procs, chunks=False)
-    
-    logging.info('Loaded {} contigs'.format(len(set(i2n.values()))))    
-    n2i = Utils.reverse_dict(i2n)
-    x = [xi for xmeta in x for xi in xmeta]
-    y = np.concatenate(y)
-    
-    logging.info('Running model generator...')
-    dataGen = Models.Generator(x, y, batch_size=args.batch_size, shuffle=False, 
-                               mean_tr=mean_tr, std_tr=std_tr)
-    
-    logging.info('Computing predictions...')
-    scores = Utils.compute_predictions(n2i, dataGen, model,
-                                       args.save_path, args.save_name)
-    
+
+    feat_files_dic = Utils.read_feature_ft_realdata(args.feature_file_table)
+
+    #separate prediction for each genome
+    for sample, info in feat_files_dic['pkl'].items():
+        for genome, filename in info.items():
+            with open(filename, 'rb') as inF:
+                logging.info('loading features from {}'.format(filename))
+                x, n2i = pickle.load(inF)
+
+            preds = []
+
+            #split into batches
+            all_lens = [len(xi) for xi in x]
+
+            inds_sel = np.arange(len(all_lens))[np.array(all_lens) >= args.min_len]
+            inds_toolong = np.arange(len(all_lens))[np.array(all_lens) > args.mem_lim]  # change if want 3k
+            inds_sel = np.array([el for el in inds_sel if el not in inds_toolong])
+
+            batch_list = Utils.create_batch_inds(all_lens, inds_sel, args.mem_lim)
+            logging.info("Number of batches: {}".format(len(batch_list)))
+
+            for ind in range(len(batch_list)):
+                X = np.array(x)[batch_list[ind]]
+
+                batch_size = 0
+                for cont_ind in batch_list[ind]:
+                    batch_size += 1 + Utils.n_moves_window(all_lens[cont_ind], args.window, args.window/2)
+                x_mb = Utils.gen_sliding_mb(X, batch_size, args.window, args.window/2)
+                pred_mb = model.predict(x_mb)
+                preds.extend(pred_mb)
+
+
+            dic_predictions = Utils.aggregate_chunks(batch_list, all_lens, all_labels=None,
+                                                    all_preds=np.array(preds), window=args.window)
+            logging.info('Dictionary created')
+
+            df_preds = pd.DataFrame.from_dict(dic_predictions)
+            df_preds = Utils.add_stats(df_preds)
+
+            logging.info('Aggregated chunks with logreg')
+
+            clf = LogisticRegression()
+            w = np.array([[-0.6246, -0.4191, -2.2027, -0.7481, -0.5864, -0.0315, 0.3024, 0.3307,
+                           -1.0160],
+                          [0.4621, 0.6289, 2.0829, 0.8016, 0.6754, -0.2144, -0.3024, -0.2907,
+                           0.9291]])
+            b = np.array([2.6030, -2.4675])
+            clf.coef_ = w
+            clf.intercept_ = b
+            clf.classes_ = np.array([-1, 1])
+
+            features_list = ['min', 'mean', 'max', 'std', 'p10', 'p30', 'p50', 'p70', 'p90']
+            X_logreg = df_preds[features_list]
+            y_pred_proba = clf.predict_proba(X_logreg)[:, 1]
+            df_preds['y_pred_proba'] = y_pred_proba
+
+            genome_quality = str(np.round(1-np.mean(y_pred_proba), 3))
+
+            df_name = args.save_path + '/' + args.save_name + \
+                       '_sample_' + sample + '_genome_' + genome + \
+                       '_Q' + genome_quality + '.csv'
+            df_preds.to_csv(df_name, index=False)
+            logging.info("csv table saved: {}".format(df_name))
+
+
+
+
+    # x, y, i2n = Utils.load_features_nogt(args.feature_file_table,
+    #                                      force_overwrite=args.force_overwrite,
+    #                                      pickle_only=args.pickle_only,
+    #                                      n_procs=args.n_procs, chunks=False)
+    #
+    # logging.info('Loaded {} contigs'.format(len(set(i2n.values()))))
+    # n2i = Utils.reverse_dict(i2n)
+    # x = [xi for xmeta in x for xi in xmeta]
+    # y = np.concatenate(y)
+    #
+    # logging.info('Running model generator...')
+    # dataGen = Models.Generator(x, y, batch_size=args.batch_size, shuffle=False,
+    #                            mean_tr=mean_tr, std_tr=std_tr)
+    #
+    # logging.info('Computing predictions...')
+    # scores = Utils.compute_predictions(n2i, dataGen, model,
+    #                                    args.save_path, args.save_name)
+    #
 
 if __name__ == '__main__':
     pass
