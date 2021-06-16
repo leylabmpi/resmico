@@ -67,7 +67,7 @@ def parse_args(test_args=None, subparsers=None):
                         help='Use True if want to train on 1-9 reps')
     parser.add_argument('--rep10', action='store_true', default=False,
                         help='use only rep 10 (validation set)')
-    parser.add_argument('--method-pred', default='random', type=str,
+    parser.add_argument('--method-pred', default='chunks', type=str,
                         help='How to predict: random, fulllength, chunks')
     parser.add_argument('--min-len', default=1000, type=int,
                         help='Definition of -long- contig. If want predict for all use(default: %(default)s)')
@@ -75,6 +75,8 @@ def parse_args(test_args=None, subparsers=None):
                         help='Max contig that fits in one batch (default: %(default)s)')
     parser.add_argument('--window', default=5000, type=int,
                         help='Window size for chunks method, size of piece for random method (default: %(default)s)')
+    parser.add_argument('--v1', action='store_true', default=False,
+                        help='use deepmased')
 
     # running test args
     if test_args:

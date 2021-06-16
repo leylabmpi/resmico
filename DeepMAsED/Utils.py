@@ -378,7 +378,7 @@ def read_feature_ft_realdata(feat_file_table, force_overwrite=False):
     return D
 
 
-def pickle_in_parallel(feature_files, n_procs, set_target=True, real_data=False):
+def pickle_in_parallel(feature_files, n_procs, set_target=True, real_data=False, v1=False):
     """
     Pickling feature files using multiproessing.Pool.
     Params:
@@ -406,10 +406,13 @@ def pickle_in_parallel(feature_files, n_procs, set_target=True, real_data=False)
                     for tech,filename in infooo.items():
                         F = filename
                         pklF = os.path.join(os.path.split(F)[0], 'features.pkl')
-                        x.append([F, pklF, tech, depth])
+                        x.append([F, pklF]) #, tech, depth])
 
     # Pickle in parallel and saving file paths in dict
-    func = partial(pickle_data_b, set_target=set_target)
+    if v1:
+        func = partial(pickle_data_b_v1, set_target=set_target)
+    else:
+        func = partial(pickle_data_b, set_target=set_target)
     if n_procs > 1:
         ret = pool.map(func, x)
     else:
@@ -429,9 +432,8 @@ def pickle_data_b(x, set_target=True):
     Returns:
       features_out       
     """
-    features_in, features_out = x[:2]
-    # depth = x[3] #todo: not used when real data, in future never used
-    #add tech as a feature x[2] - can increase performance, less generalisable
+    features_in, features_out = x[:]
+
 
     msg = 'Pickling feature data: {} => {}'
 #    logging.info(msg.format(features_in, features_out))
@@ -474,17 +476,16 @@ def pickle_data_b(x, set_target=True):
         w_min_mq = col_names.index('min_mapq_Match')
         w_std_mq = col_names.index('stdev_mapq_Match')
         w_gc = col_names.index('seq_window_perc_gc') #try without
-        w_npropV = col_names.index('num_proper_SNP') #try without
+        w_npropV = col_names.index('num_proper_SNP')
         w_cov = col_names.index('coverage')  # WARNING: predict assumes coverage in -2 position
-        w_countN = [w_nA, w_nC, w_nT, w_nG]
+
         w_features = [w_npropM, w_orpM,
                       w_max_is, w_min_is, w_mean_is, w_std_is,
                       w_min_mq, w_mean_mq, w_std_mq,
                       w_npropV, #todo: features_sel 20 or 21
                       w_gc,
                       w_cov]
-        nf=20 #4 for refrence feature, 4 count features, 11/12 important features, 1 seq depth #todo: features_sel
-        #20 for first run for real data, everything except depth is there
+        nf=20 #4 for refrence feature, 4 count features, 12 important features
         
         # formatting rows
 
@@ -525,7 +526,7 @@ def pickle_data_b(x, set_target=True):
                         f_flt_values.append(None) # will be filled
                     else: print(ind, row[ind])
     
-            # feat.append(np.concatenate((4 * [0], f_countN, f_flt_values, [int(depth)]))[None, :]) #todo:depth
+            # feat.append(np.concatenate((4 * [0], f_countN, f_flt_values, [int(depth)]))[None, :])
             feat.append(np.concatenate((4 * [0], f_countN, f_flt_values))[None, :])
             feat[-1][0][letter_idx[row[w_ref]]] = 1
 
@@ -548,9 +549,119 @@ def pickle_data_b(x, set_target=True):
             pickle.dump([feat_contig, name_to_id], f)
             
     return x
-        
 
-def load_features_tr(feat_file_table, max_len=10000, 
+
+def pickle_data_b_v1(x, set_target=True):
+    """
+    One time function parsing the csv file and dumping the
+    values of interest into a pickle file.
+    It generates features exactly in the same format at deepmased v1 and standardize them
+    """
+    features_in, features_out = x[:]
+    feat_contig, target_contig = [], []
+    name_to_id = {}
+
+    mean_tr = [0., 0., 0., 0.,
+               1.38582490e+00, 1.22166380e+00, 1.22158993e+00, 1.38745485e+00,
+               6.79878240e-03, 5.21650785e+00, 4.22636972e-03]
+    std_tr = [1., 1., 1., 1.,
+              2.52844001, 2.36866187, 2.36876082, 2.52997747,
+              0.11330371, 1.91498052, 0.11517926]
+
+    # Dictionary for one-hot encoding
+    letter_idx = defaultdict(int)
+    # Idx of letter in feature vector
+    idx_tmp = [('A', 0), ('C', 1), ('T', 2), ('G', 3)]
+
+    for k, v in idx_tmp:
+        letter_idx[k] = v
+
+    idx = 0
+    # Read tsv and process features
+    if features_in.endswith('.gz'):
+        _open = lambda x: gzip.open(x, 'rt')
+    else:
+        _open = lambda x: open(x, 'r')
+    with _open(features_in) as f:
+        # load
+        tsv = csv.reader(f, delimiter='\t')
+        col_names = next(tsv)
+        # indexing
+        w_contig = col_names.index('contig')
+        w_ext = col_names.index('Extensive_misassembly')
+        w_ref = col_names.index('ref_base')
+        w_nA = col_names.index('num_query_A')
+        w_nC = col_names.index('num_query_C')
+        w_nG = col_names.index('num_query_G')
+        w_nT = col_names.index('num_query_T')
+        w_SNP = col_names.index('num_SNPs')
+        w_cov = col_names.index('coverage')
+        w_dis = col_names.index('num_discordant')
+        w_features = [w_SNP, w_cov, w_dis]
+        nf=11
+        # formatting rows
+        for row in tsv:
+            name_contig = row[w_contig]
+
+            # If name not in set, add previous contig and target to dataset
+            if name_contig not in name_to_id:
+                if idx != 0:
+                    # filling missing values with average within contig
+                    df_feat = pd.DataFrame(np.array(feat).reshape(-1, nf))
+                    df_feat.fillna(df_feat.mean(), inplace=True)
+                    feat_contig.append(df_feat.values)
+                    if set_target == True:
+                        target_contig.append(float(tgt))
+                feat = []
+
+                # Set target (0 or 1; 1=misassembly)
+                if set_target == True:
+                    tgt = int(row[w_ext])
+
+                # index
+                name_to_id[name_contig] = idx
+                idx += 1
+
+            # Construct feature vec
+            f_countN = [float(row[w_nA]), float(row[w_nC]), float(row[w_nG]), float(row[w_nT])]
+
+            # normalisation, absolute values is coded in coverage
+
+
+            f_flt_values = []
+            for ind in w_features:
+                try:
+                    f_flt_values.append(float(row[ind]))
+                except:
+                    if row[ind] == 'NA':
+                        f_flt_values.append(None)  # will be filled
+                    else:
+                        print(ind, row[ind])
+#ref_base	num_query_A	num_query_C	num_query_G	num_query_T	num_SNPs	coverage	num_discordant
+            feat_i = np.concatenate((4 * [0], f_countN, f_flt_values))[None, :]
+            feat_i = (feat_i - mean_tr)/std_tr
+            feat.append(feat_i)
+            feat[-1][0][letter_idx[row[w_ref]]] = 1
+
+    # Append last
+    df_feat = pd.DataFrame(np.array(feat).reshape(-1, nf))
+    df_feat.fillna(df_feat.mean(), inplace=True)
+    feat_contig.append(df_feat.values)
+    if set_target == True:
+        target_contig.append(float(tgt))
+
+    # Save processed data into pickle file
+    with open(features_out, 'wb') as f:
+        logging.info('Dumping pickle file {}'.format(features_out))
+        if set_target == True:
+            pickle.dump([feat_contig, target_contig, name_to_id], f)
+        else:
+            pickle.dump([feat_contig, name_to_id], f)
+
+    return x
+
+
+def load_features_tr(feat_file_table, max_len=10000,
                      technology = None,
                      chunks=True):
 
@@ -1277,24 +1388,30 @@ def add_stats(df, column_name='chunk_scores'):
 
     return df
 
-def aggregate_chunks(batches_list, all_lens, all_labels, all_preds, window):
-    if all_labels:
+def aggregate_chunks(batches_list, all_lens, all_labels, all_preds, window, step):
+    if all_labels != []:
         dic_predictions = {'cont_glob_index': [], 'length': [], 'label': [], 'chunk_scores': []}
     else:
         dic_predictions = {'cont_index': [], 'length': [], 'chunk_scores': []}
 
-    step = window / 2
     start_pos = 0
 
     for cont_inds in batches_list:
         for cont_ind in cont_inds:
-            dic_predictions['length'].append(all_lens[cont_ind])
+            cont_len = all_lens[cont_ind]
+            dic_predictions['length'].append(cont_len)
 
             end_pos = start_pos + int(1 + n_moves_window(all_lens[cont_ind], window, step))
             cont_preds = all_preds[start_pos:end_pos].reshape(-1)
+
+            #contigs of length of length 5k-6k treated the same as 5k
+            if (cont_len >= 5000) & (cont_len <= 6000):
+                cont_preds = cont_preds[0]
+                #the second window is not informative and can be harmful, because has the same weight as the first
+
             dic_predictions['chunk_scores'].append(cont_preds)
             start_pos = end_pos
-            if all_labels:
+            if all_labels != []:
                 dic_predictions['cont_glob_index'].append(cont_ind)
                 dic_predictions['label'].append(all_labels[cont_ind])
 

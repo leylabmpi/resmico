@@ -81,8 +81,8 @@ def main(args):
                 preds.extend(pred_mb)
 
 
-            dic_predictions = Utils.aggregate_chunks(batch_list, all_lens, all_labels=None,
-                                                    all_preds=np.array(preds), window=args.window)
+            dic_predictions = Utils.aggregate_chunks(batch_list, all_lens, all_labels=[],
+                                                    all_preds=np.array(preds), window=args.window, step=window / 2)
             logging.info('Dictionary created')
 
             df_preds = pd.DataFrame.from_dict(dic_predictions)

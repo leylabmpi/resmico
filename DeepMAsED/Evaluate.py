@@ -92,17 +92,31 @@ def predict_with_method(model, args):
         logging.info('Dictionary created')
 
 
+    elif args.v1:
+        logging.info('predict with deepmased v1')
+        window = 10000
+        batches_list = Utils.create_batch_inds(all_lens, inds_sel, args.mem_lim)
+        logging.info("Number of batches: {}".format(len(batches_list)))
+        dataGen = Models.Generator_v1(data_dict, batches_list, window=window, step=window, nprocs=args.n_procs)
+
+        score_val = model.predict(dataGen, use_multiprocessing=args.n_procs > 1, workers=args.n_procs)
+
+        dic_predictions = Utils.aggregate_chunks(batches_list, all_lens, all_labels,
+                                                 all_preds=score_val, window=window, step=window)
+        logging.info('Dictionary created')
+
     elif args.method_pred == 'chunks':
         batches_list = Utils.create_batch_inds(all_lens, inds_sel, args.mem_lim)
         logging.info("Number of batches: {}".format(len(batches_list)))
-        dataGen = Models.GeneratorPredLong(data_dict, batches_list, window=args.window, nprocs=args.n_procs)
+        dataGen = Models.GeneratorPredLong(data_dict, batches_list, window=args.window, step=args.window/2.,
+                                           nprocs=args.n_procs)
         # contigs filtered by indexing
         start = time.time()
         score_val = model.predict(dataGen, use_multiprocessing=args.n_procs > 1, workers=args.n_procs)
         duration = time.time() - start
         logging.info("measured time {}".format(duration))
         dic_predictions = Utils.aggregate_chunks(batches_list, all_lens, all_labels,
-                                          all_preds=score_val, window=args.window)
+                                          all_preds=score_val, window=args.window, step=window/2)
         logging.info('Dictionary created')
 
 
@@ -110,7 +124,8 @@ def predict_with_method(model, args):
         logging.info('Pred method is not supported')
 
     df_preds = pd.DataFrame.from_dict(dic_predictions)
-    if args.method_pred == 'chunks':
+
+    if args.method_pred == 'chunks' or args.v1:
         df_preds = Utils.add_stats(df_preds)
     df_name = args.save_path + '/' + args.save_name + '.csv'
     df_preds.to_csv(df_name, index=False)
@@ -119,9 +134,14 @@ def predict_with_method(model, args):
 def main(args):
     """Main interface
     """
-    #load model
-    custom_obj = {'class_recall_0':Utils.class_recall_0, 'class_recall_1': Utils.class_recall_1}
-    h5_file = os.path.join(args.model_path, args.model_name)
+    if args.v1:
+        path = '/cluster/home/omineeva/global_projects/projects/projects2019-contig_quality/'
+        h5_file = path + 'gitlab/deepmased/DeepMAsED/Model/deepmased_model.h5'
+        custom_obj = {'metr' : Utils.class_recall_0}
+    else:
+        custom_obj = {'class_recall_0': Utils.class_recall_0, 'class_recall_1': Utils.class_recall_1}
+        h5_file = os.path.join(args.model_path, args.model_name)
+
     if not os.path.exists(h5_file):
         msg = 'Cannot find {} file in {}'
         raise IOError(msg.format(args.model_name, args.model_path))
@@ -129,35 +149,11 @@ def main(args):
     logging.info('Number of devices: {}'.format(strategy.num_replicas_in_sync))
     logging.info('Loading model: {}'.format(h5_file))
     with strategy.scope():
-         model = load_model(h5_file, custom_objects=custom_obj)
+        model = load_model(h5_file, custom_objects=custom_obj)
     logging.info('Model loaded')
 
-    if args.big_data:
-        predict_with_method(model, args)
+    predict_with_method(model, args)
 
-
-    else: #old version of code and data required
-    # loading features
-        logging.info('Loading synthetic features')
-        x, y, i2n = Utils.load_features(args.feature_file_table,
-                                        max_len = args.max_len,
-                                        technology = args.technology,
-                                        chunks=False)  #False to use contigs of variable length
-
-        logging.info('Loaded {} contigs'.format(len(set(i2n.values()))))
-        n2i = Utils.reverse_dict(i2n)
-        x = [xi for xmeta in x for xi in xmeta]
-        y = np.concatenate(y)
-        logging.info('Running model generator...')
-        dataGen = Models.Generator(x, y, args.max_len, batch_size=args.batch_size,  shuffle=False)
-
-        logging.info('Computing predictions for {}...'.format(args.technology))
-        scores = Utils.compute_predictions_y_known(y, n2i, model, dataGen, args.n_procs, x=x) #give x if chunks=False
-
-        outfile = os.path.join(args.save_path, '_'.join([args.save_name, args.technology + '.pkl']))
-        with open(outfile, 'wb') as spred:
-            pickle.dump(scores, spred)
-        logging.info('File written: {}'.format(outfile))
 
     
 if __name__ == '__main__':

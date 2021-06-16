@@ -342,11 +342,11 @@ class GeneratorBigD(tf.keras.utils.Sequence):
 
 
 class GeneratorPredLong(tf.keras.utils.Sequence):
-    def __init__(self, data_dict, batch_list, window, nprocs): # data_dict contains all data, because indexes are global
+    def __init__(self, data_dict, batch_list, window, step, nprocs): # data_dict contains all data, because indexes are global
         self.data_dict = data_dict
         self.batch_list = batch_list
         self.window = window
-        self.step = window / 2
+        self.step = step
         # self.n_feat = 28 #todo: features_sel
         self.all_lens = Utils.read_all_lens(data_dict)
         self.indices = np.arange(len(batch_list))
@@ -396,6 +396,41 @@ class GeneratorFullLen(tf.keras.utils.Sequence):
 
         for i, xi in enumerate(X):
             x_mb[i, 0:xi.shape[0]] = xi  # padding is happenning here
+        return x_mb
+
+    def __len__(self):
+        return len(self.batch_list)
+
+    def __getitem__(self, index):
+        x_mb = self.generate(index)
+        if index%50==0: #to see some progress
+            logging.info("new batch {}".format(index))
+        return x_mb
+
+
+class Generator_v1(tf.keras.utils.Sequence):
+    def __init__(self, data_dict, batch_list, window, step, nprocs): # data_dict contains all data, because indexes are global
+        self.data_dict = data_dict
+        self.batch_list = batch_list
+        self.window = window
+        self.step = step
+        # self.n_feat = 28 #todo: features_sel
+        self.all_lens = Utils.read_all_lens(data_dict)
+        self.indices = np.arange(len(batch_list))
+        self.nprocs = nprocs
+
+    def generate(self, ind):
+        sample_keys = np.array(list(self.data_dict.keys()))[self.batch_list[ind]]
+        files_dict = itertoolz.groupby(lambda t: t[1], list(
+            itertoolz.map(lambda s: (s, self.data_dict[s]), sample_keys)))
+        X = Utils.load_full_contigs(files_dict)
+
+        batch_size = 0
+        for cont_ind in self.batch_list[ind]:
+            batch_size += 1+Utils.n_moves_window(self.all_lens[cont_ind], self.window, self.step)
+
+        x_mb = Utils.gen_sliding_mb(X, batch_size,  self.window, self.step)
+        x_mb = np.expand_dims(x_mb, -1)
         return x_mb
 
     def __len__(self):
