@@ -116,7 +116,7 @@ def predict_with_method(model, args):
         duration = time.time() - start
         logging.info("measured time {}".format(duration))
         dic_predictions = Utils.aggregate_chunks(batches_list, all_lens, all_labels,
-                                          all_preds=score_val, window=args.window, step=window/2)
+                                          all_preds=score_val, window=args.window, step=args.window/2)
         logging.info('Dictionary created')
 
 
