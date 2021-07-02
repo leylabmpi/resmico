@@ -34,6 +34,18 @@ The tool is divided into two main parts:
 
 # Setup
 
+## cloning
+
+```
+git clone --recurse-submodules git@gitlab.tuebingen.mpg.de:nyoungblut/deepmased.git
+```
+
+Note the use of submodules. If needed, you can update the submodule(s) via:
+
+```
+git submodule update --remote --init --recursive
+```
+
 ## conda 
 
 * [If needed] Install miniconda (or anaconda)
