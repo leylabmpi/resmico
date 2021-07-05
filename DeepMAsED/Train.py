@@ -1,7 +1,4 @@
-# import
-## Batteries
 import os
-import sys
 import logging
 import _pickle as pickle
 ## 3rd party
@@ -9,10 +6,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.callbacks import ModelCheckpoint
-from sklearn.metrics import confusion_matrix, roc_curve
-from sklearn.metrics import recall_score, roc_auc_score, average_precision_score
-from sklearn.preprocessing import StandardScaler
-import IPython
+from sklearn.metrics import average_precision_score
 ## Application
 from DeepMAsED import Models_FL as Models
 from DeepMAsED import Utils
@@ -30,23 +24,24 @@ class Config(object):
         self.dropout = args.dropout
         self.lr_init = args.lr_init
 
+
 def main(args):
     # init
     np.random.seed(args.seed)
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
     save_path = args.save_path
-    
+
     config = Config(args)
     # Load and process data
     x, y = Utils.load_features_tr(args.feature_file_table,
                                   max_len=args.max_len,
-                                  technology = args.technology, chunks=False)
+                                  technology=args.technology, chunks=False)
     # Load and process validation data if given
     if args.val_path:
         x_val, y_val = Utils.load_features_tr(args.val_path,
-                                      max_len=args.max_len, 
-                                      technology = args.technology, chunks=False)
+                                              max_len=args.max_len,
+                                              technology=args.technology, chunks=False)
         x_val = [item for sl in x_val for item in sl]
         y_val = np.concatenate(y_val)
 
@@ -61,30 +56,30 @@ def main(args):
         # iter over folds
         ap_scores = []
         for val_idx in range(args.n_folds):
-            logging.info('Fold {}: Constructing model...'.format(val_idx))        
+            logging.info('Fold {}: Constructing model...'.format(val_idx))
             x_tr, x_val, y_tr, y_val = Utils.kfold(x, y, val_idx, k=args.n_folds)
             deepmased = Models.deepmased(config)
             deepmased.print_summary()
-            
-            #Construct generator
+
+            # Construct generator
             dataGen = Models.Generator(x_tr, y_tr, args.max_len,
                                        batch_size=args.batch_size)
 
             # Init validation generator and 
-            dataGen_val = Models.Generator(x_val, y_val, args.max_len, 
-                                           batch_size=args.batch_size, 
+            dataGen_val = Models.Generator(x_val, y_val, args.max_len,
+                                           batch_size=args.batch_size,
                                            shuffle=False)
 
-            #Train model
+            # Train model
             tb_logs = tf.keras.callbacks.TensorBoard(log_dir=os.path.join(save_path, 'logs'),
-                                                  histogram_freq=0, 
-                                                  write_graph=True, write_images=True)
+                                                     histogram_freq=0,
+                                                     write_graph=True, write_images=True)
             logging.info('Fold {}: Training network...'.format(val_idx))
             ## binary classification (extensive misassembly)
-            
-            deepmased.net.fit_generator(generator=dataGen, 
+
+            deepmased.net.fit_generator(generator=dataGen,
                                         validation_data=dataGen_val,
-                                        epochs=args.n_epochs, 
+                                        epochs=args.n_epochs,
                                         use_multiprocessing=args.n_procs > 1,
                                         workers=args.n_procs,
                                         verbose=2,
@@ -92,7 +87,7 @@ def main(args):
             # AUC scores
             logging.info('Fold {}: Computing AUC scores...'.format(val_idx))
             scores_val = deepmased.predict_generator(dataGen_val)
-            ap_scores.append(average_precision_score(y_val[0 : scores_val.size], scores_val))
+            ap_scores.append(average_precision_score(y_val[0: scores_val.size], scores_val))
 
             # Saving data
             outfile_h5_fold = os.path.join(save_path, str(val_idx) + '_model.h5')
@@ -115,15 +110,15 @@ def main(args):
         deepmased.print_summary()
         dataGen = Models.Generator(x, y, args.max_len, args.batch_size)
         tb_logs = tf.keras.callbacks.TensorBoard(log_dir=os.path.join(save_path, 'logs_final'),
-                                              histogram_freq=0, 
-                                              write_graph=True, write_images=True)
-                     
+                                                 histogram_freq=0,
+                                                 write_graph=True, write_images=True)
+
         if args.val_path:
             logging.info('Training network with validation...')
             dataGen_val = Models.Generator(x_val, y_val, args.max_len,
-                           batch_size=args.batch_size,
-                           shuffle=False)
-            list_callbacks = [tb_logs, 
+                                           batch_size=args.batch_size,
+                                           shuffle=False)
+            list_callbacks = [tb_logs,
                               deepmased.reduce_lr,
                               Utils.roc_callback(dataGen_val)]
             if args.early_stop:
@@ -134,7 +129,7 @@ def main(args):
                 list_callbacks.append(mc)
             deepmased.net.fit_generator(generator=dataGen,
                                         validation_data=dataGen_val,
-                                        epochs=args.n_epochs, 
+                                        epochs=args.n_epochs,
                                         use_multiprocessing=args.n_procs > 1,
                                         workers=args.n_procs,
                                         verbose=2,
@@ -142,19 +137,17 @@ def main(args):
         else:
             logging.info('Training network...')
             deepmased.net.fit_generator(generator=dataGen,
-                        epochs=args.n_epochs, 
-                        use_multiprocessing=args.n_procs > 1,
-                        verbose=2)#,
-                        # callbacks=[tb_logs])
+                                        epochs=args.n_epochs,
+                                        use_multiprocessing=args.n_procs > 1,
+                                        verbose=2)  # ,
+            # callbacks=[tb_logs])
 
-            
         logging.info('Saving trained model...')
         x = [args.save_name, args.technology, 'model.h5']
         outfile = os.path.join(save_path, '_'.join(x))
         deepmased.save(outfile)
         logging.info('  File written: {}'.format(outfile))
-            
+
 
 if __name__ == '__main__':
     pass
-        
