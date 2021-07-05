@@ -1,3 +1,25 @@
+def denovo_asmbl_memory(wildcards, attempt, threads, input, unit='per_thread_gb'):
+    """
+    Estimating memory required for de novo assemblies
+    """
+    # total estimated memory size based on reads (Gb)
+    total_size = sum([os.path.getsize(f) for f in input if os.path.isfile(f)])
+    total_size = total_size / float(1e9) * 5
+    total_size = 64.0 if total_size < 64.0 else total_size
+    mem = attempt ** 2 * total_size
+    mem = 900 if mem > 900 else mem
+    # specific unit
+    if unit == 'per_thread_gb':
+        mem = mem / float(threads)
+    elif unit == 'total_gb':
+        mem = mem * 1.0
+    elif unit == 'bytes':
+        mem = mem * 1e9
+    else:
+        raise ValueError('Cannot use unit: {}'.format(unit))
+    mem = int(round(mem, 0))
+    return mem
+
 rule metaSPAdes:
     """
     metaSPAdes assembly 
@@ -18,30 +40,34 @@ rule metaSPAdes:
     resources:
         time = lambda wildcards, attempt: attempt * 60 * 24,
         n = lambda wildcards, threads: threads,
-        mem_gb = lambda wildcards, attempt: attempt * 44,
-        mem_gb_pt = lambda wildcards, attempt: int(round(attempt * 44 / 12.0 * 1.1, 0))
+        mem_gb = lambda wildcards, attempt, threads, input: \
+                 denovo_asmbl_memory(wildcards, attempt, threads, input, \
+                                     unit='total_gb'),
+        mem_gb_pt = lambda wildcards, attempt, threads, input: \
+                    denovo_asmbl_memory(wildcards, attempt, threads, input, \
+                                        unit='per_thread_gb'),
+        attempt = lambda wildcards, attempt, threads, input: attempt
     log:
         log_dir + 'metaspades/{richness}/{rep}/{read_depth}.log'
     benchmark:
         benchmark_dir + 'metaspades/{richness}/{rep}/{read_depth}.txt'
     shell:
         """
-        # tmp dir
-        rm -rf {params.tmp_dir} 2> {log} 1>&2
-        mkdir -p {params.tmp_dir} 2>> {log} 1>&2
-
-        # output dir
         OUTDIR=`dirname {output.contigs}`
-        echo "Removing existing directory: $OUTDIR" >> {log}
-        rm -rf $OUTDIR 2>> {log}
-
-        # spades run
-        spades.py --meta {params.params} \
-          -t {threads} -m {resources.mem_gb} \
-	  --tmp-dir {params.tmp_dir} -o $OUTDIR \
-          -1 {input.read1} -2 {input.read2} \
-          2>> {log} 1>&2       
-
+        if [ "{resources.attempt}" == "1" ]; then
+          echo "Attempt 1; starting from the beginning" > {log}
+          rm -rf {params.tmp_dir} $OUTDIR 2>> {log} 1>&2
+          mkdir -p {params.tmp_dir} 2>> {log} 1>&2
+          spades.py --meta {params.params} \
+            -t {threads} -m {resources.mem_gb} \
+            --tmp-dir {params.tmp_dir} -o $OUTDIR \
+            -1 {input.read1} -2 {input.read2} \
+            2>> {log} 1>&2       
+        else
+          echo "Attempt > 1; continuing from last checkpoint" > {log}
+          spades.py -m {resources.mem_gb} -o $OUTDIR \
+            --restart-from last 2>> {log} 1>&2
+        fi
         rm -rf {params.tmp_dir} 2>> {log}
         """
 
@@ -64,8 +90,12 @@ rule megahit:
     resources:
         time = lambda wildcards, attempt: attempt * 60 * 24,
         n = lambda wildcards, threads: threads,
-        mem_bytes = lambda wildcards, attempt: int(attempt * 3.2e10),
-        mem_gb_pt = lambda wildcards, attempt: int(round(attempt * 32 / 8 * 1.1, 0))
+        mem_bytes = lambda wildcards, attempt, threads, input: \
+                    denovo_asmbl_memory(wildcards, attempt, threads, input, \
+                                        unit='bytes'),
+        mem_gb_pt = lambda wildcards, attempt, threads, input: \
+                    denovo_asmbl_memory(wildcards, attempt, threads, input, \
+                                        unit='per_thread_gb')
     log:
         log_dir + 'megahit/{richness}/{rep}/{read_depth}.log'
     benchmark:
@@ -109,6 +139,7 @@ rule contig_length_filter:
         benchmark_dir + 'contig_length_filter/{richness}/{rep}/{read_depth}/{assembler}.txt'
     shell:
         """
+        export PATH=$CONDA_PREFIX/bin:$PATH
         {params.exe} --length {params.cutoff} {input} > {output} 2> {log}
         """
 
@@ -120,6 +151,8 @@ rule contig_compress:
         config['tmp_dir'] + '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta'
     output:
         asmbl_dir + '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta.gz'
+    params:
+        ionice = config['params']['ionice']
     resources:
         time = lambda wildcards, attempt: attempt ** 3 * 59,
         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 4
@@ -127,6 +160,6 @@ rule contig_compress:
         log_dir + 'contig_compress/{richness}/{rep}/{read_depth}/{assembler}.log'
     shell:
         """
-        gzip -c {input} > {output} 2> {log}
+        ionice {params.ionice} gzip -c {input} > {output} 2> {log}
         """
 

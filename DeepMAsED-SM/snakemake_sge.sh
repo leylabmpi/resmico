@@ -19,7 +19,7 @@ JOBS=$2
 # snakemake call
 WORKDIR=`pwd`
 snakemake -f \
-	  --profile sge \
+	  --profile  bin/ll_pipeline_utils/profiles/sge/ \
 	  --use-conda \
 	  --configfile $CONFIG \
 	  --jobs $JOBS \

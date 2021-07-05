@@ -22,7 +22,7 @@ rule bam_to_DL_features:
     resources:
         time = lambda wildcards, attempt: attempt ** 2 * 60 * 12,
         n = lambda wildcards, threads: threads,         
-        mem_gb_pt = lambda wildcards, attempt: int(round(attempt ** 2.5 * 2 + 2, 0)),
+        mem_gb_pt = lambda wildcards, attempt: int(round(attempt ** 2.1 * 2 + 3, 0)),
         batches = lambda wildcards, attempt: attempt * 2 * 400
     conda:
         '../envs/bowtie2.yaml'
@@ -32,6 +32,7 @@ rule bam_to_DL_features:
         benchmark_dir + 'bam_to_DL_features/{richness}/{rep}/{read_depth}/{assembler}.txt'
     shell:
         """
+        export PATH=$CONDA_PREFIX/bin:$PATH
         {params.exe} {params.params} \
           -p {threads} --chunks 200 \
           --batches {resources.batches} \
@@ -70,6 +71,7 @@ rule metaquast_masmbl_feature_join:
             'metaquast_masmbl_feature_join/{richness}/{rep}/{read_depth}/{assembler}.txt'
     shell:
         """
+        export PATH=$CONDA_PREFIX/bin:$PATH
         {params.exe} {input.fasta} {input.masmbl} {input.feats} > {output} 2> {log}
         """
 
@@ -94,19 +96,15 @@ rule features_compress:
         gzip -c {input} > {output} 2> {log}
         """
 
-localrules: features_file_table
-        
+localrules: features_file_table        
 rule features_file_table:
     """
     Creating a table that lists all feature files
     """
     input:
-        feats = expand(features_dir + \
+        feats = Expand(features_dir + \
                        '{richness}/{rep}/{read_depth}/{assembler}/features.tsv.gz',
-                       richness = config['params']['MGSIM']['community_richness'],
-                       rep = config['reps'],                
-                       read_depth = config['params']['MGSIM']['read_depth'],
-	               assembler = config['assemblers'])        
+                       config['sim_params'])
     output:
         tsv = features_dir + 'feature_files.tsv'
     params:
@@ -118,7 +116,8 @@ rule features_file_table:
     run:
         import os,sys
         MGSIM_reads = '"' + params.reads + '"'
-        cols = ['richness', 'rep', 'read_depth', 'assembler', 'feature_file', 'MGSIM_reads_params']
+        cols = ['richness', 'rep', 'read_depth', 'assembler',
+                'feature_file', 'MGSIM_reads_params']
         with open(output.tsv, 'w') as outF:
             outF.write('\t'.join(cols) + '\n')
             for F in input.feats:
@@ -127,5 +126,7 @@ rule features_file_table:
                 D,read_depth = os.path.split(D)
                 D,rep = os.path.split(D)
                 D,richness = os.path.split(D)
-                x = '\t'.join([richness, rep, read_depth, assembler, F, MGSIM_reads])
+                rel_path = os.path.join(richness, rep, read_depth, assembler,
+                                        os.path.split(F)[1])
+                x = '\t'.join([richness, rep, read_depth, assembler, rel_path, MGSIM_reads])
                 outF.write(x + '\n')

@@ -96,7 +96,7 @@ def main(args):
 
             # Saving data
             outfile_h5_fold = os.path.join(save_path, str(val_idx) + '_model.h5')
-            deepmased.save(outfile_h5_fold)
+            deepmased.save(outfile_h5_fold, save_format='h5')
             logging.info('Fold {}: File written: {}'.format(val_idx, outfile_h5_fold))
             outfile_pkl_fold = os.path.join(save_path, 'scores.pkl')
             with open(outfile_pkl_fold, 'wb') as f:

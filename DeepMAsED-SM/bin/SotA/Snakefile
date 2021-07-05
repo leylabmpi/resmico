@@ -16,7 +16,8 @@ rule ALE:
               '{richness}/{rep}/{read_depth}/{assembler}/ALE_results.txt.gz'
     params:
         params = config['params']['ALE'],
-        exe = config['pipeline']['script_folder'] + 'ALE'
+        exe = config['pipeline']['script_folder'] + 'ALE',
+        ionice = config['params']['ionice']
     resources:
         time = lambda wildcards, attempt: attempt * 59 * 12,
         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 7
@@ -29,7 +30,7 @@ rule ALE:
         {params.exe} {params.params} \
            {input.bam} {input.ref} {output.txt} \
            2> {log} 1>&2
-        gzip -c {output.txt} > {output.gz} 2> {log}
+        ionice {params.ionice} gzip -c {output.txt} > {output.gz} 2> {log}
         """
 
 rule VALET:
@@ -49,6 +50,7 @@ rule VALET:
         bbed = valet_dir + '{richness}/{rep}/{read_depth}/{assembler}/breakpoints.bed'
     params:
         params = config['params']['VALET'],
+        ionice = config['params']['ionice'],
         tmp_dir = config['tmp_dir'] + \
                   'VALET/{richness}/{rep}/{read_depth}/{assembler}/valet_out/reference/'
     threads:
@@ -65,6 +67,7 @@ rule VALET:
         benchmark_dir + 'VALET/{richness}/{rep}/{read_depth}/{assembler}.txt'
     shell:
         """
+        export PATH=$CONDA_PREFIX/bin:$PATH
         # tmp directory
         TMPDIR=`dirname {params.tmp_dir}`
         rm -rf $TMPDIR 2> {log}
@@ -78,11 +81,11 @@ rule VALET:
           2>> {log}        
 
         # copying files
-        cp -f {params.tmp_dir}/summary.tsv {output.sum} 2>> {log}
-        cp -f {params.tmp_dir}/summary.bed {output.sbed} 2>> {log}
-        cp -f {params.tmp_dir}/suspicious.bed {output.ssbed} 2>> {log}
-        cp -f {params.tmp_dir}/coverage.bed {output.cbed} 2>> {log}
-        cp -f {params.tmp_dir}/breakpoints.bed {output.bbed} 2>> {log}
+        ionice {params.ionice} cp -f {params.tmp_dir}/summary.tsv {output.sum} 2>> {log}
+        ionice {params.ionice} cp -f {params.tmp_dir}/summary.bed {output.sbed} 2>> {log}
+        ionice {params.ionice} cp -f {params.tmp_dir}/suspicious.bed {output.ssbed} 2>> {log}
+        ionice {params.ionice} cp -f {params.tmp_dir}/coverage.bed {output.cbed} 2>> {log}
+        ionice {params.ionice} cp -f {params.tmp_dir}/breakpoints.bed {output.bbed} 2>> {log}
         
         # removing tmp dir
         rm -rf $TMPDIR 2>> {log}
