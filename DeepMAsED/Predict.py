@@ -82,29 +82,37 @@ def main(args):
 
 
             dic_predictions = Utils.aggregate_chunks(batch_list, all_lens, all_labels=[],
-                                                    all_preds=np.array(preds), window=args.window, step=window / 2)
+                                                    all_preds=np.array(preds), window=args.window, step=args.window / 2)
             logging.info('Dictionary created')
 
             df_preds = pd.DataFrame.from_dict(dic_predictions)
             df_preds = Utils.add_stats(df_preds)
-
+            min_len = 1000
+            mem_lim = 500000
+            df_preds['scale_length'] = (df_preds['length']-min_len)/mem_lim
+            
             logging.info('Aggregated chunks with logreg')
 
             clf = LogisticRegression()
-            w = np.array([[-0.6246, -0.4191, -2.2027, -0.7481, -0.5864, -0.0315, 0.3024, 0.3307,
-                           -1.0160],
-                          [0.4621, 0.6289, 2.0829, 0.8016, 0.6754, -0.2144, -0.3024, -0.2907,
-                           0.9291]])
-            b = np.array([2.6030, -2.4675])
+#             w = np.array([[-0.6246, -0.4191, -2.2027, -0.7481, -0.5864, -0.0315, 0.3024, 0.3307,
+#                            -1.0160],
+#                           [0.4621, 0.6289, 2.0829, 0.8016, 0.6754, -0.2144, -0.3024, -0.2907,
+#                            0.9291]])
+#             b = np.array([2.6030, -2.4675])
+            
+            w = np.array([[-0.8070, -0.5010, -0.4407, -1.4237, -2.4168, -0.5307, -0.7208],
+                            [ 0.4844,  0.7417,  0.2885,  1.4630,  2.2048,  0.6157,  1.0309]])
+            b = np.array([ 2.9220, -2.5793])
             clf.coef_ = w
             clf.intercept_ = b
             clf.classes_ = np.array([-1, 1])
 
-            features_list = ['min', 'mean', 'max', 'std', 'p10', 'p30', 'p50', 'p70', 'p90']
+#             features_list = ['min', 'mean', 'max', 'std', 'p10', 'p30', 'p50', 'p70', 'p90']
+            features_list = ['scale_length', 'min', 'mean', 'max', 'std', 'p20', 'p80']
             X_logreg = df_preds[features_list]
             y_pred_proba = clf.predict_proba(X_logreg)[:, 1]
             df_preds['y_pred_proba'] = y_pred_proba
-
+            y_pred = np.array(y_pred_proba)>0.5
             genome_quality = str(np.round(1-np.mean(y_pred_proba), 3))
 
             df_name = args.save_path + '/' + args.save_name + \
