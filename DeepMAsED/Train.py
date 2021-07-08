@@ -1,13 +1,13 @@
 import os
 import logging
 import _pickle as pickle
-## 3rd party
+# 3rd party
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.callbacks import ModelCheckpoint
 from sklearn.metrics import average_precision_score
-## Application
+# Application
 from DeepMAsED import Models_FL as Models
 from DeepMAsED import Utils
 
@@ -100,7 +100,7 @@ def main(args):
 
     else:
         # Skip kfold and simply pool all the data for training
-        ## all elements in x and y are combined
+        # all elements in x and y are combined
         logging.info('NOTE: Training on all pooled data!')
         x = [item for sl in x for item in sl]
         y = np.concatenate(y)

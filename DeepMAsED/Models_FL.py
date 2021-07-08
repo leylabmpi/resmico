@@ -1,11 +1,7 @@
-# import
-## batteries
 import logging
 from toolz import itertoolz
-import pathos
-import tables
 import time
-## 3rd party
+
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import Model, Sequential
@@ -13,8 +9,9 @@ from tensorflow.keras.layers import Input, BatchNormalization
 from tensorflow.keras.layers import GlobalMaxPooling1D, GlobalAveragePooling1D, concatenate, AveragePooling1D, MaxPooling1D, Flatten
 from tensorflow.keras.layers import Conv1D, Conv2D, Dropout, Dense
 from tensorflow.keras.layers import Bidirectional, LSTM
-## application
+
 from DeepMAsED import Utils
+
 
 class deepmased(object):
     """
@@ -30,7 +27,7 @@ class deepmased(object):
         self.lr_init = config.lr_init
         self.n_fc = config.n_fc
         self.n_hid = config.n_hid
-        self.net_type = config.net_type #'lstm', 'cnn_globpool', 'cnn_resnet', 'cnn_lstm'
+        self.net_type = config.net_type  # 'lstm', 'cnn_globpool', 'cnn_resnet', 'cnn_lstm'
         self.num_blocks = config.num_blocks
         self.ker_size = config.ker_size
         self.seed = config.seed
@@ -210,7 +207,6 @@ class Generator(tf.keras.utils.Sequence):
         y_mb = [self.y[i] for i in indices_tmp]
         return x_mb, y_mb
 
-
     def __len__(self):
         return int(np.ceil(len(self.indices) / self.batch_size))
 
@@ -226,7 +222,6 @@ class Generator(tf.keras.utils.Sequence):
               self.indices[self.batch_size * index : ]           
         x_mb, y_mb = self.generate(indices_tmp)
         return x_mb, y_mb
-
 
 
 class GeneratorBigD(tf.keras.utils.Sequence):

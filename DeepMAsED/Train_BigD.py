@@ -1,26 +1,18 @@
-# import
-## Batteries
 import os
-import sys
 import logging
 import time
-import _pickle as pickle
 from pathlib import Path
-## 3rd party
+
 import numpy as np
 import math
 import tensorflow as tf
-# tf.debugging.set_log_device_placement(True)
-from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras import backend as K
 from sklearn.metrics import recall_score, roc_auc_score, average_precision_score, log_loss
-from sklearn.model_selection import train_test_split
 
-import IPython
-## Application
 from DeepMAsED import Models_FL as Models
 from DeepMAsED import Utils
+
 
 class Config(object):
     def __init__(self, args):
@@ -40,8 +32,8 @@ class Config(object):
 
 
 def main(args):
-    #flags
-    TRAINFULL = False #if we want at the very end to use all data
+    # flags
+    TRAINFULL = False  # if we want at the very end to use all data
     FILTERLONG = True
 
     # init
@@ -60,7 +52,7 @@ def main(args):
         deepmased = Models.deepmased(config)
     deepmased.print_summary()
 
-    #check if seed works, print weights for the first 5 layers -> seed works
+    # check if seed works, print weights for the first 5 layers -> seed works
     # for n, layer in enumerate(deepmased.net.layers):
     #     if n<5:
     #         logging.info('layer: {}, config: {}, weights: {}'.format(
@@ -93,15 +85,15 @@ def main(args):
         # #     mc = ModelCheckpoint(mc_file, monitor='val_loss', verbose=1, save_best_only=True)
         # #     list_callbacks.append(mc)
         #
-        # deepmased.net.fit(x=dataGen,validation_data=dataGen_val,
+        # deepmased.net.fit(x=data_gen,validation_data=dataGen_val,
         #                             epochs=args.n_epochs,
         #                             use_multiprocessing=args.n_procs > 1,
         #                             workers=args.n_procs,
         #                             verbose=2,
         #                             callbacks=list_callbacks)
 
-    elif TRAINFULL==False:
-        #main working area
+    elif not TRAINFULL:
+        # main working area
         logging.info('Split data: reps 1-9 for training, 10 for validation')
         train_data_dict = Utils.build_sample_index(Path(args.feature_files_path), args.n_procs, filter10=True)
         logging.info('Train data dictionary created. number of samples: {}'.format(len(train_data_dict)))
@@ -202,7 +194,6 @@ def main(args):
                 deepmased.save(best_file)
                 logging.info('  File written: {}'.format(best_file))
 
-
     else:
         train_data_dict = Utils.build_sample_index(Path(args.feature_files_path), args.n_procs)
         logging.info('Train data dictionary created. number of samples: {}'.format(len(train_data_dict)))
@@ -216,18 +207,17 @@ def main(args):
             train_data_dict = dict(np.array(all_contigs)[inds_short])
             logging.info('{} long contigs are filtered out, {} contigs left'.format(len(inds_long), len(inds_short)))
 
-        dataGen = Models.GeneratorBigD(train_data_dict, args.max_len, args.batch_size,
+        data_gen = Models.GeneratorBigD(train_data_dict, args.max_len, args.batch_size,
                                        shuffle_data=True, fraq_neg=args.fraq_neg,
                                        rnd_seed=args.seed, nprocs=args.n_procs)
         logging.info('Training network...')
 
-        deepmased.net.fit(x=dataGen,
+        deepmased.net.fit(x=data_gen,
                     epochs=args.n_epochs,
                     workers=args.n_procs,
                     use_multiprocessing=args.n_procs > 1,
                     verbose=2,
                     callbacks=[mc]) #tb_logs
-
 
     logging.info('Saving trained model...')
     x = [args.save_name, args.technology, 'model.h5']
@@ -235,9 +225,10 @@ def main(args):
     deepmased.save(outfile)
     logging.info('  File written: {}'.format(outfile))
 
-    #predict for long and fit classifier on top
+    # predict for long and fit classifier on top
     # long_train_data_dict
+
 
 if __name__ == '__main__':
     pass
-        
+

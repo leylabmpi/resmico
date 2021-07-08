@@ -1,21 +1,16 @@
-# import
-## batteries
 import os
-import sys
 import logging
-import _pickle as pickle
 from pathlib import Path
-## 3rd party
+
+# 3rd party
 import time
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-# tf.debugging.set_log_device_placement(True)
 from tensorflow.keras.models import load_model
-# import IPython
 from sklearn.metrics import average_precision_score
-## application
-from DeepMAsED import Models_FL as Models  #to use contigs of variable length
+
+from DeepMAsED import Models_FL as Models  # to use contigs of variable length
 from DeepMAsED import Utils
 
 
@@ -52,11 +47,11 @@ def predict_with_method(model, args):
         aupr_scores = []
         labels_val = Utils.read_all_labels(data_dict)
         for i in range(num_runs):
-            dataGen = Models.GeneratorBigD(data_dict, max_len, batch_size,  # only contigs to pred for should be given
+            data_gen = Models.GeneratorBigD(data_dict, max_len, batch_size,  # only contigs to pred for should be given
                                            shuffle=False, nprocs=args.n_procs, rnd_seed=i)
-            logging.info("Number of batches: {}".format(len(dataGen)))
+            logging.info("Number of batches: {}".format(len(data_gen)))
             start = time.time()
-            score_val = model.predict(dataGen, use_multiprocessing=args.n_procs > 1, workers=args.n_procs)
+            score_val = model.predict(data_gen, use_multiprocessing=args.n_procs > 1, workers=args.n_procs)
             duration = time.time() - start
             logging.info("measured time {}".format(duration))
             aupr = average_precision_score(labels_val, score_val)
@@ -76,13 +71,12 @@ def predict_with_method(model, args):
                 df_preds.to_csv(df_name, index=False)
                 logging.info("csv table saved: {}".format(df_name))
 
-
     elif args.method_pred == 'fulllength':
         batches_list = Utils.create_batch_inds(all_lens, inds_sel, args.mem_lim, fulllen=True)
         logging.info("Number of batches: {}".format(len(batches_list)))
-        dataGen = Models.GeneratorFullLen(data_dict, batches_list, nprocs=args.n_procs) #contigs filtered by indexing
+        data_gen = Models.GeneratorFullLen(data_dict, batches_list, nprocs=args.n_procs) #contigs filtered by indexing
         start = time.time()
-        score_val = model.predict(dataGen, use_multiprocessing=args.n_procs > 1, workers=args.n_procs)
+        score_val = model.predict(data_gen, use_multiprocessing=args.n_procs > 1, workers=args.n_procs)
         duration = time.time() - start
         logging.info("measured time {}".format(duration))
         aupr = average_precision_score(all_labels[inds_sel], score_val)
@@ -91,15 +85,14 @@ def predict_with_method(model, args):
                            'label': all_labels[inds_sel], 'score': np.array(score_val).reshape(-1)}
         logging.info('Dictionary created')
 
-
     elif args.v1:
         logging.info('predict with deepmased v1')
         window = 10000
         batches_list = Utils.create_batch_inds(all_lens, inds_sel, args.mem_lim)
         logging.info("Number of batches: {}".format(len(batches_list)))
-        dataGen = Models.Generator_v1(data_dict, batches_list, window=window, step=window, nprocs=args.n_procs)
+        data_gen = Models.Generator_v1(data_dict, batches_list, window=window, step=window, nprocs=args.n_procs)
 
-        score_val = model.predict(dataGen, use_multiprocessing=args.n_procs > 1, workers=args.n_procs)
+        score_val = model.predict(data_gen, use_multiprocessing=args.n_procs > 1, workers=args.n_procs)
 
         dic_predictions = Utils.aggregate_chunks(batches_list, all_lens, all_labels,
                                                  all_preds=score_val, window=window, step=window)
@@ -108,17 +101,16 @@ def predict_with_method(model, args):
     elif args.method_pred == 'chunks':
         batches_list = Utils.create_batch_inds(all_lens, inds_sel, args.mem_lim)
         logging.info("Number of batches: {}".format(len(batches_list)))
-        dataGen = Models.GeneratorPredLong(data_dict, batches_list, window=args.window, step=args.window/2.,
+        data_gen = Models.GeneratorPredLong(data_dict, batches_list, window=args.window, step=args.window/2.,
                                            nprocs=args.n_procs)
         # contigs filtered by indexing
         start = time.time()
-        score_val = model.predict(dataGen, use_multiprocessing=args.n_procs > 1, workers=args.n_procs)
+        score_val = model.predict(data_gen, use_multiprocessing=args.n_procs > 1, workers=args.n_procs)
         duration = time.time() - start
         logging.info("measured time {}".format(duration))
         dic_predictions = Utils.aggregate_chunks(batches_list, all_lens, all_labels,
                                           all_preds=score_val, window=args.window, step=args.window/2)
         logging.info('Dictionary created')
-
 
     else:
         logging.info('Pred method is not supported')
@@ -130,6 +122,7 @@ def predict_with_method(model, args):
     df_name = args.save_path + '/' + args.save_name + '.csv'
     df_preds.to_csv(df_name, index=False)
     logging.info("csv table saved: {}".format(df_name))
+
 
 def main(args):
     """Main interface
@@ -153,7 +146,6 @@ def main(args):
     logging.info('Model loaded')
 
     predict_with_method(model, args)
-
 
     
 if __name__ == '__main__':

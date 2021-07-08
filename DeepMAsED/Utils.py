@@ -118,6 +118,7 @@ def standardize_data(feat_file_table, mean_std_file, set_target=True, real_data=
                                 pickle.dump([standard_x, name_to_id], f)
     return 
 
+
 def add_feat_h5(input_folder, output_folder, rch):
     if len(rch)>1:
         input_folder = input_folder+rch
@@ -130,6 +131,7 @@ def add_feat_h5(input_folder, output_folder, rch):
         out_file = str(in_file).replace(input_folder, output_folder)
         add_f_h5f(in_file, out_file, mean_sum_len, std_sum_len)
     return
+
 
 def add_f_h5f(in_file, out_file, mean_sum_len, std_sum_len):
     logging.info(f"working on {in_file} {os.path.getsize(in_file)}")
@@ -351,7 +353,7 @@ def read_feature_ft_realdata(feat_file_table, force_overwrite=False):
     Returns:
       dict{file_type : {sample: {genome : feature_file }}}
     """
-    df = pd.read_csv(feat_file_table, sep = '\t')
+    df = pd.read_csv(feat_file_table, sep='\t')
     base_dir = os.path.split(feat_file_table)[0]
     D = nested_dict()
 
@@ -421,6 +423,7 @@ def pickle_in_parallel(feature_files, n_procs, set_target=True, real_data=False,
         logging.info(" ")
     return
 
+
 def pickle_data_b(x, set_target=True):
     """
     One time function parsing the tsv file and dumping the 
@@ -433,7 +436,6 @@ def pickle_data_b(x, set_target=True):
       features_out       
     """
     features_in, features_out = x[:]
-
 
     msg = 'Pickling feature data: {} => {}'
 #    logging.info(msg.format(features_in, features_out))
@@ -450,7 +452,7 @@ def pickle_data_b(x, set_target=True):
         letter_idx[k] = v
 
     idx = 0
-    #Read tsv and process features
+    # Read tsv and process features
     if features_in.endswith('.gz'):
         _open = lambda x: gzip.open(x, 'rt')
     else:
@@ -485,10 +487,9 @@ def pickle_data_b(x, set_target=True):
                       w_npropV, #todo: features_sel 20 or 21
                       w_gc,
                       w_cov]
-        nf=20 #4 for refrence feature, 4 count features, 12 important features
+        nf=20  # 4 for refrence feature, 4 count features, 12 important features
         
         # formatting rows
-
         for row in tsv:
             name_contig = row[w_contig]
 
@@ -888,7 +889,6 @@ def load_features(feat_file_table, max_len=10000,
 #     return x, y, i2n_all
 
 
-
 def kfold(x, y, idx_lo, k=5): #check why not default function
     """Creating folds for k-fold validation
     Params:
@@ -1080,6 +1080,7 @@ def _get_sample_index_from_file(f, metadata_func):
             samples_dict[samples_name] = str(f)
     return samples_dict
 
+
 def _metadata_func(p: Path):
     return p.parts[-5:-1]
 
@@ -1259,7 +1260,7 @@ def file_reading(file_items, max_len):
     return X,y  
 
 
-#for resnet
+# for resnet
 def relu_bn(inputs):
     relu = ReLU()(inputs)
     bn = BatchNormalization()(relu)
@@ -1287,7 +1288,7 @@ def residual_block(x, downsample: bool, filters, kernel_size):
     return out
 
 
-#for predictions for long contigs
+# for predictions for long contigs
 def load_full_contigs(files_dict):
     with pathos.multiprocessing.Pool(2) as pool:
         pool_res = pool.map(lambda t:read_cont_from_file(t[0], t[1]), files_dict.items())
@@ -1296,6 +1297,7 @@ def load_full_contigs(files_dict):
         for d in dl:
             X.append(d)
     return X
+
 
 def read_cont_from_file(f, samples):
     sample_ids = [s[0].split('/')[-1] for s in samples]
@@ -1314,6 +1316,7 @@ def read_cont_from_file(f, samples):
         for s, e in ranges:
             mats.append(data_h5[s:e, :])
         return mats
+
 
 def n_moves_window(cont_len, window, step):
     if cont_len < window:
@@ -1358,6 +1361,7 @@ def create_batch_inds(all_lens, inds_sel, memory_limit, fulllen=False):
         batches_inds.append(cur_batch_ind)
     return batches_inds
 
+
 def gen_sliding_mb(X, batch_size, window, step):
     n_feat = X[0].shape[1]
     x_mb = np.zeros((int(batch_size), window, n_feat))
@@ -1372,7 +1376,8 @@ def gen_sliding_mb(X, batch_size, window, step):
             mb_pos += 1
     return x_mb
 
-#look at predictions
+
+# look at predictions
 def add_stats(df, column_name='chunk_scores'):
     chunk_scores = np.array(df[column_name])
     df['min'] = [np.min(list_scores) for list_scores in chunk_scores]
@@ -1387,6 +1392,7 @@ def add_stats(df, column_name='chunk_scores'):
     df[percent_names] = np.array(compute_pers).reshape(result_shape)
 
     return df
+
 
 def aggregate_chunks(batches_list, all_lens, all_labels, all_preds, window, step):
     if all_labels != []:

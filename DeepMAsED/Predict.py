@@ -1,17 +1,12 @@
-# import
-## batteries
 import os
-
 import logging
-## 3rd party
+
 import numpy as np
 import pandas as pd
-
+import pickle
 from tensorflow.keras.models import load_model
 from sklearn.linear_model import LogisticRegression
 
-import pickle
-## application
 from DeepMAsED import Utils
 
 
@@ -51,7 +46,7 @@ def main(args):
 
     feat_files_dic = Utils.read_feature_ft_realdata(args.feature_file_table)
 
-    #separate prediction for each genome
+    # separate prediction for each genome
     for sample, info in feat_files_dic['pkl'].items():
         for genome, filename in info.items():
             with open(filename, 'rb') as inF:
@@ -60,7 +55,7 @@ def main(args):
 
             preds = []
 
-            #split into batches
+            # split into batches
             all_lens = [len(xi) for xi in x]
 
             inds_sel = np.arange(len(all_lens))[np.array(all_lens) >= args.min_len]
@@ -79,7 +74,6 @@ def main(args):
                 x_mb = Utils.gen_sliding_mb(X, batch_size, args.window, args.window/2)
                 pred_mb = model.predict(x_mb)
                 preds.extend(pred_mb)
-
 
             dic_predictions = Utils.aggregate_chunks(batch_list, all_lens, all_labels=[],
                                                     all_preds=np.array(preds), window=args.window, step=args.window / 2)
@@ -122,8 +116,6 @@ def main(args):
             logging.info("csv table saved: {}".format(df_name))
 
 
-
-
     # x, y, i2n = Utils.load_features_nogt(args.feature_file_table,
     #                                      force_overwrite=args.force_overwrite,
     #                                      pickle_only=args.pickle_only,
@@ -142,6 +134,7 @@ def main(args):
     # scores = Utils.compute_predictions(n2i, dataGen, model,
     #                                    args.save_path, args.save_name)
     #
+
 
 if __name__ == '__main__':
     pass
