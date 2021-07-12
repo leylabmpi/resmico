@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
     std::cout << join_vec(H, '\t');
 
     // Getting contig list
-    if (!FLAGS_bam_file.ends_with(".bam")) {
+    if (!ends_with(FLAGS_bam_file, ".bam")) {
         logger()->error("Only BAM files supported, given: {}", FLAGS_bam_file);
     }
 

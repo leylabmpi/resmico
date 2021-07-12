@@ -211,7 +211,7 @@ std::vector<Stats> contig_stats(const std::string &contig_name,
     }
 
     std::string reference_seq;
-    if (fasta_file.ends_with("gz")) {
+    if (ends_with(fasta_file, "gz")) {
         logger()->info("Gzipped fasta file detected. Using kseq");
         reference_seq = FastaReader(fasta_file).read(contig_name);
     } else {

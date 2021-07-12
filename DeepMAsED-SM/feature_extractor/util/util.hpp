@@ -51,3 +51,6 @@ double std_dev(const std::vector<T> &v, double mean) {
     var /= v.size();
     return sqrt(var);
 }
+
+bool starts_with(std::string const &value, std::string const &prefix);
+bool ends_with(std::string const &value, std::string const &ending);
