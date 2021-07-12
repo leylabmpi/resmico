@@ -24,7 +24,7 @@ DEFINE_bool(short, false, "Short feature list instead of all features?");
 DEFINE_bool(debug, false, "Debug mode; just for troubleshooting");
 
 /** Pretty print of the results */
-void write_stats(const std::vector<Stats> &stats,
+void write_stats(std::vector<Stats> &&stats,
                  const std::string &assembler,
                  const std::string &contig_name,
                  std::mutex *mutex) {
@@ -128,8 +128,8 @@ int main(int argc, char *argv[]) {
     for (uint32_t c = 0; c < contigs.size(); ++c) {
         std::vector<Stats> stats = contig_stats(contigs[c], FLAGS_bam_file, FLAGS_fasta_file,
                                                 FLAGS_window, FLAGS_short);
-        futures.push_back(std::async(std::launch::async, write_stats, stats, FLAGS_assembler,
-                                     contigs[c], &mutex));
+        futures.push_back(std::async(std::launch::async, write_stats, std::move(stats),
+                                     FLAGS_assembler, contigs[c], &mutex));
     }
 
     // make sure all futures are done, although in theory the destructor of future should block
