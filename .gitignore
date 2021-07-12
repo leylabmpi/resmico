@@ -91,4 +91,10 @@ docs/_build/
 target/
 
 # pyenv python configuration file
+
 .python-version
+
+# CLion files
+cmake-build-debug/
+venv/
+.idea/
