@@ -30,7 +30,7 @@ void write_stats(const std::vector<Stats> &stats,
                  std::mutex *mutex) {
     std::unique_lock<std::mutex> lock(*mutex);
 
-    logger()->info("Writing features...");
+    logger()->info("Writing features for contig {}...", contig_name);
     for (uint32_t pos = 0; pos < stats.size(); ++pos) {
         std::cout << assembler << '\t' << contig_name << '\t' << pos << '\t';
         const Stats &s = stats[pos];
@@ -48,6 +48,7 @@ void write_stats(const std::vector<Stats> &stats,
 
         std::cout << std::endl;
     }
+    logger()->info("Writing features for contig {} done.", contig_name);
 }
 
 int main(int argc, char *argv[]) {

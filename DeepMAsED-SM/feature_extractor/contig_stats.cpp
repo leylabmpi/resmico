@@ -258,6 +258,6 @@ std::vector<Stats> contig_stats(const std::string &contig_name,
 
     logger()->info("Computing entropy and GC percent");
     fill_seq_entropy(reference_seq, window_size, &stats);
-
+    logger()->info("Done");
     return stats;
 }
