@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
         std::exit(1);
     }
 
-    logger()->info("Using {} threads, {} as assembler, window of size {}", FLAGS_procs,
+    logger()->info("Using {} threads, {} assembler, window of size {}", FLAGS_procs,
                    FLAGS_assembler, FLAGS_window);
 
 

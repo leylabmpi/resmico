@@ -61,8 +61,7 @@ struct Fasta::FastaPrivate
      * @param[out] sequence returns the entire sequence if found
      * @return true if sequence was found, false otherwise
      */
-    bool GetSequence(const std::string& name,
-                                          std::string& sequence);
+    bool GetSequence(const std::string& name, std::string& sequence);
     bool Open(const std::string& filename, const std::string& indexFilename);
 
     // internal methods
@@ -500,8 +499,16 @@ bool Fasta::FastaPrivate::GetSequence(const int& refId, const int& start, const 
     return true;
 }
 
-bool Fasta::FastaPrivate::GetSequence(const std::string& name,
-                                      std::string& sequence)
+std::string get_name(const std::string& header)
+{
+    size_t end_pos = header.find(' ');
+    if (end_pos == std::string::npos) {
+        end_pos = header.size();
+    }
+    return header.substr(1, end_pos - 1);
+}
+
+bool Fasta::FastaPrivate::GetSequence(const std::string& name, std::string& sequence)
 {
 
     // make sure FASTA file is open
@@ -514,7 +521,7 @@ bool Fasta::FastaPrivate::GetSequence(const std::string& name,
     if (HasIndex && !Index.empty()) {
 
         uint32_t idx = 0;
-        for (;idx < Index.size(); ++idx) {
+        for (; idx < Index.size(); ++idx) {
             if (Index[idx].Name == name) {
                 break;
             }
@@ -544,7 +551,7 @@ bool Fasta::FastaPrivate::GetSequence(const std::string& name,
         return true;
     }
 
-        // else plow through sequentially
+    // else plow through sequentially
     else {
 
         // rewind FASTA file
@@ -560,14 +567,14 @@ bool Fasta::FastaPrivate::GetSequence(const std::string& name,
         GetNextHeader(header);
         GetNextSequence(sequence);
 
-        while (header.substr(1) != name) {
+        while (get_name(header) != name) {
             if (!GetNextHeader(header)) {
-                break;
+                return false;
             }
             GetNextSequence(sequence);
         }
 
-        return (header.substr(1) == name);
+        return true;
     }
 }
 
@@ -720,7 +727,8 @@ bool Fasta::GetSequence(const int& refId, const int& start, const int& stop, std
     return d->GetSequence(refId, start, stop, sequence);
 }
 
-bool Fasta::GetSequence(const std::string& name, std::string& sequence) {
+bool Fasta::GetSequence(const std::string& name, std::string& sequence)
+{
     return d->GetSequence(name, sequence);
 }
 

@@ -78,6 +78,7 @@ uint32_t Stats::num_snps() const {
 std::vector<Stats> pileup_bam(const std::string &reference,
                               const std::string &reference_name,
                               const std::string &bam_file) {
+    logger()->info("Size of stats is: {}", sizeof(Stats));
     BamTools::BamReader reader;
     reader.Open(bam_file);
     if (!std::filesystem::exists(bam_file + ".bai")) {
@@ -218,7 +219,10 @@ std::vector<Stats> contig_stats(const std::string &contig_name,
         logger()->info("Uncompressed fasta file detected. Using BamTools");
         BamTools::Fasta fasta;
         fasta.Open(fasta_file);
-        fasta.GetSequence(contig_name, reference_seq);
+        if (!fasta.GetSequence(contig_name, reference_seq)) {
+            logger()->error("Sequence not found: {}", contig_name);
+            std::exit(1);
+        }
     }
 
     logger()->info("Getting per-read characteristics");
@@ -231,7 +235,7 @@ std::vector<Stats> contig_stats(const std::string &contig_name,
 
             for (bool snp_match : { true, false }) {
                 // insert sizes
-                std::vector<uint32_t> i_sizes = stat.s[snp_match].i_sizes;
+                std::vector<uint16_t> i_sizes = stat.s[snp_match].i_sizes;
                 if (!i_sizes.empty()) {
                     std::tie(stat.s[snp_match].min_i_size, stat.s[snp_match].mean_i_size,
                              stat.s[snp_match].max_i_size)
@@ -241,7 +245,7 @@ std::vector<Stats> contig_stats(const std::string &contig_name,
                 }
 
                 //  MAPQ
-                std::vector<uint16_t> map_quals = stat.s[snp_match].map_quals;
+                std::vector<uint8_t> map_quals = stat.s[snp_match].map_quals;
                 std::tie(stat.s[snp_match].min_map_qual, stat.s[snp_match].mean_map_qual,
                          stat.s[snp_match].max_map_qual)
                         = min_mean_max(map_quals);

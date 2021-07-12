@@ -22,35 +22,35 @@ std::pair<double, double> entropy_gc_percent(const std::array<uint8_t, 4> &count
 struct Stats {
     uint8_t ref_base; // the base (ACGT) in the reference contig
 
-    std::array<uint32_t, 4> n_bases; // total number of bases (ACGT) aligned to this position
+    std::array<uint16_t, 4> n_bases; // total number of bases (ACGT) aligned to this position
 
     // number of SNPs (relative to the reference contig
     uint32_t num_snps() const;
 
     uint32_t coverage() const { return n_bases[0] + n_bases[1] + n_bases[2] + n_bases[3]; }
 
-    uint32_t n_discord = 0;
+    uint16_t n_discord = 0;
 
     struct S {
-        uint32_t min_i_size = std::numeric_limits<uint32_t>::max();
-        double mean_i_size = NAN;
-        double std_dev_i_size = NAN;
-        uint32_t max_i_size = std::numeric_limits<uint32_t>::max();
+        uint16_t min_i_size = std::numeric_limits<uint16_t>::max();
+        float mean_i_size = NAN;
+        float std_dev_i_size = NAN;
+        uint16_t max_i_size = std::numeric_limits<uint16_t>::max();
 
-        uint32_t min_map_qual = std::numeric_limits<uint32_t>::max();
-        double mean_map_qual = NAN;
-        double std_dev_map_qual = NAN;
-        uint32_t max_map_qual = std::numeric_limits<uint32_t>::max();
+        uint8_t min_map_qual = std::numeric_limits<uint8_t>::max();
+        float mean_map_qual = NAN;
+        float std_dev_map_qual = NAN;
+        uint8_t max_map_qual = std::numeric_limits<uint8_t>::max();
 
-        uint32_t n_proper = 0;
-        uint32_t n_diff_strand = 0;
-        uint32_t n_orphan = 0;
-        uint32_t n_sup = 0;
-        uint32_t n_sec = 0;
-        uint32_t n_discord = 0;
+        uint16_t n_proper = 0;
+        uint16_t n_diff_strand = 0;
+        uint16_t n_orphan = 0;
+        uint16_t n_sup = 0;
+        uint16_t n_sec = 0;
+        uint16_t n_discord = 0;
 
-        std::vector<uint32_t> i_sizes;
-        std::vector<uint16_t> map_quals;
+        std::vector<uint16_t> i_sizes;
+        std::vector<uint8_t> map_quals;
     };
     std::array<S, 2> s;
 
