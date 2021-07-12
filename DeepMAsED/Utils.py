@@ -1,5 +1,3 @@
-# import
-## batteries
 import _pickle as pickle
 import os
 import sys
@@ -13,23 +11,20 @@ from collections import defaultdict
 import multiprocessing as mp
 import tables
 import pathos
-## 3rd party
-import tensorflow as tf
-from tensorflow.keras import backend as K
-from tensorflow.keras.callbacks import Callback
-from tensorflow.keras.layers import Input, Conv1D, ReLU, BatchNormalization, Add, AveragePooling2D, Flatten, Dense
 
 import numpy as np
 import pandas as pd
 from sklearn.metrics import average_precision_score
-import IPython
-## application
+from tensorflow.keras import backend as K
+from tensorflow.keras.callbacks import Callback
+from tensorflow.keras.layers import Input, Conv1D, ReLU, BatchNormalization, Add, AveragePooling2D, Flatten, Dense
+
 
 def nested_dict():
     return defaultdict(nested_dict)
 
 
-def compute_sum_sumsq_n(featurefiles_table, n_feat=18): #todo: 20 or 21 features_sel
+def compute_sum_sumsq_n(featurefiles_table, n_feat=18):  # todo: 20 or 21 features_sel
     """
     This function is applied once to the whole training data to compute
     mean and standard deviation. File is saved in the same directory.
