@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+#include <cmath>
+
 /**
  * Join a vector's element into sep-separated string.
  */
