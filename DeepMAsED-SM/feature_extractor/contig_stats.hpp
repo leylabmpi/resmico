@@ -88,8 +88,10 @@ std::vector<Stats> pileup_bam(const std::string &reference,
  * @param is_short  just short feature list?
  * @return vector of #Stats, one for each position in the contig
  */
-std::vector<Stats> contig_stats(const std::string &contig_name,
+std::vector<Stats> contig_stats(const std::string &reference_name,
                                 const std::string &bam_file,
                                 const std::string &fasta_file,
                                 uint32_t window_size,
                                 bool is_short);
+
+std::string get_sequence(const std::string& fasta_file, const std::string& seq_name);

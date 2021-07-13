@@ -503,7 +503,8 @@ std::string get_name(const std::string& header)
 {
     size_t end_pos = header.find(' ');
     if (end_pos == std::string::npos) {
-        end_pos = header.size();
+        end_pos = header.size() - 1;
+        assert(header[end_pos]=='\n');
     }
     return header.substr(1, end_pos - 1);
 }

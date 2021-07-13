@@ -193,8 +193,9 @@ TEST(ContigStats, TwoReads) {
     std::string reference(500, 'A');
     std::string reference_name = "1";
     for (std::string fasta : { "data/test.fa", "data/test.fa.gz" }) {
+        std::string reference_seq = get_sequence(fasta, reference_name);
         std::vector<Stats> stats
-                = contig_stats(reference_name, "data/test2.bam", fasta, 4, false);
+                = contig_stats(reference_name, reference_seq, "data/test2.bam", 4, false);
         ASSERT_EQ(500, stats.size());
         for (uint32_t i = 0; i < 4; ++i) {
             ASSERT_EQ('A', stats[i].ref_base);

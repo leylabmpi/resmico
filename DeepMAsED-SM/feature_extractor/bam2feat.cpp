@@ -1,8 +1,8 @@
 #include "contig_stats.hpp"
 #include "util/fasta_reader.hpp"
+#include "util/gzstream.hpp"
 #include "util/logger.hpp"
 #include "util/util.hpp"
-#include "util/gzstream.hpp"
 
 #include <api/BamReader.h>
 #include <gflags/gflags.h>
@@ -25,29 +25,81 @@ DEFINE_int32(window, 4, "Sliding window size for sequence entropy & GC content")
 DEFINE_bool(short, false, "Short feature list instead of all features?");
 DEFINE_bool(debug, false, "Debug mode; just for troubleshooting");
 
+/** Truncate to 2 decimals */
+std::string r2(float v) {
+    if (std::isnan(v)) {
+        return "NA";
+    }
+    return std::to_string(static_cast<int>(std::round(v * 100)) / 100) + '.'
+            + std::to_string(static_cast<int>(v * 100) % 100);
+}
+
+/** Truncate to 3 decimals */
+std::string r3(float v) {
+    return std::to_string(static_cast<int>(v * 1000) / 1000) + '.'
+            + std::to_string(static_cast<int>(v * 1000) % 1000);
+}
+
+template <typename T>
+std::string stri(T v) {
+    if (v == std::numeric_limits<T>::max()) {
+        return "NA";
+    }
+    return std::to_string(v);
+}
+
 /** Pretty print of the results */
 void write_stats(std::vector<Stats> &&stats,
                  const std::string &assembler,
                  const std::string &contig_name,
+                 const std::string &contig,
                  ogzstream *o,
                  std::mutex *mutex) {
     std::unique_lock<std::mutex> lock(*mutex);
     ogzstream &out = *o;
     logger()->info("Writing features for contig {}...", contig_name);
+    // out.setf(std::ios::fixed,std::ios::floatfield);
+    out.precision(3);
     for (uint32_t pos = 0; pos < stats.size(); ++pos) {
         out << assembler << '\t' << contig_name << '\t' << pos << '\t';
         const Stats &s = stats[pos];
-        out << s.ref_base << '\t' << s.n_bases[0] << '\t' << s.n_bases[1] << '\t' << s.n_bases[2]
+        assert(s.ref_base == 0 || s.ref_base == contig[pos]);
+        out << contig[pos] << '\t' << s.n_bases[0] << '\t' << s.n_bases[1] << '\t' << s.n_bases[2]
             << '\t' << s.n_bases[3] << '\t' << s.num_snps() << '\t' << s.coverage() << '\t'
             << s.n_discord << '\t';
         for (bool match : { false, true }) {
-            out << s.s[match].min_i_size << '\t' << s.s[match].mean_i_size << '\t'
-                << s.s[match].std_dev_i_size << '\t' << s.s[match].max_i_size << '\t';
+            if (isnan(s.s[match].mean_i_size)) { // zero coverage, no i_size, no mapping quality
+                out << "NA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\t";
+            } else {
+                out << stri(s.s[match].min_i_size) << '\t' << r2(s.s[match].mean_i_size) << '\t'
+                    << r2(s.s[match].std_dev_i_size) << '\t' << stri(s.s[match].max_i_size) << '\t';
+                out << (int)s.s[match].min_map_qual << '\t' << r2(s.s[match].mean_map_qual) << '\t'
+                    << r2(s.s[match].std_dev_map_qual) << '\t' << (int)s.s[match].max_map_qual
+                    << '\t';
+            }
             out << s.s[match].n_proper << '\t' << s.s[match].n_diff_strand << '\t'
                 << s.s[match].n_orphan << '\t' << s.s[match].n_sup << '\t' << s.s[match].n_sec
                 << '\t' << s.s[match].n_discord << '\t';
         }
+
         out << s.entropy << '\t' << s.gc_percent << '\n';
+        // uncomment and use of py compatibility
+        //        if (s.entropy == 0) {
+        //            out << "0.0\t";
+        //        } else if (s.entropy == 1) {
+        //            out << "1.0\t";
+        //        } else if (s.entropy == 2) {
+        //            out << "2.0\t";
+        //        } else {
+        //            out << s.entropy << '\t';
+        //        }
+        //        if (s.gc_percent == 0) {
+        //            out << "0.0\n";
+        //        } else if (s.gc_percent == 1) {
+        //            out << "1.0\n";
+        //        } else {
+        //            out << s.gc_percent << '\n';
+        //        }
     }
     logger()->info("Writing features for contig {} done.", contig_name);
 }
@@ -119,27 +171,31 @@ int main(int argc, char *argv[]) {
     }
 
     BamTools::BamReader reader;
-    reader.Open(FLAGS_bam_file);
-    std::vector<std::string> contigs(reader.GetReferenceCount());
-    for (uint32_t i = 0; i < contigs.size(); ++i) {
-        contigs[i] = reader.GetReferenceData()[i].RefName;
+    if (!reader.Open(FLAGS_bam_file)) {
+        logger()->error("Could not open BAM file (invalid BAM?): {}", FLAGS_bam_file);
+        std::exit(1);
     }
-    logger()->info("Number of contigs in the bam file: {}", contigs.size());
+    std::vector<std::string> ref_names(reader.GetReferenceCount());
+    for (uint32_t i = 0; i < ref_names.size(); ++i) {
+        ref_names[i] = reader.GetReferenceData()[i].RefName;
+    }
+    logger()->info("Number of contigs in the bam file: {}", ref_names.size());
 
     // debug (just smallest 10 contigs)
     if (FLAGS_debug) {
-        contigs = std::vector(contigs.end() - 10, contigs.end());
+        ref_names = std::vector(ref_names.end() - 10, ref_names.end());
     }
 
     std::vector<std::future<void>> futures;
     std::mutex mutex;
 
 #pragma omp parallel for num_threads(FLAGS_procs)
-    for (uint32_t c = 0; c < contigs.size(); ++c) {
-        std::vector<Stats> stats = contig_stats(contigs[c], FLAGS_bam_file, FLAGS_fasta_file,
+    for (uint32_t c = 0; c < ref_names.size(); ++c) {
+        const std::string reference_seq = get_sequence(FLAGS_fasta_file, ref_names[c]);
+        std::vector<Stats> stats = contig_stats(ref_names[c], reference_seq, FLAGS_bam_file,
                                                 FLAGS_window, FLAGS_short);
         futures.push_back(std::async(std::launch::async, write_stats, std::move(stats),
-                                     FLAGS_assembler, contigs[c], &out, &mutex));
+                                     FLAGS_assembler, ref_names[c], reference_seq, &out, &mutex));
     }
 
     // make sure all futures are done, although in theory the destructor of future should block

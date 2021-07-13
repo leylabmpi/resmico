@@ -83,6 +83,8 @@ def entropy(seq):
     """
     cnt = [seq.count(i) for i in 'ACGT']
     d = sum(cnt)
+    if d == 0:
+        return 0
     ent = []
     for i in [float(i)/d for i in cnt]:
         # round corner case that would cause math domain error
@@ -97,7 +99,10 @@ def gc_percent(seq):
     Calculate fraction of GC bases within sequence.
     """
     counts = [seq.count(i) for i in 'ACGT']
-    gc = float(counts[1] + counts[2])/sum(counts)
+    scounts = sum(counts)
+    if scounts == 0:
+        return 0
+    gc = float(counts[1] + counts[2])/scounts
     return round(gc, 3)
 
 def window(seq, wsize = 4):
@@ -134,7 +139,7 @@ def seq_entropy(seq, window_size):
         ent.append(entropy(x))
         gc.append(gc_percent(x))
     # 2nd half (reverse)
-    seq_sub = seq[midpoint - window_size:-1]
+    seq_sub = seq[:midpoint - window_size:-1]
     ent_tmp = []
     gc_tmp = []
     for x in window(seq_sub, window_size):
@@ -174,12 +179,12 @@ def _contig_stats(contig, bam_file, fasta_file, assembler, window_size, short):
         for pileupcolumn in inF.pileup(contig, 1, inF.lengths[contig_i]):
             ref_base = ref_seq[pileupcolumn.reference_pos] 
             for pileupread in pileupcolumn.pileups:
-                try:
+                if not pileupread.is_del and not pileupread.is_refskip:
                     query_base = pileupread.alignment.query_sequence[pileupread.query_position]
-                except TypeError:
-                    pass
-                query_SNP[pileupcolumn.reference_pos][pileupread.alignment.query_name] = \
-                  ref_base != query_base
+                    query_SNP[pileupcolumn.reference_pos][pileupread.alignment.query_name] = \
+                      ref_base != query_base
+                else:
+                    query_SNP[pileupcolumn.reference_pos][pileupread.alignment.query_name] = True
 
         # read alignment at each position
         logging.info('    Getting per-read characteristics')                

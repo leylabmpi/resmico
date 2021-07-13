@@ -1,7 +1,7 @@
 #include "contig_stats.hpp"
 #include "util/fasta_reader.hpp"
-#include "util/util.hpp"
 #include "util/logger.hpp"
+#include "util/util.hpp"
 
 #include <api/BamReader.h>
 #include <utils/bamtools_fasta.h>
@@ -61,7 +61,7 @@ void fill_seq_entropy(const std::string &seq, uint32_t window_size, std::vector<
     for (uint32_t i = midpoint; i < seq.size(); ++i) {
         counts[IDX[(int)seq[i]]]++;
         std::tie(stats->at(i).entropy, stats->at(i).gc_percent) = entropy_gc_percent(counts);
-        assert(counts[IDX[(int)seq[i - window_size + 1]]] > 0);
+        assert(window_size == 0 || counts[IDX[(int)seq[i - window_size + 1]]] > 0);
         counts[IDX[(int)seq[i - window_size + 1]]]--;
     }
 }
@@ -79,7 +79,6 @@ uint32_t Stats::num_snps() const {
 std::vector<Stats> pileup_bam(const std::string &reference,
                               const std::string &reference_name,
                               const std::string &bam_file) {
-    logger()->info("Size of stats is: {}", sizeof(Stats));
     BamTools::BamReader reader;
     reader.Open(bam_file);
     if (!std::filesystem::exists(bam_file + ".bai")) {
@@ -113,7 +112,7 @@ std::vector<Stats> pileup_bam(const std::string &reference,
         al.BuildCharData();
 
         uint32_t offset = 0; // if the CIGAR string contains inserts, we need to adjust the offset
-        uint32_t del_offset = 0;
+        uint32_t del_offset = 0; // TODO: unused, remove it
         uint32_t cigar_idx = 0;
         // skip soft/hard clips
         while (al.CigarData[cigar_idx].Type == 'H' || al.CigarData[cigar_idx].Type == 'S') {
@@ -139,7 +138,8 @@ std::vector<Stats> pileup_bam(const std::string &reference,
                         break;
                     }
                     continue;
-                } else if (al.CigarData[cigar_idx].Type == 'D') {
+                } else if (al.CigarData[cigar_idx].Type == 'D'
+                           || al.CigarData[cigar_idx].Type == 'N') {
                     // deleted bases don't show up in AlignedBases, but they do show up in Qualities
                     del_offset += al.CigarData[cigar_idx].Length;
                 }
@@ -184,6 +184,8 @@ std::vector<Stats> pileup_bam(const std::string &reference,
 
             // make sure we have a '-' on a deleted position
             assert(al.CigarData[cigar_idx].Type != 'D' || al.AlignedBases[i + offset] == '-');
+            // make sure we have a 'N' on an alignment gap position
+            assert(al.CigarData[cigar_idx].Type != 'N' || al.AlignedBases[i + offset] == 'N');
 
             if (base == 5) { // probably an 'N'
                 continue;
@@ -196,38 +198,15 @@ std::vector<Stats> pileup_bam(const std::string &reference,
     return result;
 }
 
-std::vector<Stats> contig_stats(const std::string &contig_name,
+std::vector<Stats> contig_stats(const std::string &reference_name,
+                                const std::string &reference_seq,
                                 const std::string &bam_file,
-                                const std::string &fasta_file,
                                 uint32_t window_size,
                                 bool is_short) {
-    logger()->info("Processing contig: {}", contig_name);
-
-    if (!std::filesystem::exists(fasta_file)) {
-        logger()->error("File {} does not exist", fasta_file);
-        std::exit(1);
-    }
-    if (!std::filesystem::exists(bam_file)) {
-        logger()->error("File {} does not exist", bam_file);
-        std::exit(1);
-    }
-
-    std::string reference_seq;
-    if (ends_with(fasta_file, "gz")) {
-        logger()->info("Gzipped fasta file detected. Using kseq");
-        reference_seq = FastaReader(fasta_file).read(contig_name);
-    } else {
-        logger()->info("Uncompressed fasta file detected. Using BamTools");
-        BamTools::Fasta fasta;
-        fasta.Open(fasta_file);
-        if (!fasta.GetSequence(contig_name, reference_seq)) {
-            logger()->error("Sequence not found: {}", contig_name);
-            std::exit(1);
-        }
-    }
+    logger()->info("Processing contig: {}", reference_name);
 
     logger()->info("Getting per-read characteristics");
-    std::vector<Stats> stats = pileup_bam(reference_seq, contig_name, bam_file);
+    std::vector<Stats> stats = pileup_bam(reference_seq, reference_name, bam_file);
 
     // aggregate data
     if (!is_short) {
@@ -236,7 +215,7 @@ std::vector<Stats> contig_stats(const std::string &contig_name,
 
             for (bool snp_match : { true, false }) {
                 // insert sizes
-                std::vector<uint16_t> i_sizes = stat.s[snp_match].i_sizes;
+                const std::vector<uint16_t> &i_sizes = stat.s[snp_match].i_sizes;
                 if (!i_sizes.empty()) {
                     std::tie(stat.s[snp_match].min_i_size, stat.s[snp_match].mean_i_size,
                              stat.s[snp_match].max_i_size)
@@ -245,13 +224,15 @@ std::vector<Stats> contig_stats(const std::string &contig_name,
                             = std_dev(i_sizes, stat.s[snp_match].mean_i_size);
                 }
 
-                //  MAPQ
-                std::vector<uint8_t> map_quals = stat.s[snp_match].map_quals;
-                std::tie(stat.s[snp_match].min_map_qual, stat.s[snp_match].mean_map_qual,
-                         stat.s[snp_match].max_map_qual)
-                        = min_mean_max(map_quals);
-                stat.s[snp_match].std_dev_map_qual
-                        = std_dev(map_quals, stat.s[snp_match].mean_map_qual);
+                //  Mapping Quality
+                const std::vector<uint8_t> &map_quals = stat.s[snp_match].map_quals;
+                if (!map_quals.empty()) {
+                    std::tie(stat.s[snp_match].min_map_qual, stat.s[snp_match].mean_map_qual,
+                             stat.s[snp_match].max_map_qual)
+                            = min_mean_max(map_quals);
+                    stat.s[snp_match].std_dev_map_qual
+                            = std_dev(map_quals, stat.s[snp_match].mean_map_qual);
+                }
             }
         }
     }
@@ -260,4 +241,25 @@ std::vector<Stats> contig_stats(const std::string &contig_name,
     fill_seq_entropy(reference_seq, window_size, &stats);
     logger()->info("Done");
     return stats;
+}
+
+std::string get_sequence(const std::string &fasta_file, const std::string &seq_name) {
+    if (!std::filesystem::exists(fasta_file)) {
+        logger()->error("File {} does not exist", seq_name);
+        std::exit(1);
+    }
+    std::string reference_seq;
+    if (ends_with(fasta_file, "gz")) {
+        logger()->info("Gzipped fasta file detected. Using kseq");
+        reference_seq = FastaReader(fasta_file).read(seq_name);
+    } else {
+        logger()->info("Uncompressed fasta file detected. Using BamTools");
+        BamTools::Fasta fasta;
+        fasta.Open(fasta_file);
+        if (!fasta.GetSequence(seq_name, reference_seq)) {
+            logger()->error("Sequence not found: {}", seq_name);
+            std::exit(1);
+        }
+    }
+    return reference_seq;
 }
