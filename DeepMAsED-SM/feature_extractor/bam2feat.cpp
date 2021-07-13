@@ -29,10 +29,10 @@ DEFINE_bool(debug, false, "Debug mode; just for troubleshooting");
 void write_stats(std::vector<Stats> &&stats,
                  const std::string &assembler,
                  const std::string &contig_name,
-                 std::ofstream *o,
+                 ogzstream *o,
                  std::mutex *mutex) {
     std::unique_lock<std::mutex> lock(*mutex);
-    std::ofstream &out = *o;
+    ogzstream &out = *o;
     logger()->info("Writing features for contig {}...", contig_name);
     for (uint32_t pos = 0; pos < stats.size(); ++pos) {
         out << assembler << '\t' << contig_name << '\t' << pos << '\t';
