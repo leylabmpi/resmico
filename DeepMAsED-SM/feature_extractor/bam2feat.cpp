@@ -2,6 +2,7 @@
 #include "util/fasta_reader.hpp"
 #include "util/logger.hpp"
 #include "util/util.hpp"
+#include "util/gzstream.hpp"
 
 #include <api/BamReader.h>
 #include <gflags/gflags.h>
@@ -109,7 +110,7 @@ int main(int argc, char *argv[]) {
     }
     H.insert(H.end(), { "seq_window_entropy", "seq_window_perc_gc" });
 
-    std::ofstream out(FLAGS_o);
+    ogzstream out(FLAGS_o.c_str());
     out << join_vec(H, '\t');
 
     // Getting contig list

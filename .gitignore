@@ -96,5 +96,6 @@ target/
 
 # CLion files
 cmake-build-debug/
+cmake-build-release/
 venv/
 .idea/
