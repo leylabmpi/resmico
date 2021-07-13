@@ -15,6 +15,7 @@
 
 DEFINE_string(bam_file, "", "bam (or sam) file");
 DEFINE_string(fasta_file, "", "Reference sequences for the bam (sam) file");
+DEFINE_string(o, "", "Output file");
 DEFINE_string(assembler, "unknown", "Name of metagenome assembler used to create the contigs");
 DEFINE_int32(batches, 100, "Number of contigs batches for parallel processing");
 DEFINE_int32(chunks, 50, "No. of bins to process before writing; lower values = lower memory");
@@ -27,26 +28,25 @@ DEFINE_bool(debug, false, "Debug mode; just for troubleshooting");
 void write_stats(std::vector<Stats> &&stats,
                  const std::string &assembler,
                  const std::string &contig_name,
+                 std::ofstream *o,
                  std::mutex *mutex) {
     std::unique_lock<std::mutex> lock(*mutex);
-
+    std::ofstream &out = *o;
     logger()->info("Writing features for contig {}...", contig_name);
     for (uint32_t pos = 0; pos < stats.size(); ++pos) {
-        std::cout << assembler << '\t' << contig_name << '\t' << pos << '\t';
+        out << assembler << '\t' << contig_name << '\t' << pos << '\t';
         const Stats &s = stats[pos];
-        std::cout << s.ref_base << '\t' << s.n_bases[0] << '\t' << s.n_bases[1] << '\t'
-                  << s.n_bases[2] << '\t' << s.n_bases[3] << '\t' << s.num_snps() << '\t'
-                  << s.coverage() << '\t' << s.n_discord << '\t';
+        out << s.ref_base << '\t' << s.n_bases[0] << '\t' << s.n_bases[1] << '\t' << s.n_bases[2]
+            << '\t' << s.n_bases[3] << '\t' << s.num_snps() << '\t' << s.coverage() << '\t'
+            << s.n_discord << '\t';
         for (bool match : { false, true }) {
-            std::cout << s.s[match].min_i_size << '\t' << s.s[match].mean_i_size << '\t'
-                      << s.s[match].std_dev_i_size << '\t' << s.s[match].max_i_size << '\t';
-            std::cout << s.s[match].n_proper << '\t' << s.s[match].n_diff_strand << '\t'
-                      << s.s[match].n_orphan << '\t' << s.s[match].n_sup << '\t' << s.s[match].n_sec
-                      << '\t' << s.s[match].n_discord << '\t';
-            std::cout << s.entropy << '\t' << s.gc_percent << std::endl;
+            out << s.s[match].min_i_size << '\t' << s.s[match].mean_i_size << '\t'
+                << s.s[match].std_dev_i_size << '\t' << s.s[match].max_i_size << '\t';
+            out << s.s[match].n_proper << '\t' << s.s[match].n_diff_strand << '\t'
+                << s.s[match].n_orphan << '\t' << s.s[match].n_sup << '\t' << s.s[match].n_sec
+                << '\t' << s.s[match].n_discord << '\t';
         }
-
-        std::cout << std::endl;
+        out << s.entropy << '\t' << s.gc_percent << '\n';
     }
     logger()->info("Writing features for contig {} done.", contig_name);
 }
@@ -67,7 +67,6 @@ int main(int argc, char *argv[]) {
         std::exit(1);
     }
 
-
     if (FLAGS_fasta_file.empty()) {
         logger()->error("Please specify a FASTA reference genome via --fasta_file");
         std::exit(1);
@@ -77,6 +76,14 @@ int main(int argc, char *argv[]) {
                         FLAGS_fasta_file);
         std::exit(1);
     }
+
+    if (FLAGS_o.empty()) {
+        logger()->error(
+                "Please specify an output file via --o output_file (writing to the console is "
+                "SLOW)");
+        std::exit(1);
+    }
+
 
     logger()->info("Using {} threads, {} assembler, window of size {}", FLAGS_procs,
                    FLAGS_assembler, FLAGS_window);
@@ -102,7 +109,8 @@ int main(int argc, char *argv[]) {
     }
     H.insert(H.end(), { "seq_window_entropy", "seq_window_perc_gc" });
 
-    std::cout << join_vec(H, '\t');
+    std::ofstream out(FLAGS_o);
+    out << join_vec(H, '\t');
 
     // Getting contig list
     if (!ends_with(FLAGS_bam_file, ".bam")) {
@@ -124,12 +132,13 @@ int main(int argc, char *argv[]) {
 
     std::vector<std::future<void>> futures;
     std::mutex mutex;
+
 #pragma omp parallel for num_threads(FLAGS_procs)
     for (uint32_t c = 0; c < contigs.size(); ++c) {
         std::vector<Stats> stats = contig_stats(contigs[c], FLAGS_bam_file, FLAGS_fasta_file,
                                                 FLAGS_window, FLAGS_short);
         futures.push_back(std::async(std::launch::async, write_stats, std::move(stats),
-                                     FLAGS_assembler, contigs[c], &mutex));
+                                     FLAGS_assembler, contigs[c], &out, &mutex));
     }
 
     // make sure all futures are done, although in theory the destructor of future should block
