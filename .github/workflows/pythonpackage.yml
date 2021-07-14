@@ -22,6 +22,10 @@ jobs:
             cxx: g++-9
             cc: gcc-9
     steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+    - name: Checkout submodules
+      run: git submodule update --init --recursive
     - name: bam2feat Create build dir
       run: mkdir ${{runner.workspace}}/DeepMAsED-SM/feature_extractor/build
     - name: bam2feat Configure CMake
