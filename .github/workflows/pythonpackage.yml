@@ -15,21 +15,28 @@ jobs:
     strategy:
       matrix:
         python-version: [3.6]
+        build_type: [Release]
         compiler: [g++-9]
         include:
           - compiler: g++-9
             cxx: g++-9
             cc: gcc-9
     steps:
-    - name: bam2feat compile
+    - name: bam2feat Create build dir
+      run: mkdir ${{runner.workspace}}/build
+    - name: bam2feat Configure CMake
+      working-directory: ${{runner.workspace}}/build
       shell: bash
       run: |
-        mkdir -p DeepMAsED-SM/feature_extractor/build
-        cd DeepMAsED-SM/feature_extractor/build
-        cmake -DCMAKE_BUILD_TYPE=Release ..
-        make -j
-    - name: bam2feat test
-      working-directory: DeepMAsED-SM/feature_extractor/build
+        export CC=$(which ${{ matrix.cc }})
+        export CXX=$(which ${{ matrix.cxx }})
+        cmake $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+    - name: bam2feat Build
+      working-directory: ${{runner.workspace}}/build
+      shell: bash
+      run: make -j
+    - name: bam2feat Test
+      working-directory: ${{runner.workspace}}/build
       shell: bash
       run: ./tests
     - uses: conda-incubator/setup-miniconda@v2
