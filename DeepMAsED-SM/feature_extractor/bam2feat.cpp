@@ -53,10 +53,10 @@ void write_stats(std::vector<Stats> &&stats,
                  const std::string &assembler,
                  const std::string &contig_name,
                  const std::string &contig,
-                 ogzstream *o,
+                 std::ofstream *o,
                  std::mutex *mutex) {
     std::unique_lock<std::mutex> lock(*mutex);
-    ogzstream &out = *o;
+    std::ofstream &out = *o;
     logger()->info("Writing features for contig {}...", contig_name);
     // out.setf(std::ios::fixed,std::ios::floatfield);
     out.precision(3);
@@ -162,7 +162,7 @@ int main(int argc, char *argv[]) {
     }
     H.insert(H.end(), { "seq_window_entropy", "seq_window_perc_gc" });
 
-    ogzstream out(FLAGS_o.c_str());
+    std::ofstream out(FLAGS_o.c_str());
     out << join_vec(H, '\t');
 
     // Getting contig list
