@@ -68,7 +68,7 @@ void write_stats(std::vector<Stats> &&stats,
             << '\t' << s.n_bases[3] << '\t' << s.num_snps() << '\t' << s.coverage() << '\t'
             << s.n_discord << '\t';
         for (bool match : { false, true }) {
-            if (isnan(s.s[match].mean_i_size)) { // zero coverage, no i_size, no mapping quality
+            if (std::isnan(s.s[match].mean_i_size)) { // zero coverage, no i_size, no mapping quality
                 out << "NA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\t";
             } else {
                 out << stri(s.s[match].min_i_size) << '\t' << r2(s.s[match].mean_i_size) << '\t'
