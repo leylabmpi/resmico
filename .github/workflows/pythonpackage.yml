@@ -15,10 +15,12 @@ jobs:
     strategy:
       matrix:
         python-version: [3.6]
+        build_type: [Debug, Release]
         compiler: [g++-9]
-        - compiler: g++-9
-          cxx: g++-9
-          cc: gcc-9
+        include:
+          - compiler: g++-9
+            cxx: g++-9
+            cc: gcc-9
     steps:
     - uses: conda-incubator/setup-miniconda@v2
       with:
