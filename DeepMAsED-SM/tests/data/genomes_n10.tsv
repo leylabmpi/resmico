@@ -1,11 +1,11 @@
 Taxon	Fasta
-Leptospira alexanderi strain 56659	/ebio/abt3_projects/databases_no-backup/GTDB/release86/genbank/bacteria/GCA_002009845.1/GCA_002009845.1_ASM200984v1_genomic.fna.gz
-Megasphaera sp. UPII 199-6	/ebio/abt3_projects/databases_no-backup/GTDB/release86/genbank/bacteria/GCA_000214495.2/GCA_000214495.2_ASM21449v1_genomic.fna.gz
-Cryobacterium roopkundense strain RuG17	/ebio/abt3_projects/databases_no-backup/GTDB/release86/genbank/bacteria/GCA_000764165.1/GCA_000764165.1_ASM76416v1_genomic.fna.gz
-Anaerocolumna xylanovorans DSM 12503	/ebio/abt3_projects/databases_no-backup/GTDB/release86/genbank/bacteria/GCA_900143645.1/GCA_900143645.1_IMG-taxon_2582580727_annotated_assembly_genomic.fna.gz
-Clostridium peptidivorans isolate src2	/ebio/abt3_projects/databases_no-backup/GTDB/release86/genbank/bacteria/GCA_900205925.1/GCA_900205925.1_Clostridium_peptidoveorans_DPC7177_genomic.fna.gz
-Papillibacter cinnamivorans DSM 12816	/ebio/abt3_projects/databases_no-backup/GTDB/release86/genbank/bacteria/GCA_900176335.1/GCA_900176335.1_IMG-taxon_2588254267_annotated_assembly_genomic.fna.gz
-Vibrio sp. C7	/ebio/abt3_projects/databases_no-backup/GTDB/release86/genbank/bacteria/GCA_000755365.1/GCA_000755365.1_ASM75536v1_genomic.fna.gz
-Cytophagales str. B6	/ebio/abt3_projects/databases_no-backup/GTDB/release86/genbank/bacteria/GCA_000333295.1/GCA_000333295.1_ASM33329v1_genomic.fna.gz
-Gluconacetobacter sp. SXCC-1	/ebio/abt3_projects/databases_no-backup/GTDB/release86/genbank/bacteria/GCA_000208635.2/GCA_000208635.2_ASM20863v1_genomic.fna.gz
-Enterobacter oryzendophyticus strain REICA_082	/ebio/abt3_projects/databases_no-backup/GTDB/release86/genbank/bacteria/GCA_900094925.1/GCA_900094925.1_IMG-taxon_2617270737_annotated_assembly_genomic.fna.gz
+RS_GCF_004217335.1_Haloterrigena	/ebio/abt3_projects/databases_no-backup/GTDB/release95/Struo/genomes/genbank/archaea/GCA_004217335.1/GCA_004217335.1_ASM421733v1_genomic.fna.gz
+RS_GCF_000970205.1_Methanosarcina	/ebio/abt3_projects/databases_no-backup/GTDB/release95/Struo/genomes/genbank/archaea/GCA_000970205.1/GCA_000970205.1_ASM97020v1_genomic.fna.gz
+RS_GCF_002802875.1_Bifidobacterium	/ebio/abt3_projects/databases_no-backup/GTDB/release95/Struo/genomes/genbank/bacteria/GCA_002802875.1/GCA_002802875.1_Spades_TRE1_genomic.fna.gz
+RS_GCF_003339645.1_Microbacterium	/ebio/abt3_projects/databases_no-backup/GTDB/release95/Struo/genomes/genbank/bacteria/GCA_003339645.1/GCA_003339645.1_ASM333964v1_genomic.fna.gz
+RS_GCF_900519355.1_Corynebacterium	/ebio/abt3_projects/databases_no-backup/GTDB/release95/Struo/genomes/genbank/bacteria/GCA_900519355.1/GCA_900519355.1_Corynebacterium_lactis_S064_genomic.fna.gz
+RS_GCF_001894825.1_Rhodococcus	/ebio/abt3_projects/databases_no-backup/GTDB/release95/Struo/genomes/genbank/bacteria/GCA_001894825.1/GCA_001894825.1_ASM189482v1_genomic.fna.gz
+RS_GCF_000716435.1_Streptomyces	/ebio/abt3_projects/databases_no-backup/GTDB/release95/Struo/genomes/genbank/bacteria/GCA_000716435.1/GCA_000716435.1_ASM71643v1_genomic.fna.gz
+RS_GCF_002736145.1_Collinsella	/ebio/abt3_projects/databases_no-backup/GTDB/release95/Struo/genomes/genbank/bacteria/GCA_002736145.1/GCA_002736145.1_ASM273614v1_genomic.fna.gz
+RS_GCF_000243215.1_Odoribacter	/ebio/abt3_projects/databases_no-backup/GTDB/release95/Struo/genomes/genbank/bacteria/GCA_000243215.1/GCA_000243215.1_Odor_lane_YIT_12061_V1_genomic.fna.gz
+RS_GCF_900182645.1_Flavobacterium	/ebio/abt3_projects/databases_no-backup/GTDB/release95/Struo/genomes/genbank/bacteria/GCA_900182645.1/GCA_900182645.1_IMG-taxon_2724679687_annotated_assembly_genomic.fna.gz

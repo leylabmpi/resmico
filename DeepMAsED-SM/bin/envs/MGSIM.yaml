@@ -3,6 +3,7 @@ channels:
 - bioconda
 dependencies:
 - python>=3.6
+- pip
 - conda-forge::docopt
 - conda-forge::configobj
 - conda-forge::numpy

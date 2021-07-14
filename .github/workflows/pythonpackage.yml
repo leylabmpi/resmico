@@ -1,0 +1,43 @@
+name: ResMiCo
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    name: build (${{ matrix.python-version }}, ${{ matrix.os }})
+    runs-on: ubuntu-latest
+    env:
+      DATADIR: data
+    strategy:
+      matrix:
+        python-version: [3.6]
+    steps:
+    - uses: conda-incubator/setup-miniconda@v2
+      with:
+        miniconda-version: 'latest'
+        auto-update-conda: true
+        python-version: ${{ matrix.python-version }}
+        channels: conda-forge,bioconda
+        activate-environment: resmico
+    - name: Checkout repository
+      uses: actions/checkout@v2
+    - name: Checkout submodules
+      run: git submodule update --init --recursive
+    - name: conda env setup
+      shell: bash -l {0}
+      run: |
+        conda info -a
+        conda env update -f conda_env.yaml python=${{ matrix.python-version }}
+        conda list
+    - name: pytest
+      shell: bash -l {0}
+      run: |
+        pytest -s
+    - name: snakemake
+      shell: bash -l {0}
+      run: |
+        snakemake --directory DeepMAsED-SM --snakefile DeepMAsED-SM/Snakefile -F --dryrun
