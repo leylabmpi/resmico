@@ -7,7 +7,7 @@
 #include <utils/bamtools_fasta.h>
 
 #include <cmath>
-#include <filesystem>
+#include "util/filesystem.hpp"
 
 std::pair<double, double> entropy_gc_percent(const std::array<uint8_t, 4> &counts) {
     uint32_t sum = counts[0] + counts[1] + counts[2] + counts[3];
