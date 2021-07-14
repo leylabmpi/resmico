@@ -15,7 +15,6 @@ jobs:
     strategy:
       matrix:
         python-version: [3.6]
-        build_type: [Debug, Release]
         compiler: [g++-9]
         include:
           - compiler: g++-9
