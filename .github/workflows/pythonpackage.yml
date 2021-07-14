@@ -45,6 +45,10 @@ jobs:
         cd DeepMAsED-SM/feature_extractor/build
         cmake ..
         make -j
+    - name: bam2feat test
+      working-directory: ${{runner.workspace}}/DeepMAsED-SM/feature_extractor/build
+      shell: bash
+      run: ./tests
     - name: pytest
       shell: bash -l {0}
       run: |
