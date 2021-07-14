@@ -11,6 +11,8 @@ dependencies:
 - learn
 - ipython
 - pytest
+- gcc_linux-64>=8
+- gxx_linux-64>=8
 - cmake>=3.13
 - pandas>=1.1.2
 - snakemake>=5.31.1
