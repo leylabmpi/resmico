@@ -1,19 +1,15 @@
-[![Travis-CI Build Status](https://travis-ci.org/leylabmpi/DeepMAsED.svg?branch=master)](https://travis-ci.org/leylabmpi/DeepMAsED)
+[![ResMiCo](https://github.com/leylabmpi/ResMicCo/actions/workflows/pythonpackage.yml/badge.svg)](https://github.com/leylabmpi/ResMicCo/actions/workflows/pythonpackage.yml)
 
-DeepMAsED
+ResMiCo
 =========
 
-Deep learning for Metagenome Assembly Error Detection (DeepMAsED)
+Residual neural network model to detect metagenome assembly errors
 
-*"mased"*
-
-> Middle English term: misled, bewildered, amazed, or perplexed
 
 
 # Citation
 
-Rojas-Carulla, Mateo, Ruth E. Ley, Bernhard Schoelkopf, and Nicholas D. Youngblut. 2019.
-"DeepMAsED: Evaluating the Quality of Metagenomic Assemblies." bioRxiv. https://doi.org/10.1101/763813.
+> TODO
 
 # Main Description
 
@@ -23,21 +19,30 @@ The tool is divided into two main parts:
   * A snakemake pipeline for:
     * generating DeepMAsED train/test datasets from reference genomes
     * creating feature tables from "real" assemblies (fasta + bam files)
-* **DeepMAsED (DL)**
+* **ResMiCo (DL)**
   * A python package for misassembly detection via deep learning
 
 # Warnings
 
 * The UI has changed substantially between version 0.2.1 and 0.3.0
   * DeepMAsED-SM generates a feature file table
-  * DeepMAsED uses the feature file table as input 
+  * ResMiCo uses the feature file table as input 
 
 # Setup
+
+## conda env
+
+(If needed) Install miniconda (or anaconda)
+
+```
+conda env create -f conda_env.yaml -n ResMiCo
+conda activate ResMiCo
+```
 
 ## cloning
 
 ```
-git clone --recurse-submodules git@gitlab.tuebingen.mpg.de:nyoungblut/deepmased.git
+git clone --recurse-submodules https://github.com/leylabmpi/ResMicCo.git
 ```
 
 Note the use of submodules. If needed, you can update the submodule(s) via:
@@ -46,18 +51,11 @@ Note the use of submodules. If needed, you can update the submodule(s) via:
 git submodule update --remote --init --recursive
 ```
 
-## conda 
-
-* [If needed] Install miniconda (or anaconda)
-* See the `conda create` line in the .travis.yaml file.
-* If just using DeepMAsED-SM:
-  * `conda create -n snakemake conda-forge::pandas bioconda::snakemake`
-
-### Testing the DeepMAsED package (optional)
+### Testing the ResMiCo package (optional)
 
 `pytest -s`
 
-### Installing the DeepMAsED package into the conda environment
+### Installing the ResMiCo package into the conda environment
 
 `python setup.py install`
 

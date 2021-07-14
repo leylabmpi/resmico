@@ -1,66 +1,135 @@
-# onsuccess/error
-## funcs
-def write_config(out_file):
-    config_tmp = {k:(v.to_string(max_rows=1, max_cols=10) if isinstance(v, pd.DataFrame) else v) \
-                  for k,v in config.items()}
-    with open(out_file, 'w') as outF:
-        json.dump(config_tmp, outF, indent=4)
+def all_which_input(wildcards):
+    F = []
+    
+    if config['just_features']:
+        # feature table        
+        F.append(map_dir + 'feature_files.tsv')
+        return F
+    
+    # reads
+    if config['params']['keep_reads'] == True:
+        F += Expand(mgsim_dir + 'sim_reads/{richness}/{rep}/{read_depth}/Read1.fq.gz',
+                   config['sim_params'])
+        F += Expand(mgsim_dir + 'sim_reads/{richness}/{rep}/{read_depth}/Read2.fq.gz',
+                   config['sim_params'])
+        
+    # coverage
+    if not skipped(config['params']['nonpareil']):
+        F += Expand(coverage_dir + '{richness}/{rep}/{read_depth}/nonpareil.npo',
+                   config['sim_params'])  
+        if not skipped(config['params']['nonpareil_summary']):
+            F.append(coverage_dir + 'nonpareil/all_summary.RDS')
+            F.append(coverage_dir + 'nonpareil/all_summary.txt')
+            F.append(coverage_dir + 'nonpareil/all_curve.pdf')
 
-def file_atch(file_path, file_type):
-   if os.path.isfile(file_path) and os.stat(file_path).st_size > 0:
-       attach = '-a {}'.format(file_path)   
-       file_path = os.path.split(file_path)[1]
-       msg = 'See attached {} file: {}'.format(file_type, file_path)
-   else:
-       attach = ''
-       file_path = os.path.split(file_path)[1]
-       msg = 'WARNING: could not attach {}: {}'.format(file_type, file_path)
-   return attach,msg
+    # MG assemblies
+    F += Expand(asmbl_dir + '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta.gz',
+               config['sim_params'])
+    
+    ## metaquast
+    if not skipped(config['params']['metaquast']):
+        F += Expand(true_errors_dir + \
+                    '{richness}/{rep}/{read_depth}/{assembler}/metaquast.done',
+                    config['sim_params'])        
+        F += Expand(true_errors_dir + '{richness}/{rep}/metaquast_cleanup.done',
+                    config['sim_params'])        
+        
+    # read mapping to contigs
+    if not skipped(config['params']['samtools']):
+        if not config['params']['keep_bam'] == True:
+            F += Expand(map_dir + '{richness}/{rep}/{read_depth}/{assembler}.bam',
+                       config['sim_params']) 
+
+        # feature table
+        if not skipped(config['params']['make_features']):    
+            F.append(features_dir + 'feature_files.tsv')
+
+    # State of the Art
+    ## ALE
+    if not skipped(config['params']['ALE']):
+        F += Expand(ale_dir + '{richness}/{rep}/{read_depth}/{assembler}/ALE_results.txt.gz',
+                    config['sim_params']) 
+    ## VALET
+    if not skipped(config['params']['VALET']):
+        F += Expand(valet_dir + '{richness}/{rep}/{read_depth}/{assembler}/summary.tsv',
+                   config['sim_params'])
+    ## metaMIC
+    if (not skipped(config['params']['metaMIC']['extract']) and
+        not skipped(config['params']['metaMIC']['predict'])):
+        F += Expand(metamic_dir + '{richness}/{rep}/{read_depth}/{assembler}/metaMIC/anomaly_score.txt.gz',
+                    config['sim_params'])
+        F += Expand(metamic_dir + '{richness}/{rep}/{read_depth}/{assembler}/metaMIC/metaMIC_corrected_contigs.fa.gz',
+                    config['sim_params'])
+        F += Expand(metamic_dir + '{richness}/{rep}/{read_depth}/{assembler}/metaMIC/misassembly_breakpoint.txt.gz',
+                    config['sim_params'])
+        
+    # return
+    return F
+
+
+# # onsuccess/error
+# ## funcs
+# def write_config(out_file):
+#     config_tmp = {k:(v.to_string(max_rows=1, max_cols=10) if isinstance(v, pd.DataFrame) else v) \
+#                   for k,v in config.items()}
+#     with open(out_file, 'w') as outF:
+#         json.dump(config_tmp, outF, indent=4)
+
+# def file_atch(file_path, file_type):
+#    if os.path.isfile(file_path) and os.stat(file_path).st_size > 0:
+#        attach = '-a {}'.format(file_path)   
+#        file_path = os.path.split(file_path)[1]
+#        msg = 'See attached {} file: {}'.format(file_type, file_path)
+#    else:
+#        attach = ''
+#        file_path = os.path.split(file_path)[1]
+#        msg = 'WARNING: could not attach {}: {}'.format(file_type, file_path)
+#    return attach,msg
        
-def send_email(rpt_file, email, config, pipeline='pipeline', success=True):
-    if skipped(email):
-        return None
-    # json of config
-    config_json = os.path.join(config['tmp_dir'], 'job_config.json')
-    write_config(config_json)
+# def send_email(rpt_file, email, config, pipeline='pipeline', success=True):
+#     if skipped(email):
+#         return None
+#     # json of config
+#     config_json = os.path.join(config['tmp_dir'], 'job_config.json')
+#     write_config(config_json)
     
-    # email
-    title = '{} finished successfully' if success is True else '{} => error occurred'
-    title = title.format(pipeline)
-    rpt_atch,rpt_msg = file_atch(rpt_file, 'job report')
-    cfg_atch,cfg_msg = file_atch(config_json, 'pipeline config')    
-    body = '\n'.join([rpt_msg, cfg_msg,
-                      'Snakemake pipeline location: {}'.format(workflow.basedir)])
-    cmd = "echo '{body}' | mutt {attch1} {attch2} -s '{title}' -- {email}"
-    cmd = cmd.format(body=body, attch1=rpt_atch, attch2=cfg_atch, title=title, email=email)
-    shell(cmd)
+#     # email
+#     title = '{} finished successfully' if success is True else '{} => error occurred'
+#     title = title.format(pipeline)
+#     rpt_atch,rpt_msg = file_atch(rpt_file, 'job report')
+#     cfg_atch,cfg_msg = file_atch(config_json, 'pipeline config')    
+#     body = '\n'.join([rpt_msg, cfg_msg,
+#                       'Snakemake pipeline location: {}'.format(workflow.basedir)])
+#     cmd = "echo '{body}' | mutt {attch1} {attch2} -s '{title}' -- {email}"
+#     cmd = cmd.format(body=body, attch1=rpt_atch, attch2=cfg_atch, title=title, email=email)
+#     shell(cmd)
     
-    # cleanup
-    os.remove(rpt_file)
-    os.remove(config_json)
+#     # cleanup
+#     os.remove(rpt_file)
+#     os.remove(config_json)
 
-def mk_cmd(success=True):
-    msg = 'complete' if success is True else 'error'
-    print('Pipeline {}! Creating report...'.format(msg))
-    exe = os.path.join(config['pipeline']['script_folder'], 'log_summarize.py')
-    rpt_file = os.path.join(config['tmp_dir'], 'job_report.csv')
-    cmd = '{exe} {{log}} | head -n 80000 > {rpt_file}'.format(exe=exe, rpt_file=rpt_file)
-    return rpt_file, cmd
+# def mk_cmd(success=True):
+#     msg = 'complete' if success is True else 'error'
+#     print('Pipeline {}! Creating report...'.format(msg))
+#     exe = os.path.join(config['pipeline']['script_folder'], 'log_summarize.py')
+#     rpt_file = os.path.join(config['tmp_dir'], 'job_report.csv')
+#     cmd = '{exe} {{log}} | head -n 80000 > {rpt_file}'.format(exe=exe, rpt_file=rpt_file)
+#     return rpt_file, cmd
 
-## call
-onsuccess:
-    rpt_file,cmd = mk_cmd(success=True)
-    try:
-        shell(cmd)
-    except subprocess.CalledProcessError:
-        print('WARNING: could not parse snakemake log file')
-    send_email(rpt_file, config['email'], config, pipeline='DeepMAsED-SM', success=True)
+# ## call
+# onsuccess:
+#     rpt_file,cmd = mk_cmd(success=True)
+#     try:
+#         shell(cmd)
+#     except subprocess.CalledProcessError:
+#         print('WARNING: could not parse snakemake log file')
+#     send_email(rpt_file, config['email'], config, pipeline='DeepMAsED-SM', success=True)
 
-onerror:
-    rpt_file,cmd = mk_cmd(success=False)
-    try:
-        shell(cmd)
-    except subprocess.CalledProcessError:
-        print('WARNING: could not parse snakemake log file')
-    send_email(rpt_file, config['email'], config, pipeline='DeepMAsED-SM', success=False)
+# onerror:
+#     rpt_file,cmd = mk_cmd(success=False)
+#     try:
+#         shell(cmd)
+#     except subprocess.CalledProcessError:
+#         print('WARNING: could not parse snakemake log file')
+#     send_email(rpt_file, config['email'], config, pipeline='DeepMAsED-SM', success=False)
  

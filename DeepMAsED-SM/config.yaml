@@ -50,6 +50,10 @@ params:
   ALE: ""
   ## VALET
   VALET: ""
+  ## metaMIC
+  metaMIC:
+    extract: --mlen 5000
+    predict: -a MEGAHIT
 
 # params just for creating feature tables for non-simulated data
 nonsim_params:

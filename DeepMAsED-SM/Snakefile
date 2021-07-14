@@ -15,6 +15,7 @@ def skipped(x):
 # setup
 ## config
 configfile: 'config.yaml'
+config['pipeline']['email'] = config['email']
 ## dirs 
 snake_dir = config['pipeline']['snakemake_folder']
 include: snake_dir + 'bin/dirs'
@@ -86,6 +87,7 @@ def Expand(file_template, param_df, debug=False):
     return(files)
 
 ## Modular snakefiles
+include: snake_dir + 'bin/Snakefile'
 include: snake_dir + 'bin/ll_pipeline_utils/Snakefile'
 if config['just_features']:
     include: snake_dir + 'bin/gs_map/Snakefile'
@@ -99,76 +101,13 @@ else:
     include: snake_dir + 'bin/SotA/Snakefile'
 
 wildcard_constraints:
-    rep='[^/]+'
-wildcard_constraints:
-    richness='[^/]+'
-wildcard_constraints:     
-    read_depth='[^/]+'
-wildcard_constraints:     
+    rep='[^/]+',
+    richness='[^/]+',
+    read_depth='[^/]+',
     assembler='[^/]+'
     
 
-def all_which_input(wildcards):
-    F = []
-    
-    if config['just_features']:
-        # feature table        
-        F.append(map_dir + 'feature_files.tsv')
-        return F
-    
-    # reads
-    if config['params']['keep_reads'] == True:
-        F += Expand(mgsim_dir + 'sim_reads/{richness}/{rep}/{read_depth}/Read1.fq.gz',
-                   config['sim_params'])
-        F += Expand(mgsim_dir + 'sim_reads/{richness}/{rep}/{read_depth}/Read2.fq.gz',
-                   config['sim_params'])
-        
-    # coverage
-    if not skipped(config['params']['nonpareil']):
-        F += Expand(coverage_dir + '{richness}/{rep}/{read_depth}/nonpareil.npo',
-                   config['sim_params'])  
-        if not skipped(config['params']['nonpareil_summary']):
-            F.append(coverage_dir + 'nonpareil/all_summary.RDS')
-            F.append(coverage_dir + 'nonpareil/all_summary.txt')
-            F.append(coverage_dir + 'nonpareil/all_curve.pdf')
-
-    # MG assemblies
-    F += Expand(asmbl_dir + '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta.gz',
-               config['sim_params'])
-    
-    ## metaquast
-    if not skipped(config['params']['metaquast']):
-        F += Expand(true_errors_dir + \
-                    '{richness}/{rep}/{read_depth}/{assembler}/metaquast.done',
-                    config['sim_params'])        
-        F += Expand(true_errors_dir + '{richness}/{rep}/metaquast_cleanup.done',
-                    config['sim_params'])        
-        
-    # read mapping to contigs
-    if not skipped(config['params']['samtools']):
-        if not config['params']['keep_bam'] == True:
-            F += Expand(map_dir + '{richness}/{rep}/{read_depth}/{assembler}.bam',
-                       config['sim_params']) 
-
-        # feature table
-        if not skipped(config['params']['make_features']):    
-            F.append(features_dir + 'feature_files.tsv')
-
-    # State of the Art
-    ## ALE
-    if not skipped(config['params']['ALE']):
-        F += Expand(ale_dir + '{richness}/{rep}/{read_depth}/{assembler}/ALE_results.txt.gz',
-                    config['sim_params']) 
-    ## VALET
-    if not skipped(config['params']['VALET']):
-        F += Expand(valet_dir + '{richness}/{rep}/{read_depth}/{assembler}/summary.tsv',
-                   config['sim_params']) 
-    # return
-    return F
-
-
 localrules: all
-
 rule all:
     input:
         all_which_input

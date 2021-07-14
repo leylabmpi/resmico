@@ -9,6 +9,7 @@ map_dir = os.path.join(config['output_dir'], 'map/')
 features_dir = os.path.join(config['output_dir'], 'features/')
 ale_dir = os.path.join(config['output_dir'], 'ALE/')
 valet_dir = os.path.join(config['output_dir'], 'VALET/')
+metamic_dir = os.path.join(config['output_dir'], 'metaMIC/')
 
 log_dir = os.path.join(config['output_dir'], 'logs/')
 benchmark_dir = os.path.join(config['output_dir'], 'benchmarks/')
