@@ -169,7 +169,7 @@ std::vector<Stats> pileup_bam(const std::string &reference,
                 }
             }
             // insert size
-            stat.s[is_snp].i_sizes.push_back(al.InsertSize);
+            stat.s[is_snp].i_sizes.push_back(std::abs(al.InsertSize));
 
             constexpr uint32_t BAM_FSUPPLEMENTARY = 2048;
             // sup/sec reads
