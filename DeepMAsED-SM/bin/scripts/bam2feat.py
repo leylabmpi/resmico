@@ -179,6 +179,9 @@ def _contig_stats(contig, bam_file, fasta_file, assembler, window_size, short):
         for pileupcolumn in inF.pileup(contig, 1, inF.lengths[contig_i]):
             ref_base = ref_seq[pileupcolumn.reference_pos] 
             for pileupread in pileupcolumn.pileups:
+                if pileupcolumn.reference_pos == 47:
+                    logging.info('Pileup col', pileupcolumn)
+                logging.info(pileupcolumn.reference_pos)
                 if not pileupread.is_del and not pileupread.is_refskip:
                     query_base = pileupread.alignment.query_sequence[pileupread.query_position]
                     query_SNP[pileupcolumn.reference_pos][pileupread.alignment.query_name] = \
@@ -215,6 +218,8 @@ def _contig_stats(contig, bam_file, fasta_file, assembler, window_size, short):
             ## iterating per-read
             n_discord = 0
             for read in inF.fetch(contig, pos, pos+1):
+                if pos == 47:
+                    print('Read is: ', read)
                 # is the read a SNP at that position?
                 try:
                     is_SNP = query_SNP[pos][read.query_name]

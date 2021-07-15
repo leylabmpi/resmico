@@ -6,8 +6,8 @@
 #include <api/BamReader.h>
 #include <utils/bamtools_fasta.h>
 
-#include <cmath>
 #include "util/filesystem.hpp"
+#include <cmath>
 
 std::pair<double, double> entropy_gc_percent(const std::array<uint8_t, 4> &counts) {
     uint32_t sum = counts[0] + counts[1] + counts[2] + counts[3];
@@ -138,8 +138,7 @@ std::vector<Stats> pileup_bam(const std::string &reference,
                         break;
                     }
                     continue;
-                } else if (al.CigarData[cigar_idx].Type == 'D'
-                           || al.CigarData[cigar_idx].Type == 'N') {
+                } else if (al.CigarData[cigar_idx].Type == 'D') {
                     // deleted bases don't show up in AlignedBases, but they do show up in Qualities
                     del_offset += al.CigarData[cigar_idx].Length;
                 }
@@ -152,6 +151,11 @@ std::vector<Stats> pileup_bam(const std::string &reference,
             }
 
             uint8_t base = IDX[(uint8_t)al.AlignedBases[i + offset]];
+
+            if (base == 5
+                || static_cast<uint32_t>(al.Qualities[i + offset - del_offset] - 33U) < 13) {
+                continue;
+            }
 
             Stats &stat = result.at(al.Position + i);
             stat.ref_base = reference[al.Position + i];
@@ -186,10 +190,6 @@ std::vector<Stats> pileup_bam(const std::string &reference,
             assert(al.CigarData[cigar_idx].Type != 'D' || al.AlignedBases[i + offset] == '-');
             // make sure we have a 'N' on an alignment gap position
             assert(al.CigarData[cigar_idx].Type != 'N' || al.AlignedBases[i + offset] == 'N');
-
-            if (base == 5) { // probably an 'N'
-                continue;
-            }
 
             result.at(al.Position + i).n_bases[base]++;
         }
