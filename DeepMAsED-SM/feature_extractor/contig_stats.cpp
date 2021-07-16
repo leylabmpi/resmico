@@ -152,11 +152,6 @@ std::vector<Stats> pileup_bam(const std::string &reference,
 
             uint8_t base = IDX[(uint8_t)al.AlignedBases[i + offset]];
 
-            if (base == 5
-                || static_cast<uint32_t>(al.Qualities[i + offset - del_offset] - 33U) < 13) {
-                continue;
-            }
-
             Stats &stat = result.at(al.Position + i);
             stat.ref_base = reference[al.Position + i];
             bool is_snp = base != IDX[stat.ref_base];
@@ -173,7 +168,11 @@ std::vector<Stats> pileup_bam(const std::string &reference,
                 }
             }
             // insert size
-            stat.s[is_snp].i_sizes.push_back(al.InsertSize);
+            if (al.InsertSize > 2<<16) {
+                logger()->error("Insert value out of range: {}", al.InsertSize);
+                std::exit(1);
+            }
+            stat.s[is_snp].i_sizes.push_back(std::abs(al.InsertSize));
 
             constexpr uint32_t BAM_FSUPPLEMENTARY = 2048;
             // sup/sec reads
@@ -185,6 +184,11 @@ std::vector<Stats> pileup_bam(const std::string &reference,
                 stat.s[is_snp].n_sec++;
             }
             stat.s[is_snp].map_quals.push_back(al.MapQuality);
+
+            if (base == 5
+                    || static_cast<uint32_t>(al.Qualities[i + offset - del_offset] - 33U) < 13) {
+                continue;
+            }
 
             // make sure we have a '-' on a deleted position
             assert(al.CigarData[cigar_idx].Type != 'D' || al.AlignedBases[i + offset] == '-');
