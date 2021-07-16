@@ -32,10 +32,10 @@ struct Stats {
     uint16_t n_discord = 0;
 
     struct S {
-        uint16_t min_i_size = std::numeric_limits<uint16_t>::max();
+        int16_t min_i_size = std::numeric_limits<int16_t>::max();
         float mean_i_size = NAN;
         float std_dev_i_size = NAN;
-        uint16_t max_i_size = std::numeric_limits<uint16_t>::max();
+        int16_t max_i_size = std::numeric_limits<int16_t>::max();
 
         uint8_t min_map_qual = std::numeric_limits<uint8_t>::max();
         float mean_map_qual = NAN;
@@ -49,7 +49,7 @@ struct Stats {
         uint16_t n_sec = 0;
         uint16_t n_discord = 0;
 
-        std::vector<uint16_t> i_sizes;
+        std::vector<int16_t> i_sizes;
         std::vector<uint8_t> map_quals;
     };
     std::array<S, 2> s;

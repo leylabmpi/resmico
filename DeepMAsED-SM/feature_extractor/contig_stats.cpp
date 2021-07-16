@@ -173,7 +173,7 @@ std::vector<Stats> pileup_bam(const std::string &reference,
                 }
             }
             // insert size
-            stat.s[is_snp].i_sizes.push_back(std::abs(al.InsertSize));
+            stat.s[is_snp].i_sizes.push_back(al.InsertSize);
 
             constexpr uint32_t BAM_FSUPPLEMENTARY = 2048;
             // sup/sec reads
@@ -215,7 +215,7 @@ std::vector<Stats> contig_stats(const std::string &reference_name,
 
             for (bool snp_match : { true, false }) {
                 // insert sizes
-                const std::vector<uint16_t> &i_sizes = stat.s[snp_match].i_sizes;
+                const std::vector<int16_t> &i_sizes = stat.s[snp_match].i_sizes;
                 if (!i_sizes.empty()) {
                     std::tie(stat.s[snp_match].min_i_size, stat.s[snp_match].mean_i_size,
                              stat.s[snp_match].max_i_size)
@@ -255,7 +255,7 @@ std::string get_sequence(const std::string &fasta_file, const std::string &seq_n
     } else {
         logger()->info("Uncompressed fasta file detected. Using BamTools");
         BamTools::Fasta fasta;
-        fasta.Open(fasta_file);
+        fasta.Open(fasta_file, fasta_file + ".fai");
         if (!fasta.GetSequence(seq_name, reference_seq)) {
             logger()->error("Sequence not found: {}", seq_name);
             std::exit(1);
