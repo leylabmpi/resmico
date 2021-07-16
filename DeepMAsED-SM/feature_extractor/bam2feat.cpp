@@ -1,16 +1,14 @@
 #include "contig_stats.hpp"
-#include "util/fasta_reader.hpp"
-#include "util/gzstream.hpp"
+#include "util/filesystem.hpp"
 #include "util/logger.hpp"
 #include "util/util.hpp"
 
 #include <api/BamReader.h>
 #include <gflags/gflags.h>
-#include <utils/bamtools_fasta.h>
+
 
 #include <array>
 #include <cmath>
-#include "util/filesystem.hpp"
 #include <future>
 #include <string>
 
@@ -24,15 +22,6 @@ DEFINE_int32(procs, 1, "Number of parallel processes");
 DEFINE_int32(window, 4, "Sliding window size for sequence entropy & GC content");
 DEFINE_bool(short, false, "Short feature list instead of all features?");
 DEFINE_bool(debug, false, "Debug mode; just for troubleshooting");
-
-/** Truncate to 2 decimals */
-std::string r2(float v) {
-    if (std::isnan(v)) {
-        return "NA";
-    }
-    return std::to_string(static_cast<int>(std::round(v * 100)) / 100) + '.'
-            + std::to_string(static_cast<int>(v * 100) % 100);
-}
 
 /** Truncate to 3 decimals */
 std::string r3(float v) {
@@ -68,14 +57,16 @@ void write_stats(std::vector<Stats> &&stats,
             << '\t' << s.n_bases[3] << '\t' << s.num_snps() << '\t' << s.coverage() << '\t'
             << s.n_discord << '\t';
         for (bool match : { false, true }) {
-            if (std::isnan(s.s[match].mean_i_size)) { // zero coverage, no i_size, no mapping quality
+            if (std::isnan(
+                        s.s[match].mean_i_size)) { // zero coverage, no i_size, no mapping quality
                 out << "NA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\t";
             } else {
-                out << stri(s.s[match].min_i_size) << '\t' << r2(s.s[match].mean_i_size) << '\t'
-                    << r2(s.s[match].std_dev_i_size) << '\t' << stri(s.s[match].max_i_size) << '\t';
-                out << (int)s.s[match].min_map_qual << '\t' << r2(s.s[match].mean_map_qual) << '\t'
-                    << r2(s.s[match].std_dev_map_qual) << '\t' << (int)s.s[match].max_map_qual
+                out << stri(s.s[match].min_i_size) << '\t' << round2(s.s[match].mean_i_size) << '\t'
+                    << round2(s.s[match].std_dev_i_size) << '\t' << stri(s.s[match].max_i_size)
                     << '\t';
+                out << (int)s.s[match].min_map_qual << '\t' << round2(s.s[match].mean_map_qual)
+                    << '\t' << round2(s.s[match].std_dev_map_qual) << '\t'
+                    << (int)s.s[match].max_map_qual << '\t';
             }
             out << s.s[match].n_proper << '\t' << s.s[match].n_diff_strand << '\t'
                 << s.s[match].n_orphan << '\t' << s.s[match].n_sup << '\t' << s.s[match].n_sec
@@ -84,22 +75,22 @@ void write_stats(std::vector<Stats> &&stats,
 
         out << s.entropy << '\t' << s.gc_percent << '\n';
         // uncomment and use of py compatibility
-        //        if (s.entropy == 0) {
-        //            out << "0.0\t";
-        //        } else if (s.entropy == 1) {
-        //            out << "1.0\t";
-        //        } else if (s.entropy == 2) {
-        //            out << "2.0\t";
-        //        } else {
-        //            out << s.entropy << '\t';
-        //        }
-        //        if (s.gc_percent == 0) {
-        //            out << "0.0\n";
-        //        } else if (s.gc_percent == 1) {
-        //            out << "1.0\n";
-        //        } else {
-        //            out << s.gc_percent << '\n';
-        //        }
+//        if (s.entropy == 0) {
+//            out << "0.0\t";
+//        } else if (s.entropy == 1) {
+//            out << "1.0\t";
+//        } else if (s.entropy == 2) {
+//            out << "2.0\t";
+//        } else {
+//            out << s.entropy << '\t';
+//        }
+//        if (s.gc_percent == 0) {
+//            out << "0.0\n";
+//        } else if (s.gc_percent == 1) {
+//            out << "1.0\n";
+//        } else {
+//            out << s.gc_percent << '\n';
+//        }
     }
     logger()->info("Writing features for contig {} done.", contig_name);
 }

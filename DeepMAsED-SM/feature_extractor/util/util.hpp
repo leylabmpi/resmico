@@ -59,3 +59,6 @@ double std_dev(const std::vector<T> &v, double mean) {
 
 bool starts_with(std::string const &value, std::string const &prefix);
 bool ends_with(std::string const &value, std::string const &ending);
+
+/** Truncate to 2 decimals */
+std::string round2(float v);

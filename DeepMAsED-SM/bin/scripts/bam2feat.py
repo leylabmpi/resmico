@@ -176,9 +176,10 @@ def _contig_stats(contig, bam_file, fasta_file, assembler, window_size, short):
         # the BP in which each read has a SNP
         logging.info('    Creating SNP index')
         query_SNP = defaultdict(dict)
-        for pileupcolumn in inF.pileup(contig, 1, inF.lengths[contig_i]):
+        for pileupcolumn in inF.pileup(contig, 0, inF.lengths[contig_i], min_base_quality=1, min_mapping_quality=1, ignore_overlaps=False):
             ref_base = ref_seq[pileupcolumn.reference_pos] 
             for pileupread in pileupcolumn.pileups:
+                # print(pileupcolumn.reference_pos)
                 if not pileupread.is_del and not pileupread.is_refskip:
                     query_base = pileupread.alignment.query_sequence[pileupread.query_position]
                     query_SNP[pileupcolumn.reference_pos][pileupread.alignment.query_name] = \
@@ -220,6 +221,7 @@ def _contig_stats(contig, bam_file, fasta_file, assembler, window_size, short):
                     is_SNP = query_SNP[pos][read.query_name]
                 except KeyError:
                     is_SNP = False
+
                 # read qualities
                 if read.is_paired == True and read.is_unmapped == False:
                     if (read.is_proper_pair == False and
