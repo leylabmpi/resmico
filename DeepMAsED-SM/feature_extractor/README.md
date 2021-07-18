@@ -5,9 +5,9 @@
   - zlib (it's just there on most systems)
 ### Building
 ```
-cd bam2feat
-mkdir build; cd build
-cmake ..
+cd feature_extractor
+mkdir build && cd build
+cmake -DCMAKE_BUILD_TYPE=Release ..
 make -j
 ```  
 The binary is called `bam2feat` and will be in the `build` directory. This is what you have to run instead of
@@ -15,12 +15,11 @@ The binary is called `bam2feat` and will be in the `build` directory. This is wh
  
 ## Usage instructions
 I kept as much as possible the interface to the old `bam2feat.py` untouched, so this should be a drop-in replacement
- for `bam2feat.py`, with a few small tweaks
-   
-  - for speed reasons, the BAM files must be indexed (so that one can easily find the reads for a specific contig)
-  - for speed reasons, bam2feat doesn't write to the console; it needs an output file specified via the `--o
+for `bam2feat.py`, with a few small tweaks:
+  *  for speed reasons, the BAM files must be indexed (so that one can easily find the reads for a specific contig)
+  *  for speed reasons, bam2feat doesn't write to the console; it needs an output file specified via the `--o
    <output_file>` flag
-  - bam2feat writes directly to a gzipped stream; no need to gzip the result anymore
+  *  bam2feat writes directly to a gzipped stream; no need to gzip the result anymore
   
 ## Example of usage:
 ```
