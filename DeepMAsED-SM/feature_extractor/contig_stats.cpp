@@ -173,6 +173,9 @@ std::vector<Stats> pileup_bam(const std::string &reference,
                 std::exit(1);
             }
             stat.s[is_snp].i_sizes.push_back(std::abs(al.InsertSize));
+            if (stat.s[is_snp].i_sizes.back() < 0) {
+                std::cout << "OOooops!" << std::endl;
+            }
 
             constexpr uint32_t BAM_FSUPPLEMENTARY = 2048;
             // sup/sec reads
@@ -219,7 +222,7 @@ std::vector<Stats> contig_stats(const std::string &reference_name,
 
             for (bool snp_match : { true, false }) {
                 // insert sizes
-                const std::vector<int16_t> &i_sizes = stat.s[snp_match].i_sizes;
+                const std::vector<int32_t> &i_sizes = stat.s[snp_match].i_sizes;
                 if (!i_sizes.empty()) {
                     std::tie(stat.s[snp_match].min_i_size, stat.s[snp_match].mean_i_size,
                              stat.s[snp_match].max_i_size)
