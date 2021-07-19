@@ -37,7 +37,7 @@ std::string round2(float v) {
     if (std::isnan(v)) {
         return "NA";
     }
-    const std::string &decimals = std::to_string(static_cast<int>(std::round(v * 100)) % 100);
-    return std::to_string(static_cast<int>(std::abs(v) * 100) / 100) + '.'
+    const std::string &decimals = std::to_string(static_cast<int>(std::round(std::abs(v) * 100)) % 100);
+    return std::to_string(static_cast<int>(v * 100) / 100) + '.'
             + std::string(2 - decimals.length(), '0') + decimals;
 }
