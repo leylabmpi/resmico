@@ -31,8 +31,6 @@ std::string round2_python(float v) {
 }
 
 
-#include <iostream> // TODO: remove
-
 std::string round2(float v) {
     if (std::isnan(v)) {
         return "NA";
