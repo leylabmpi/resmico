@@ -36,6 +36,8 @@ parser.add_argument('fasta_file', metavar='fasta_file', type=str,
                     help='Reference sequences for the bam (sam) file')
 parser.add_argument('-m', '--max-coverage', type=float, default=20.0,
                     help='Max per-contig coverage')
+parser.add_argument('-M', '--max-insert-size', type=int, default=30000,
+                    help='Max insert size')
 parser.add_argument('-o', '--output', type=str, default='subsampled.bam',
                     help='Output BAM file name')
 parser.add_argument('--version', action='version', version='0.0.1')
@@ -56,6 +58,9 @@ def main(args):
     for i,read in enumerate(bam.fetch()):
         # if cov hit, skipping read
         if contig_cov[read.reference_name] >= args.max_coverage:
+            continue
+        # if very large insert size, skipping
+        if abs(read.template_length) > args.max_insert_size:
             continue
         # contig length
         try:

@@ -1,8 +1,10 @@
 # Input table
 genomes_file: tests/data/genomes_n10.tsv
+#genomes_file: tests/data/Samp2-MAG3.tsv
 
 # Output directory
-output_dir: tests/output_n10
+output_dir: tests/output_n10/
+#output_dir: tests/output_Samp2-MAG3/
 
 # Temporary output directory (/dev/shm/ for shared memory)
 #tmp_dir: /tmp/
@@ -11,7 +13,7 @@ tmp_dir: /ebio/abt3_scratch/
 # Email for notifications ("Skip" to skip)
 email: nyoungblut@tuebingen.mpg.de
 
-# software parameters
+# software parameters for data simulations
 ## Use "Skip" to skip  steps. If no params for rule, use ""
 ## `reps:` is the number of replicate simulations
 ## If `keep_reads: True`, then simulated reads are kept
@@ -29,6 +31,8 @@ params:
     read_depth:
       - 1000000
   keep_reads: True # False
+  # read quality cutoffs
+  skewer: -n -l 100 -q 25
   # coverage
   nonpareil: -T kmer
   nonpareil_summary: 1e9   # this is target seq. depth
@@ -39,7 +43,8 @@ params:
   # assembly filtering
   contig_length_cutoff: 1000       # length in bp 
   # assessing assembly errors
-  metaquast: --max-ref-number 0 --min-contig 1000 --min-identity 95 --extensive-mis-size 100 --no-html --no-plots --no-icarus --no-gc --no-snps --no-sv
+  metaquast: --max-ref-number 0 --min-contig 1000 --min-identity 95 --extensive-mis-size 100
+             --no-html --no-plots --no-icarus --no-gc --no-snps --no-sv
   # mapping reads to contigs  
   samtools: ""
   keep_bam: True
@@ -52,12 +57,21 @@ params:
   VALET: ""
   ## metaMIC
   metaMIC:
-    extract: --mlen 5000
+    extract: Skip #--mlen 5000
     predict: -a MEGAHIT
 
 # params just for creating feature tables for non-simulated data
 nonsim_params:
-  subsample_reads: 100000000
+  # max number of reads to use
+  subsample_reads: 5000000
+  # read quality filtering
+  skewer: -n -l 70 -q 25
+  # max per-contig coverage
+  max_coverage: 20
+  # keep bam files?
+  keep_bam: True
+  # feature tables
+  make_features: --window 6
 
 # snakemake pipeline
 pipeline:

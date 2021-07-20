@@ -25,8 +25,8 @@ rule metaSPAdes:
     metaSPAdes assembly 
     """
     input:
-    	read1 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/1/R1.fq',
-	read2 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/1/R2.fq'
+    	read1 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/R1.fq',
+	read2 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/R2.fq'
     output:
         contigs = temp(config['tmp_dir'] + \
                        'asmbl/metaspades/{richness}/{rep}/{read_depth}/contigs.fasta')
@@ -76,8 +76,8 @@ rule megahit:
     metahit assembly 
     """
     input:
-    	read1 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/1/R1.fq',
-	read2 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/1/R2.fq'
+    	read1 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/R1.fq',
+	read2 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/R2.fq'
     output:
         contigs = temp(config['tmp_dir'] + \
                        'asmbl/megahit/{richness}/{rep}/{read_depth}/contigs.fasta')

@@ -40,8 +40,8 @@ rule VALET:
     input:
         ref = config['tmp_dir'] + \
               '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta',
-    	read1 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/1/R1.fq',
-	read2 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/1/R2.fq'
+    	read1 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/R1.fq',
+	read2 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/R2.fq'
     output:
         sum = valet_dir + '{richness}/{rep}/{read_depth}/{assembler}/summary.tsv',
         sbed = valet_dir + '{richness}/{rep}/{read_depth}/{assembler}/summary.bed',

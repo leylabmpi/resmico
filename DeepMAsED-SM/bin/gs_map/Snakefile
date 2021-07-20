@@ -5,7 +5,7 @@ rule ref_genome_rename:
     input:
         fna = lambda wildcards: config['genomes_tbl'].loc[config['genomes_tbl'].Taxon == wildcards.genome,'Fasta'].unique().tolist()
     output:
-        fna = config['tmp_dir'] + '{genome}.fna'
+        fna = config['tmp_dir'] + 'gs_map/genomes/{genome}.fna'
     params:
         exe = config['pipeline']['script_folder'] + 'rename_genome.py'
     log:
@@ -17,7 +17,7 @@ rule ref_genome_rename:
         export PATH=$CONDA_PREFIX/bin:$PATH
         {params.exe} {input.fna} > {output.fna} 2> {log}
         """
-
+        
 if not skipped(config['nonsim_params']['subsample_reads']):
     rule subsample_read1:
         """
@@ -26,7 +26,7 @@ if not skipped(config['nonsim_params']['subsample_reads']):
         input:
             reads = lambda wildcards: config['genomes_tbl'].loc[config['genomes_tbl'].Sample == wildcards.sample, 'Read1'].unique().tolist()
         output:
-            reads = temp(config['tmp_dir'] + '{sample}_R1.fq.gz')
+            reads = temp(config['tmp_dir'] + 'gs_map/reads/subsample/{sample}/R1.fq')
         params:
             n = config['nonsim_params']['subsample_reads']
         threads:
@@ -44,8 +44,8 @@ if not skipped(config['nonsim_params']['subsample_reads']):
         shell:
             """
             export PATH=$CONDA_PREFIX/bin:$PATH
-            seqkit sample --two-pass --threads {threads} -n {params.n} \
-              {input.reads} | gzip -c > {output.reads} 2> {log}
+            seqkit sample --two-pass -j {threads} -n {params.n} \
+              {input.reads} > {output.reads} 2> {log}
             """
     rule subsample_read2:
         """
@@ -54,7 +54,7 @@ if not skipped(config['nonsim_params']['subsample_reads']):
         input:
             reads = lambda wildcards: config['genomes_tbl'].loc[config['genomes_tbl'].Sample == wildcards.sample, 'Read2'].unique().tolist()
         output:
-            reads = temp(config['tmp_dir'] + '{sample}_R2.fq.gz')
+            reads = temp(config['tmp_dir'] + 'gs_map/reads/subsample/{sample}/R2.fq')
         params:
             n = config['nonsim_params']['subsample_reads']
         threads:
@@ -72,8 +72,8 @@ if not skipped(config['nonsim_params']['subsample_reads']):
         shell:
             """
             export PATH=$CONDA_PREFIX/bin:$PATH
-            seqkit sample --two-pass --threads {threads} -n {params.n} \
-              {input.reads} | gzip -c > {output.reads} 2> {log}
+            seqkit sample --two-pass -j {threads} -n {params.n} \
+              {input.reads} > {output.reads} 2> {log}
             """
 else:
     localrules: symlink_reads
@@ -85,32 +85,68 @@ else:
             read1 = lambda wildcards: config['genomes_tbl'].loc[config['genomes_tbl'].Sample == wildcards.sample, 'Read1'].unique().tolist(),
             read2 = lambda wildcards: config['genomes_tbl'].loc[config['genomes_tbl'].Sample == wildcards.sample, 'Read2'].unique().tolist()
         output:
-            read1 = temp(config['tmp_dir'] + '{sample}_R1.fq.gz'),
-            read2 = temp(config['tmp_dir'] + '{sample}_R2.fq.gz')
+            read1 = temp(config['tmp_dir'] + 'gs_map/reads/subsample/{sample}/R1.fq'),
+            read2 = temp(config['tmp_dir'] + 'gs_map/reads/subsample/{sample}/R2.fq')
         log:
             log_dir + 'symlink_reads/{sample}.log'
         benchmark:
             benchmark_dir + 'symlink_reads/{sample}.txt'
         shell:
             """
-            ln -s -f {input.read1} {output.read1} 2> {log}
-            ln -s -f {input.read2} {output.read2} 2>> {log}
+            seqkit seq {input.read1} > {output.read1} 2> {log}
+            seqkit seq {input.read2} > {output.read2} 2>> {log}
             """
-        
+
+rule map_read_filter:
+    """
+    Filtering reads via Skewer
+    """
+    input:
+        read1 = config['tmp_dir'] + 'gs_map/reads/subsample/{sample}/R1.fq',
+        read2 = config['tmp_dir'] + 'gs_map/reads/subsample/{sample}/R2.fq'
+    output:
+        read1 = temp(config['tmp_dir'] + 'gs_map/reads/filter/{sample}/R1.fq'),
+        read2 = temp(config['tmp_dir'] + 'gs_map/reads/filter/{sample}/R2.fq')
+    params:
+        skewer = config['nonsim_params']['skewer'],
+        read1 = config['tmp_dir'] + 'gs_map/reads/filter/{sample}/trimmed-pair1.fastq',
+        read2 = config['tmp_dir'] + 'gs_map/reads/filter/{sample}/trimmed-pair2.fastq'
+    conda:
+        '../envs/bowtie2.yaml'
+    threads:
+        8
+    resources:
+        time = lambda wildcards, attempt: attempt ** 3 * 59,
+        n = lambda wildcards, threads: threads,
+        mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 1
+    log:
+        log_dir + 'map_read_filter/{sample}.log',    
+    benchmark:
+        benchmark_dir + 'map_read_filter/{sample}.txt'
+    shell:
+        """
+        OUTDIR=`dirname {output.read1}`
+        mkdir -p $OUTDIR
+        skewer --threads {threads} {params.skewer} \
+          -o $OUTDIR"/" {input.read1} {input.read2} 2> {log} 1>&2
+        mv {params.read1} {output.read1} 2> {log} 1>&2
+        mv {params.read2} {output.read2} 2>> {log} 1>&2
+        """
+            
 rule map_bowtie2_build:
     """
     Building bowtie2 index for each genome
     """
     input:
-        fna = config['tmp_dir'] + '{genome}.fna'
+        fna = config['tmp_dir'] + 'gs_map/genomes/{genome}.fna'
     output:
-        touch(config['tmp_dir'] + '{genome}.bt2.index.done')
+        touch(config['tmp_dir'] + 'gs_map/genomes/{genome}.bt2.index.done')
     threads:
-        12
+        8
     resources:
         time = lambda wildcards, attempt: attempt * 59,
         n = lambda wildcards, threads: threads,
-	mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 1
+	mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 2
     conda:
         '../envs/bowtie2.yaml'
     log:
@@ -124,28 +160,28 @@ rule map_bowtie2_build:
         bowtie2-build --threads {threads} \
           {input.fna} $PREF 2> {log} 1>&2
         """
-
+        
 rule map_bowtie2:
     """
     Mapping reads from origin sample to the ref genome(s)
     """
     input:
-        ref = config['tmp_dir'] + '{genome}.fna',
-        done = config['tmp_dir'] + '{genome}.bt2.index.done',
-        read1 = config['tmp_dir'] + '{sample}_R1.fq.gz',
-        read2 = config['tmp_dir'] + '{sample}_R2.fq.gz'
+        ref = config['tmp_dir'] + 'gs_map/genomes/{genome}.fna',
+        done = config['tmp_dir'] + 'gs_map/genomes/{genome}.bt2.index.done',
+        read1 = config['tmp_dir'] + 'gs_map/reads/filter/{sample}/R1.fq',
+        read2 = config['tmp_dir'] + 'gs_map/reads/filter/{sample}/R2.fq'
     output:
-        bam = map_dir + '{genome}/{sample}.bam'
+        bam = config['tmp_dir'] + 'gs_map/map/{genome}/{sample}.bam'
     params:
         samtools = config['params']['samtools']
     conda:
         '../envs/bowtie2.yaml'
     threads:
-        12
+        8
     resources:
-        time = lambda wildcards, attempt: attempt * 59 * 12,
+        time = lambda wildcards, attempt: attempt * 60 * 12,
         n = lambda wildcards, threads: threads,
-        mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 2
+        mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 3
     log:
         bt2 = log_dir + 'map_bowtie2/{genome}/{sample}.log',    
         sam = log_dir + 'map_bowtie2_samtools/{genome}/{sample}.log'
@@ -167,12 +203,12 @@ rule map_bowtie2:
 
 rule map_bowtie2_index_bam:
     """
-    Mapping reads from all samples to the metagenome assembly contigs
+    Indexing BAM
     """
     input:
-        bam = map_dir + '{genome}/{sample}.bam'
+        bam = config['tmp_dir'] + 'gs_map/map/{genome}/{sample}.bam'
     output:
-        bai = map_dir + '{genome}/{sample}.bam.bai'
+        bai = config['tmp_dir'] + 'gs_map/map/{genome}/{sample}.bam.bai'
     threads:
         8
     resources:
@@ -190,28 +226,83 @@ rule map_bowtie2_index_bam:
         export PATH=$CONDA_PREFIX/bin:$PATH
         samtools index -@ {threads} {input.bam} 2> {log}
         """
-
-rule samtools_faidx:
+        
+rule map_samtools_faidx:
     """
     Running samtools faidx on ref genome (indexing)
     """
     input:
-        config['tmp_dir'] + '{genome}.fna'        
+        config['tmp_dir'] + 'gs_map/genomes/{genome}.fna'
     output:
-        config['tmp_dir'] + '{genome}.fna.fai'
+        temp(config['tmp_dir'] + 'gs_map/genomes/{genome}.fna.fai')
     resources:
         time = lambda wildcards, attempt: attempt ** 3 * 59,
         mem_gb_pt = lambda wildcards, attempt: attempt * 12
     conda:
         '../envs/bowtie2.yaml'
     log:
-        log_dir + 'samtools_faidx/{genome}.log'
+        log_dir + 'map_samtools_faidx/{genome}.log'
     benchmark:
-        benchmark_dir + 'samtools_faidx/{genome}.txt'
+        benchmark_dir + 'map_samtools_faidx/{genome}.txt'
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
         samtools faidx {input} 2> {log} 1>&2
+        """
+        
+rule map_bam_subsample:
+    """
+    Subsampling BAM to max per-contig coverage
+    """
+    input:
+        fna = config['tmp_dir'] + 'gs_map/genomes/{genome}.fna',
+        fai = config['tmp_dir'] + 'gs_map/genomes/{genome}.fna.fai',
+        bam = config['tmp_dir'] + 'gs_map/map/{genome}/{sample}.bam',
+        bai = config['tmp_dir'] + 'gs_map/map/{genome}/{sample}.bam.bai'
+    output:
+        bam = temp(config['tmp_dir'] + 'gs_map/map-sub/{genome}/subsample/{sample}.bam')
+    params:
+        mc = config['nonsim_params']['max_coverage'],
+        exe = config['pipeline']['script_folder'] + 'bam_subsample.py'
+    resources:
+        time = lambda wildcards, attempt: attempt ** 3 * 59,
+        mem_gb_pt = lambda wildcards, attempt: attempt ** 2 * 12
+    conda:
+        '../envs/bowtie2.yaml'
+    log:
+        log_dir + 'map_bam_subsample/{genome}/{sample}.log'
+    benchmark:
+        benchmark_dir + 'map_bam_subsample/{genome}/{sample}.txt'
+    shell:
+        """
+        export PATH=$CONDA_PREFIX/bin:$PATH
+        {params.exe} -o {output.bam} -m {params.mc} {input.bam} {input.fna}
+        """
+        
+rule map_bowtie2_index_subsampled_bam:
+    """
+    Indexing BAM
+    """
+    input:
+        bam = config['tmp_dir'] + 'gs_map/map-sub/{genome}/subsample/{sample}.bam'
+    output:
+        bai = temp(config['tmp_dir'] + 'gs_map/map-sub/{genome}/subsample/{sample}.bam.bai')
+    threads:
+        4
+    resources:
+        time = lambda wildcards, attempt: attempt ** 3 * 59,
+        n = lambda wildcards, threads: threads,
+        mem_gb_pt = lambda wildcards, attempt: attempt * 4
+    conda:
+        '../envs/bowtie2.yaml'
+    log:
+        log_dir + 'map_bowtie2_index_subsampled_bam/{genome}/{sample}.log'
+    benchmark:
+        benchmark_dir + 'map_bowtie2_index_subsampled_bam/{genome}/{sample}.txt'
+    shell:
+        """
+        export PATH=$CONDA_PREFIX/bin:$PATH
+        samtools index -@ {threads} {input.bam} 2> {log}
         """
 
 rule bam_to_DL_features:
@@ -219,20 +310,21 @@ rule bam_to_DL_features:
     Converting bam to features
     """
     input:
-        ref = config['tmp_dir'] + '{genome}.fna',
-	fai = config['tmp_dir'] + '{genome}.fna.fai',
-        bam = map_dir + '{genome}/{sample}.bam',
-        bai = map_dir + '{genome}/{sample}.bam.bai'
+        fna = config['tmp_dir'] + 'gs_map/genomes/{genome}.fna',
+        fai = config['tmp_dir'] + 'gs_map/genomes/{genome}.fna.fai',
+        bam = config['tmp_dir'] + 'gs_map/map-sub/{genome}/subsample/{sample}.bam',
+        bai = config['tmp_dir'] + 'gs_map/map-sub/{genome}/subsample/{sample}.bam.bai'
     output:
-        temp(config['tmp_dir'] + 'feats/{genome}/{sample}/features.tsv')
+        tsv = temp(config['tmp_dir'] + 'gs_map/feats/{genome}/{sample}/features.tsv')
     params:
-        exe = config['pipeline']['script_folder'] + 'bam2feat.py'
+        exe = config['pipeline']['script_folder'] + 'bam2feat',
+	params = config['nonsim_params']['make_features']
     threads:
-        12
+        4
     resources:
-        time = lambda wildcards, attempt: attempt ** 2 * 60 * 24,
+        time = lambda wildcards, attempt: attempt ** 2 * 60 * 12,
         n = lambda wildcards, threads: threads,
-        mem_gb_pt = lambda wildcards, attempt: int(round(attempt ** 2.5 * 2 + 1, 0))
+        mem_gb_pt = lambda wildcards, attempt: attempt ** 3 * 6
     conda:
         '../envs/bowtie2.yaml'
     log:
@@ -242,9 +334,12 @@ rule bam_to_DL_features:
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
-        {params.exe} -p {threads} \
-          {input.bam} {input.ref} \
-          > {output} 2> {log}
+        {params.exe} {params.params} --procs {threads} \
+          --batches 100 --chunks 100 --assembler None \
+          --bam_file {input.bam} \
+          --fasta_file {input.fna} \
+          --o {output.tsv} \
+          2> {log} 1>&2
         """
 
 rule features_compress:
@@ -252,7 +347,7 @@ rule features_compress:
     Compressing table
     """
     input:
-        config['tmp_dir'] + 'feats/{genome}/{sample}/features.tsv'
+        config['tmp_dir'] + 'gs_map/feats/{genome}/{sample}/features.tsv'
     output:
         map_dir + '{genome}/{sample}/features.tsv.gz'
     params:
@@ -301,3 +396,23 @@ rule features_file_table:
                 D,genome = os.path.split(D)
                 x = '\t'.join([genome, sample, F])
                 outF.write(x + '\n')
+
+rule bam_copy:
+    """
+    Copying BAM to final output
+    """
+    input:
+        config['tmp_dir'] + 'gs_map/map-sub/{genome}/subsample/{sample}.bam',
+    output:
+        map_dir + '{genome}/{sample}.bam'
+    params:
+        ionice = config['params']['ionice']
+    resources:
+        time = lambda wildcards, attempt: attempt ** 3 * 59,
+        mem_gb_pt = lambda wildcards, attempt: attempt ** 3 * 6
+    log:
+        log_dir + 'bam_copy/{genome}/{sample}.log'
+    shell:
+        """
+        ionice {params.ionice} cp -f {input} {output} 2> {log} 1>&2
+        """

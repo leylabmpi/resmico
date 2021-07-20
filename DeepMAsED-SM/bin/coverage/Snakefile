@@ -32,7 +32,7 @@ rule nonpareil:
     input:
         check = coverage_dir + 'precheck_nonpareil.done',
         read1 = config['tmp_dir'] + \
-                '{richness}/{rep}/{read_depth}/sim_reads/1/R1.fq'
+                '{richness}/{rep}/{read_depth}/sim_reads/R1.fq'
     output:
         npo = coverage_dir + '{richness}/{rep}/{read_depth}/nonpareil.npo'
     params:

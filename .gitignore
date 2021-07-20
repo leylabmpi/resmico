@@ -20,6 +20,7 @@ DeepMAsED-SM/bin/scripts/gridmap/build
 DeepMAsED-SM/bin/scripts/gridmap/examples
 DeepMAsED-SM/tests/output_*
 deepmased_trained/predictions/
+data/large/
 screenlog.*
 bin/misc_*
 .figures/

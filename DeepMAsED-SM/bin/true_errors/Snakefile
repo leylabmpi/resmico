@@ -83,8 +83,8 @@ rule metaquast:
         contigs = config['tmp_dir'] + \
                   '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta',
         refs = config['tmp_dir'] + 'metaquast/{richness}/{rep}/genomes/genomes.tsv',
-	read1 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/1/R1.fq',
-	read2 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/1/R2.fq'
+	read1 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/R1.fq',
+	read2 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/R2.fq'
     output:
         info_tmp = temp(config['tmp_dir'] + \
 	                '{richness}/{rep}/{read_depth}/{assembler}/' + \

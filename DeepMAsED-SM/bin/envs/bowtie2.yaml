@@ -2,7 +2,8 @@ channels:
 - bioconda
 dependencies:
 - pigz
-- bioconda::seqkit
+- bioconda::seqkit>=0.16.1
+- bioconda::skewer
 - conda-forge::intervaltree
 - bioconda::samtools
 - bioconda::bowtie2

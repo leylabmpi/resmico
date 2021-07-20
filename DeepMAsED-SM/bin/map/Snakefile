@@ -32,7 +32,7 @@ rule map_bowtie2_build:
 
         touch {output} 2>> {log}
         """
-
+        
 rule map_bowtie2:
     """
     Mapping reads from all samples to the metagenome assembly contigs
@@ -42,8 +42,8 @@ rule map_bowtie2:
               '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta',
 	done = config['tmp_dir'] + \
                '{richness}/{rep}/{read_depth}/{assembler}/map_bowtie2_build.done',
-        read1 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/1/R1.fq',
-        read2 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/1/R2.fq'
+        read1 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/R1.fq',
+        read2 = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/sim_reads/R2.fq'
     output:
         bam = temp(config['tmp_dir'] + \
                    '{richness}/{rep}/{read_depth}/{assembler}.bam')
