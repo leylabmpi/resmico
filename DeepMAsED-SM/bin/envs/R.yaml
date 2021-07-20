@@ -1,7 +1,0 @@
-channels:
-- bioconda
-- conda-forge
-dependencies:
-- pigz
-- r-argparse
-- r-data.table

@@ -1,8 +1,0 @@
-*.pyc
-*.pyo
-
-*.egg
-gridmap.egg-info/
-dist/
-build/
-docs/_build/
