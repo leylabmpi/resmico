@@ -1,0 +1,6 @@
+channels:
+- bioconda
+dependencies:
+- bioconda::seqkit
+- bioconda::minimap2
+- bioconda::quast=5.0.2

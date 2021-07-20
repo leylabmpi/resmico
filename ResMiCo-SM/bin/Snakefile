@@ -1,0 +1,83 @@
+def all_bam_files(wildcards):
+    genomes_tbl = config['genomes_tbl']
+    out_files = []
+    for i,x in genomes_tbl.iterrows():
+        f = '{genome}/{sample}.bam'
+	f = f.format(genome=x['Taxon'], sample=x['Sample'])
+	f = map_dir + f
+	out_files.append(f)
+    return out_files
+
+def all_which_input(wildcards):
+    F = []
+
+    # no simulation (gs_map)
+    if config['just_features']:
+        # feature table        
+        F.append(map_dir + 'feature_files.tsv')
+        # keep BAM files?
+        if str(config['nonsim_params']['keep_bam']).lower() == 'true':
+            F += all_bam_files(wildcards)
+        return F
+    
+    # reads
+    if config['params']['keep_reads'] == True:
+        F += Expand(mgsim_dir + 'sim_reads/{richness}/{rep}/{read_depth}/Read1.fq.gz',
+                   config['sim_params'])
+        F += Expand(mgsim_dir + 'sim_reads/{richness}/{rep}/{read_depth}/Read2.fq.gz',
+                   config['sim_params'])
+        
+    # coverage
+    if not skipped(config['params']['nonpareil']):
+        F += Expand(coverage_dir + '{richness}/{rep}/{read_depth}/nonpareil.npo',
+                   config['sim_params'])  
+        if not skipped(config['params']['nonpareil_summary']):
+            F.append(coverage_dir + 'nonpareil/all_summary.RDS')
+            F.append(coverage_dir + 'nonpareil/all_summary.txt')
+            F.append(coverage_dir + 'nonpareil/all_curve.pdf')
+
+    # MG assemblies
+    F += Expand(asmbl_dir + '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta.gz',
+               config['sim_params'])
+    
+    ## metaquast
+    if not skipped(config['params']['metaquast']):
+        F += Expand(true_errors_dir + \
+                    '{richness}/{rep}/{read_depth}/{assembler}/metaquast.done',
+                    config['sim_params'])        
+        F += Expand(true_errors_dir + '{richness}/{rep}/metaquast_cleanup.done',
+                    config['sim_params'])        
+        
+    # read mapping to contigs
+    if not skipped(config['params']['samtools']):
+        if not config['params']['keep_bam'] == True:
+            F += Expand(map_dir + '{richness}/{rep}/{read_depth}/{assembler}.bam',
+                       config['sim_params']) 
+
+        # feature table
+        if not skipped(config['params']['make_features']):    
+            F.append(features_dir + 'feature_files.tsv')
+
+    # State of the Art
+    ## ALE
+    if not skipped(config['params']['ALE']):
+        F += Expand(ale_dir + '{richness}/{rep}/{read_depth}/{assembler}/ALE_results.txt.gz',
+                    config['sim_params']) 
+    ## VALET
+    if not skipped(config['params']['VALET']):
+        F += Expand(valet_dir + '{richness}/{rep}/{read_depth}/{assembler}/summary.tsv',
+                   config['sim_params'])
+    ## metaMIC
+    if (not skipped(config['params']['metaMIC']['extract']) and
+        not skipped(config['params']['metaMIC']['predict'])):
+        F += Expand(metamic_dir + '{richness}/{rep}/{read_depth}/{assembler}/metaMIC/anomaly_score.txt.gz',
+                    config['sim_params'])
+        F += Expand(metamic_dir + '{richness}/{rep}/{read_depth}/{assembler}/metaMIC/metaMIC_corrected_contigs.fa.gz',
+                    config['sim_params'])
+        F += Expand(metamic_dir + '{richness}/{rep}/{read_depth}/{assembler}/metaMIC/misassembly_breakpoint.txt.gz',
+                    config['sim_params'])
+        
+    # return
+    return F
+
+

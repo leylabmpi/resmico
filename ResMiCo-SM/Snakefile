@@ -1,0 +1,114 @@
+# import 
+from __future__ import print_function
+import os
+import re
+import sys
+import getpass
+import socket
+import pandas as pd
+import random
+import itertools
+
+def skipped(x):
+    return str(x).strip().lower().startswith('skip')
+
+# setup
+## config
+configfile: 'config.yaml'
+config['pipeline']['email'] = config['email']
+## dirs 
+snake_dir = config['pipeline']['snakemake_folder']
+include: snake_dir + 'bin/dirs'
+config['output_dir'] = config['output_dir'].rstrip('/') + '/'
+## temp_dir
+config['tmp_dir'] = os.path.join(config['tmp_dir'], 'deepmased-sm_' + \
+                                 str(os.stat('.').st_ino) + '/')
+print('\33[33mUsing temporary directory: {} \x1b[0m'.format(config['tmp_dir']))
+try:
+    os.makedirs(config['tmp_dir'])
+except FileExistsError:
+    pass
+
+## Load
+### Genomes file
+config['genomes_tbl'] = pd.read_csv(config['genomes_file'], sep='\t', comment='#')
+#### Taxon
+for x in ['Taxon']:
+    if x not in config['genomes_tbl'].columns:
+        msg = 'Column "{}" not found in genomes file'
+        raise ValueError(msg.format(x))
+func = lambda x: re.sub('[^A-Za-z0-9_]+', '_', x)
+config['genomes_tbl']['Taxon'] = config['genomes_tbl']['Taxon'].apply(func)
+#### Genome fasta
+if 'Fasta' not in config['genomes_tbl'].columns:
+    F = lambda x: os.path.join(genomes_dir, x + '.fna')
+    config['genomes_tbl']['Fasta'] = config['genomes_tbl']['Taxon'].apply(F)
+else:
+    config['params']['MGSIM']['genome_download'] = 'Skip'
+#### Sample metagenome
+if 'Sample' in config['genomes_tbl'].columns:
+    if 'Read1' not in config['genomes_tbl'].columns:
+        raise IOError('"Read1" column not found in input table!')
+    if 'Read2' not in config['genomes_tbl'].columns:
+        sys.stderr.write('WARNING: no "Read2" column in the input table!\n')
+    config['just_features'] = True
+else:
+    config['just_features'] = False
+    
+# Config calculated parameters
+## if user provided
+config['sim_params'] = {'richness' : [], 'read_depth' : [], 'rep' : [], 'assembler' : []}
+df_dtypes = {'richness' : str, 'read_depth' : int, 'rep' : int, 'assembler' : str}
+if config['just_features']:
+    config['taxa_unique'] = config['genomes_tbl'].Taxon.unique().tolist()
+    config['samples_unique'] = config['genomes_tbl'].Sample.unique().tolist()    
+else:
+    reps = [x+1 for x in range(config['params']['reps'])]
+    assemblers = [k for k,v in config['params']['assemblers'].items() if not skipped(v)]
+    read_depth = config['params']['MGSIM']['read_depth']
+    richness = config['params']['MGSIM']['community']['richness'] 
+    for x in itertools.product(richness, read_depth, reps, assemblers):
+        config['sim_params']['richness'].append(x[0])
+        config['sim_params']['read_depth'].append(x[1])
+        config['sim_params']['rep'].append(x[2])
+        config['sim_params']['assembler'].append(x[3])
+## data.frame of all varying simulation parameters
+config['sim_params'] = pd.DataFrame.from_dict(config['sim_params'])
+
+def Expand(file_template, param_df, debug=False):
+    """
+    Using colnames as kwargs for file_template.format() 
+    """
+    func = lambda x: file_template.format(**x)
+    files = param_df.apply(func, axis=1).tolist()
+    if debug is True:
+        print('\n'.join(files))
+        print('----------')
+    return(files)
+
+## Modular snakefiles
+include: snake_dir + 'bin/Snakefile'
+include: snake_dir + 'bin/ll_pipeline_utils/Snakefile'
+if config['just_features']:
+    include: snake_dir + 'bin/gs_map/Snakefile'
+else:
+    include: snake_dir + 'bin/MGSIM/Snakefile'
+    include: snake_dir + 'bin/coverage/Snakefile'
+    include: snake_dir + 'bin/assembly/Snakefile'
+    include: snake_dir + 'bin/true_errors/Snakefile'
+    include: snake_dir + 'bin/map/Snakefile'
+    include: snake_dir + 'bin/features/Snakefile'
+    include: snake_dir + 'bin/SotA/Snakefile'
+
+wildcard_constraints:
+    rep='[^/]+',
+    richness='[^/]+',
+    read_depth='[^/]+',
+    assembler='[^/]+'
+    
+
+localrules: all
+rule all:
+    input:
+        all_which_input
+
