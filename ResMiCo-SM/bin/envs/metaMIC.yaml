@@ -14,4 +14,4 @@ dependencies:
 - bwa
 - jellyfish
 - pip:
-  - git+https://github.com/ZhaoXM-Lab/metaMIC.git
+  - git+https://github.com/nick-youngblut/metaMIC.git

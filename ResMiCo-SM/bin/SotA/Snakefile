@@ -96,8 +96,8 @@ rule samtools_pileup:
     Running metaMIC extract_features
     """
     input:
-        contigs = config['tmp_dir'] + \
-                  '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta',
+        fna = config['tmp_dir'] + \
+              '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta',
         bam = config['tmp_dir'] + \
               '{richness}/{rep}/{read_depth}/{assembler}.bam',
         bai = config['tmp_dir'] + \
@@ -117,7 +117,7 @@ rule samtools_pileup:
     shell:
         """
         > {log}
-        samtools mpileup -C 50 -A -f {input.contigs} {input.bam} 2>> {log} | \
+        samtools mpileup -C 50 -A -f {input.fna} {input.bam} 2>> {log} | \
           awk '$3 != "N"' > {output.txt} 2>> {log}
         """
 
@@ -154,9 +154,16 @@ rule metaMIC_extract:
               '{richness}/{rep}/{read_depth}/{assembler}.bam.bai'
     output:
         txt = temp(config['tmp_dir'] + \
-               '{richness}/{rep}/{read_depth}/{assembler}/metaMIC/feature_matrix/window_fea_matrix.txt')
+                   '{richness}/{rep}/{read_depth}/{assembler}/' + \
+                   'metaMIC/feature_matrix/window_fea_matrix.txt'),
+        rb = temp(config['tmp_dir'] + \
+                   '{richness}/{rep}/{read_depth}/{assembler}/' + \
+                   'metaMIC/read_breakpoint_per_base.txt')        
     params:
-        params = config['params']['metaMIC']['extract']
+        params = config['params']['metaMIC']['extract'],
+        rb = config['tmp_dir'] + \
+                  '{richness}/{rep}/{read_depth}/{assembler}/' + \
+                  'metaMIC/temp/read_breakpoint/read_breakpoint_per_base.txt'
     conda:
         '../envs/metaMIC.yaml'
     threads:
@@ -177,6 +184,7 @@ rule metaMIC_extract:
         metaMIC extract_feature {params.params} -t {threads} -m meta \
           --pileup {input.pileup} --bam {input.bam} \
           --contig {input.contigs} --output $OUTDIR 2>> {log}
+        cp -f {params.rb} {output.rb} 2>> {log}
         """
 
 rule metaMIC_predict:
@@ -188,8 +196,14 @@ rule metaMIC_predict:
         contigs = config['tmp_dir'] + \
                   '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta',
         txt = config['tmp_dir'] + \
-               '{richness}/{rep}/{read_depth}/{assembler}/metaMIC/feature_matrix/window_fea_matrix.txt'
+              '{richness}/{rep}/{read_depth}/{assembler}/' + \
+              'metaMIC/feature_matrix/window_fea_matrix.txt',
+        rb = config['tmp_dir'] + \
+             '{richness}/{rep}/{read_depth}/{assembler}/' + \
+             'metaMIC/temp/read_breakpoint/read_breakpoint_per_base.txt' 
     output:
+        scr = temp(config['tmp_dir'] + \
+               '{richness}/{rep}/{read_depth}/{assembler}/metaMIC/metaMIC_contig_score.txt'),
         txt = temp(config['tmp_dir'] + \
                '{richness}/{rep}/{read_depth}/{assembler}/metaMIC/anomaly_score.txt'),
         fna = temp(config['tmp_dir'] + \
@@ -220,23 +234,41 @@ rule metaMIC_copy:
     Copying final metaMIC results
     """
     input:
-        txt = config['tmp_dir'] + \
-               '{richness}/{rep}/{read_depth}/{assembler}/metaMIC/anomaly_score.txt',
+        scr = config['tmp_dir'] + \
+              '{richness}/{rep}/{read_depth}/{assembler}/metaMIC/metaMIC_contig_score.txt',
         fna = config['tmp_dir'] + \
-               '{richness}/{rep}/{read_depth}/{assembler}/metaMIC/metaMIC_corrected_contigs.fa',
+              '{richness}/{rep}/{read_depth}/{assembler}/metaMIC/metaMIC_corrected_contigs.fa',
         brk = config['tmp_dir'] + \
-               '{richness}/{rep}/{read_depth}/{assembler}/metaMIC/misassembly_breakpoint.txt'
+              '{richness}/{rep}/{read_depth}/{assembler}/metaMIC/misassembly_breakpoint.txt',
+        txt = config['tmp_dir'] + \
+              '{richness}/{rep}/{read_depth}/{assembler}/metaMIC/anomaly_score.txt',
+        mtx = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/{assembler}/' + \
+              'metaMIC/feature_matrix/window_fea_matrix.txt',
+        rbb = config['tmp_dir'] + '{richness}/{rep}/{read_depth}/{assembler}/' + \
+              'metaMIC/read_breakpoint_per_base.txt'
     output:
-        txt = metamic_dir + '{richness}/{rep}/{read_depth}/{assembler}/metaMIC/anomaly_score.txt.gz',
-        fna = metamic_dir + '{richness}/{rep}/{read_depth}/{assembler}/metaMIC/metaMIC_corrected_contigs.fa.gz',
-        brk = metamic_dir + '{richness}/{rep}/{read_depth}/{assembler}/metaMIC/misassembly_breakpoint.txt.gz'
+        scr = metamic_dir + '{richness}/{rep}/{read_depth}/{assembler}/' + \
+              'metaMIC/metaMIC_contig_score.txt.gz',
+        txt = metamic_dir + '{richness}/{rep}/{read_depth}/{assembler}/' + \
+              'metaMIC/anomaly_score.txt.gz',
+        fna = metamic_dir + '{richness}/{rep}/{read_depth}/{assembler}/' + \
+              'metaMIC/metaMIC_corrected_contigs.fa.gz',
+        brk = metamic_dir + '{richness}/{rep}/{read_depth}/{assembler}/' + \
+              'metaMIC/misassembly_breakpoint.txt.gz',
+        mtx = metamic_dir + '{richness}/{rep}/{read_depth}/{assembler}/' + \
+              'metaMIC/feature_matrix/window_fea_matrix.txt.gz',
+        rbb = metamic_dir + '{richness}/{rep}/{read_depth}/{assembler}/' + \
+              'metaMIC/temp/read_breakpoint/read_breakpoint_per_base.txt.gz'
     params:
-        params = config['params']['ionice']
+        ionice = config['params']['ionice']
     log:
         log_dir + 'metaMIC_copy/{richness}/{rep}/{read_depth}/{assembler}.log'
     shell:
         """
-        ionice {params.ionice} gzip -c {input.txt} > {output.txt} 2> {log}
+        ionice {params.ionice} gzip -c {input.scr} > {output.scr} 2>> {log}
         ionice {params.ionice} gzip -c {input.fna} > {output.fna} 2>> {log}
         ionice {params.ionice} gzip -c {input.brk} > {output.brk} 2>> {log}
+        ionice {params.ionice} gzip -c {input.txt} > {output.txt} 2> {log}
+        ionice {params.ionice} gzip -c {input.mtx} > {output.mtx} 2>> {log}
+        ionice {params.ionice} gzip -c {input.rbb} > {output.rbb} 2>> {log}
         """

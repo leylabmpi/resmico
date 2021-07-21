@@ -70,13 +70,20 @@ def all_which_input(wildcards):
     ## metaMIC
     if (not skipped(config['params']['metaMIC']['extract']) and
         not skipped(config['params']['metaMIC']['predict'])):
-        F += Expand(metamic_dir + '{richness}/{rep}/{read_depth}/{assembler}/metaMIC/anomaly_score.txt.gz',
+        F += Expand(metamic_dir + '{richness}/{rep}/{read_depth}/{assembler}/' + \
+                    'metaMIC/metaMIC_contig_score.txt.gz', config['sim_params'])
+        F += Expand(metamic_dir + '{richness}/{rep}/{read_depth}/{assembler}/' + \
+                    'metaMIC/metaMIC_corrected_contigs.fa.gz', config['sim_params'])
+        F += Expand(metamic_dir + '{richness}/{rep}/{read_depth}/{assembler}/' + \
+                    'metaMIC/anomaly_score.txt.gz', config['sim_params'])
+        F += Expand(metamic_dir + '{richness}/{rep}/{read_depth}/{assembler}/' + \
+                    'metaMIC/misassembly_breakpoint.txt.gz', config['sim_params'])
+        F += Expand(metamic_dir + '{richness}/{rep}/{read_depth}/{assembler}/' + \
+                    'metaMIC/feature_matrix/window_fea_matrix.txt.gz',
                     config['sim_params'])
-        F += Expand(metamic_dir + '{richness}/{rep}/{read_depth}/{assembler}/metaMIC/metaMIC_corrected_contigs.fa.gz',
-                    config['sim_params'])
-        F += Expand(metamic_dir + '{richness}/{rep}/{read_depth}/{assembler}/metaMIC/misassembly_breakpoint.txt.gz',
-                    config['sim_params'])
-        
+        F += Expand(metamic_dir + '{richness}/{rep}/{read_depth}/{assembler}/' + \
+                    'metaMIC/temp/read_breakpoint/read_breakpoint_per_base.txt.gz',
+                    config['sim_params'])        
     # return
     return F
 

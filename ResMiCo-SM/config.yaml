@@ -27,7 +27,7 @@ params:
       richness:
         - 0.8
       other_params: --rnd-seed 8712
-    reads: --art-paired --art-mflen 250 --art-sdev 10 --rndSeed 8712
+    reads: --art-paired --art-mflen 270 --art-sdev 50 --rndSeed 8712
     read_depth:
       - 1000000
   keep_reads: True # False
@@ -57,7 +57,7 @@ params:
   VALET: ""
   ## metaMIC
   metaMIC:
-    extract: Skip #--mlen 5000
+    extract: --mlen 5000
     predict: -a MEGAHIT
 
 # params just for creating feature tables for non-simulated data
