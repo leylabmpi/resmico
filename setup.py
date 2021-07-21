@@ -13,7 +13,7 @@ install_reqs = [
 
 # getting version from __main__.py
 __version__ = None
-with open(os.path.join('DeepMAsED', '__main__.py')) as inF:
+with open(os.path.join('ResMiCo', '__main__.py')) as inF:
     for x in inF:
         if x.startswith('def main'):
             break
@@ -21,28 +21,28 @@ with open(os.path.join('DeepMAsED', '__main__.py')) as inF:
             __version__ = x.split(' ')[2].rstrip().strip("'")
             
 ## install main application
-desc = 'Deep learning for Metagenome Assembly Error Detection'
+desc = 'Increasing the quality of metagenome-assembledgenomes with deep learning'
 setup(
-    name = 'DeepMAsED',
+    name = 'ResMiCo',
     version = __version__,
     description = desc,
     long_description = desc + '\n See README for more information.',
     author = 'Nick Youngblut',
     author_email = 'nyoungb2@gmail.com',
-    package_data={'DeepMAsED': ['Model/deepmased_model.h5',
+    package_data={'ResMiCo': ['Model/deepmased_model.h5',
                                 'Model/deepmased_mean_std.pkl']},
     entry_points={
         'console_scripts': [
-            'DeepMAsED = DeepMAsED.__main__:main'
+            'ResMiCo = ResMiCo.__main__:main'
         ]
     },
     install_requires = install_reqs,
     include_dirs = [numpy.get_include()],
     license = "MIT license",
     packages = find_packages(),
-    package_dir={'DeepMAsED':
-                 'DeepMAsED'},
-    url = 'https://github.com/leylabmpi/DeepMAsED'
+    package_dir={'ResMiCo':
+                 'ResMiCo'},
+    url = 'https://github.com/leylabmpi/ResMiCo'
 )
 
 

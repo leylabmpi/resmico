@@ -1,4 +1,4 @@
-[![ResMiCo](https://github.com/leylabmpi/ResMicCo/actions/workflows/pythonpackage.yml/badge.svg)](https://github.com/leylabmpi/ResMicCo/actions/workflows/pythonpackage.yml)
+[![ResMiCo](https://github.com/leylabmpi/ResMiCo/actions/workflows/pythonpackage.yml/badge.svg)](https://github.com/leylabmpi/ResMiCo/actions/workflows/pythonpackage.yml)
 
 ResMiCo
 =========
