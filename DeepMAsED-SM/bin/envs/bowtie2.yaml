@@ -1,9 +1,0 @@
-channels:
-- bioconda
-dependencies:
-- pigz
-- bioconda::seqkit
-- conda-forge::intervaltree
-- bioconda::samtools
-- bioconda::bowtie2
-- bioconda::pysam
