@@ -276,7 +276,7 @@ rule map_bam_subsample:
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
-        {params.exe} -o {output.bam} -m {params.mc} {input.bam} {input.fna}
+        {params.exe} -o {output.bam} -m {params.mc} {input.bam} {input.fna} 2> {log} 1>&2
         """
         
 rule map_bowtie2_index_subsampled_bam:

@@ -21,7 +21,7 @@ def all_which_input(wildcards):
         return F
     
     # reads
-    if config['params']['keep_reads'] == True:
+    if str(config['params']['keep_reads']).lower() == 'true':
         F += Expand(mgsim_dir + 'sim_reads/{richness}/{rep}/{read_depth}/Read1.fq.gz',
                    config['sim_params'])
         F += Expand(mgsim_dir + 'sim_reads/{richness}/{rep}/{read_depth}/Read2.fq.gz',
@@ -50,7 +50,7 @@ def all_which_input(wildcards):
         
     # read mapping to contigs
     if not skipped(config['params']['samtools']):
-        if not config['params']['keep_bam'] == True:
+        if str(config['params']['keep_bam']).lower() == 'true':
             F += Expand(map_dir + '{richness}/{rep}/{read_depth}/{assembler}.bam',
                        config['sim_params']) 
 
