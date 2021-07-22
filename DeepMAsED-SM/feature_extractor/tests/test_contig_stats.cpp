@@ -40,14 +40,14 @@ TEST(FillEntropyGC, Empty) {
     fill_seq_entropy("", 4, &stats);
 }
 
-//TEST(FillEntropyGC, OneChar) {
+// TEST(FillEntropyGC, OneChar) {
 //    std::vector<Stats> stats(1);
 //    fill_seq_entropy("A", 4, &stats);
 //    ASSERT_EQ(stats[0].gc_percent, 0);
 //    ASSERT_EQ(stats[0].entropy, 0);
 //}
 //
-//TEST(FillEntropyGC, OneCharC) {
+// TEST(FillEntropyGC, OneCharC) {
 //    std::vector<Stats> stats(1);
 //    fill_seq_entropy("C", 4, &stats);
 //    ASSERT_EQ(stats[0].gc_percent, 1);
@@ -108,15 +108,13 @@ TEST(PileupBam, OneRead) {
     ASSERT_EQ(500, stats.size());
     for (uint32_t i = 0; i < 4; ++i) {
         ASSERT_EQ('A', stats[i].ref_base);
-        ASSERT_EQ(1, stats[i].s[false].n_proper);
-        ASSERT_EQ(0, stats[i].s[true].n_proper);
-        for (bool snp : { false, true }) {
-            ASSERT_EQ(0, stats[i].s[snp].n_discord);
-            ASSERT_EQ(0, stats[i].s[snp].n_sec);
-            ASSERT_EQ(0, stats[i].s[snp].n_sup);
-            ASSERT_EQ(0, stats[i].s[snp].n_orphan);
-            ASSERT_EQ(0, stats[i].s[snp].n_diff_strand);
-        }
+        ASSERT_EQ(1, stats[i].n_proper_match);
+        ASSERT_EQ(0, stats[i].n_proper_snp);
+        ASSERT_EQ(0, stats[i].n_discord);
+        ASSERT_EQ(0, stats[i].n_sec);
+        ASSERT_EQ(0, stats[i].n_sup);
+        ASSERT_EQ(0, stats[i].n_orphan);
+        ASSERT_EQ(0, stats[i].n_diff_strand);
         ASSERT_THAT(stats[i].n_bases, ElementsAre(1, 0, 0, 0));
         ASSERT_EQ(stats[i].gc_percent, 0);
         ASSERT_EQ(stats[i].entropy, 0);
@@ -125,15 +123,13 @@ TEST(PileupBam, OneRead) {
     }
     for (uint32_t i = 420; i < 424; ++i) {
         ASSERT_EQ('A', stats[i].ref_base);
-        ASSERT_EQ(1, stats[i].s[true].n_proper);
-        ASSERT_EQ(0, stats[i].s[false].n_proper);
-        for (bool snp : { false, true }) {
-            ASSERT_EQ(0, stats[i].s[snp].n_discord);
-            ASSERT_EQ(0, stats[i].s[snp].n_sec);
-            ASSERT_EQ(0, stats[i].s[snp].n_sup);
-            ASSERT_EQ(0, stats[i].s[snp].n_orphan);
-            ASSERT_EQ(0, stats[i].s[snp].n_diff_strand);
-        }
+        ASSERT_EQ(1, stats[i].n_proper_snp);
+        ASSERT_EQ(0, stats[i].n_proper_match);
+        ASSERT_EQ(0, stats[i].n_discord);
+        ASSERT_EQ(0, stats[i].n_sec);
+        ASSERT_EQ(0, stats[i].n_sup);
+        ASSERT_EQ(0, stats[i].n_orphan);
+        ASSERT_EQ(0, stats[i].n_diff_strand);
         ASSERT_THAT(stats[i].n_bases, ElementsAre(0, 1, 0, 0));
         // because GC percent is computed in contig_stats
         ASSERT_EQ(stats[i].gc_percent, 0);
@@ -150,15 +146,13 @@ TEST(PileupBam, TwoReads) {
     ASSERT_EQ(500, stats.size());
     for (uint32_t i = 0; i < 4; ++i) {
         ASSERT_EQ('A', stats[i].ref_base);
-        ASSERT_EQ(i == 0 ? 2 : 1, stats[i].s[false].n_proper);
-        ASSERT_EQ(i == 0 ? 0 : 1, stats[i].s[true].n_proper);
-        for (bool snp : { false, true }) {
-            ASSERT_EQ(0, stats[i].s[snp].n_discord);
-            ASSERT_EQ(0, stats[i].s[snp].n_sec);
-            ASSERT_EQ(0, stats[i].s[snp].n_sup);
-            ASSERT_EQ(0, stats[i].s[snp].n_orphan);
-            ASSERT_EQ(0, stats[i].s[snp].n_diff_strand);
-        }
+        ASSERT_EQ(i == 0 ? 2 : 1, stats[i].n_proper_match);
+        ASSERT_EQ(i == 0 ? 0 : 1, stats[i].n_proper_snp);
+        ASSERT_EQ(0, stats[i].n_discord);
+        ASSERT_EQ(0, stats[i].n_sec);
+        ASSERT_EQ(0, stats[i].n_sup);
+        ASSERT_EQ(0, stats[i].n_orphan);
+        ASSERT_EQ(0, stats[i].n_diff_strand);
         if (i == 0) {
             ASSERT_THAT(stats[i].n_bases, ElementsAre(2, 0, 0, 0));
         } else {
@@ -171,15 +165,13 @@ TEST(PileupBam, TwoReads) {
     }
     for (uint32_t i = 420; i < 424; ++i) {
         ASSERT_EQ('A', stats[i].ref_base);
-        ASSERT_EQ(2, stats[i].s[true].n_proper);
-        ASSERT_EQ(0, stats[i].s[false].n_proper);
-        for (bool snp : { false, true }) {
-            ASSERT_EQ(0, stats[i].s[snp].n_discord);
-            ASSERT_EQ(0, stats[i].s[snp].n_sec);
-            ASSERT_EQ(0, stats[i].s[snp].n_sup);
-            ASSERT_EQ(0, stats[i].s[snp].n_orphan);
-            ASSERT_EQ(0, stats[i].s[snp].n_diff_strand);
-        }
+        ASSERT_EQ(2, stats[i].n_proper_snp);
+        ASSERT_EQ(0, stats[i].n_proper_match);
+        ASSERT_EQ(0, stats[i].n_discord);
+        ASSERT_EQ(0, stats[i].n_sec);
+        ASSERT_EQ(0, stats[i].n_sup);
+        ASSERT_EQ(0, stats[i].n_orphan);
+        ASSERT_EQ(0, stats[i].n_diff_strand);
         ASSERT_THAT(stats[i].n_bases, ElementsAre(0, 1, 0, 1));
         // because GC percent is computed in contig_stats
         ASSERT_EQ(stats[i].gc_percent, 0);
@@ -199,15 +191,13 @@ TEST(ContigStats, TwoReads) {
         ASSERT_EQ(500, stats.size());
         for (uint32_t i = 0; i < 4; ++i) {
             ASSERT_EQ('A', stats[i].ref_base);
-            ASSERT_EQ(i == 0 ? 2 : 1, stats[i].s[false].n_proper);
-            ASSERT_EQ(i == 0 ? 0 : 1, stats[i].s[true].n_proper);
-            for (bool snp : { false, true }) {
-                ASSERT_EQ(0, stats[i].s[snp].n_discord);
-                ASSERT_EQ(0, stats[i].s[snp].n_sec);
-                ASSERT_EQ(0, stats[i].s[snp].n_sup);
-                ASSERT_EQ(0, stats[i].s[snp].n_orphan);
-                ASSERT_EQ(0, stats[i].s[snp].n_diff_strand);
-            }
+            ASSERT_EQ(i == 0 ? 2 : 1, stats[i].n_proper_match);
+            ASSERT_EQ(i == 0 ? 0 : 1, stats[i].n_proper_snp);
+            ASSERT_EQ(0, stats[i].n_discord);
+            ASSERT_EQ(0, stats[i].n_sec);
+            ASSERT_EQ(0, stats[i].n_sup);
+            ASSERT_EQ(0, stats[i].n_orphan);
+            ASSERT_EQ(0, stats[i].n_diff_strand);
             if (i == 0) {
                 ASSERT_THAT(stats[i].n_bases, ElementsAre(2, 0, 0, 0));
             } else {
@@ -220,15 +210,13 @@ TEST(ContigStats, TwoReads) {
         }
         for (uint32_t i = 420; i < 424; ++i) {
             ASSERT_EQ('A', stats[i].ref_base);
-            ASSERT_EQ(2, stats[i].s[true].n_proper);
-            ASSERT_EQ(0, stats[i].s[false].n_proper);
-            for (bool snp : { false, true }) {
-                ASSERT_EQ(0, stats[i].s[snp].n_discord);
-                ASSERT_EQ(0, stats[i].s[snp].n_sec);
-                ASSERT_EQ(0, stats[i].s[snp].n_sup);
-                ASSERT_EQ(0, stats[i].s[snp].n_orphan);
-                ASSERT_EQ(0, stats[i].s[snp].n_diff_strand);
-            }
+            ASSERT_EQ(2, stats[i].n_proper_snp);
+            ASSERT_EQ(0, stats[i].n_proper_match);
+            ASSERT_EQ(0, stats[i].n_discord);
+            ASSERT_EQ(0, stats[i].n_sec);
+            ASSERT_EQ(0, stats[i].n_sup);
+            ASSERT_EQ(0, stats[i].n_orphan);
+            ASSERT_EQ(0, stats[i].n_diff_strand);
             ASSERT_THAT(stats[i].n_bases, ElementsAre(0, 1, 0, 1));
             // because GC percent is computed in contig_stats
             ASSERT_EQ(stats[i].gc_percent, 0);

@@ -56,41 +56,38 @@ void write_stats(std::vector<Stats> &&stats,
         out << contig[pos] << '\t' << s.n_bases[0] << '\t' << s.n_bases[1] << '\t' << s.n_bases[2]
             << '\t' << s.n_bases[3] << '\t' << s.num_snps() << '\t' << s.coverage() << '\t'
             << s.n_discord << '\t';
-        for (bool match : { false, true }) {
-            if (std::isnan(
-                        s.s[match].mean_i_size)) { // zero coverage, no i_size, no mapping quality
-                out << "NA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\t";
-            } else {
-                out << stri(s.s[match].min_i_size) << '\t' << round2(s.s[match].mean_i_size) << '\t'
-                    << round2(s.s[match].std_dev_i_size) << '\t' << stri(s.s[match].max_i_size)
-                    << '\t';
-                out << (int)s.s[match].min_map_qual << '\t' << round2(s.s[match].mean_map_qual)
-                    << '\t' << round2(s.s[match].std_dev_map_qual) << '\t'
-                    << (int)s.s[match].max_map_qual << '\t';
-            }
-            out << s.s[match].n_proper << '\t' << s.s[match].n_diff_strand << '\t'
-                << s.s[match].n_orphan << '\t' << s.s[match].n_sup << '\t' << s.s[match].n_sec
-                << '\t' << s.s[match].n_discord << '\t';
+        if (std::isnan(s.mean_i_size)) { // zero coverage, no i_size, no mapping quality
+            out << "NA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\t";
+        } else {
+            out << stri(s.min_i_size) << '\t' << round2(s.mean_i_size) << '\t'
+                << round2(s.std_dev_i_size) << '\t' << stri(s.max_i_size) << '\t';
+            out << (int)s.min_map_qual << '\t' << round2(s.mean_map_qual) << '\t'
+                << round2(s.std_dev_map_qual) << '\t' << (int)s.max_map_qual
+                << '\t';
         }
+        out << s.n_proper_match << '\t' << '\t' << s.n_orphan << '\t'
+            << s.n_discord << '\t';
+
+        out << s.n_proper_snp << '\t';
 
         out << s.entropy << '\t' << s.gc_percent << '\n';
         // uncomment and use of py compatibility
-//        if (s.entropy == 0) {
-//            out << "0.0\t";
-//        } else if (s.entropy == 1) {
-//            out << "1.0\t";
-//        } else if (s.entropy == 2) {
-//            out << "2.0\t";
-//        } else {
-//            out << s.entropy << '\t';
-//        }
-//        if (s.gc_percent == 0) {
-//            out << "0.0\n";
-//        } else if (s.gc_percent == 1) {
-//            out << "1.0\n";
-//        } else {
-//            out << s.gc_percent << '\n';
-//        }
+        //        if (s.entropy == 0) {
+        //            out << "0.0\t";
+        //        } else if (s.entropy == 1) {
+        //            out << "1.0\t";
+        //        } else if (s.entropy == 2) {
+        //            out << "2.0\t";
+        //        } else {
+        //            out << s.entropy << '\t';
+        //        }
+        //        if (s.gc_percent == 0) {
+        //            out << "0.0\n";
+        //        } else if (s.gc_percent == 1) {
+        //            out << "1.0\n";
+        //        } else {
+        //            out << s.gc_percent << '\n';
+        //        }
     }
     logger()->info("Writing features for contig {} done.", contig_name);
 }
@@ -140,16 +137,20 @@ int main(int argc, char *argv[]) {
 
     if (!FLAGS_short) {
         H.insert(H.end(),
-                 { "min_insert_size_Match", "mean_insert_size_Match", "stdev_insert_size_Match",
-                   "max_insert_size_Match", "min_mapq_Match",         "mean_mapq_Match",
-                   "stdev_mapq_Match",      "max_mapq_Match",         "num_proper_Match",
-                   "num_diff_strand_Match", "num_orphans_Match",      "num_supplementary_Match",
-                   "num_secondary_Match",   "num_discordant_Match",   "min_insert_size_SNP",
-                   "mean_insert_size_SNP",  "stdev_insert_size_SNP",  "max_insert_size_SNP",
-                   "min_mapq_SNP",          "mean_mapq_SNP",          "stdev_mapq_SNP",
-                   "max_mapq_SNP",          "num_proper_SNP",         "num_diff_strand_SNP",
-                   "num_orphans_SNP",       "num_supplementary_SNP",  "num_secondary_SNP",
-                   "num_discordant_SNP" });
+                 {
+                         "min_insert_size_Match",
+                         "mean_insert_size_Match",
+                         "stdev_insert_size_Match",
+                         "max_insert_size_Match",
+                         "min_mapq_Match",
+                         "mean_mapq_Match",
+                         "stdev_mapq_Match",
+                         "max_mapq_Match",
+                         "num_proper_Match",
+                         "num_orphans_Match",
+                         "num_discordant_Match",
+                         "num_proper_SNP",
+                 });
     }
     H.insert(H.end(), { "seq_window_entropy", "seq_window_perc_gc" });
 

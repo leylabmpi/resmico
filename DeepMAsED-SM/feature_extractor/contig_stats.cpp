@@ -157,39 +157,43 @@ std::vector<Stats> pileup_bam(const std::string &reference,
             bool is_snp = base != IDX[stat.ref_base];
             if (al.IsPaired() && al.IsMapped()) {
                 if (!al.IsProperPair() && al.IsMateMapped()) {
-                    stat.s[is_snp].n_discord++;
+                    if (!is_snp)
+                        stat.n_discord++;
                     stat.n_discord++;
                 } else if (al.IsProperPair() && al.IsMateMapped()) {
-                    stat.s[is_snp].n_proper++;
+                    if (is_snp) {
+                        stat.n_proper_snp++;
+                    } else {
+                        stat.n_proper_match++;
+                    }
                 } else if (al.IsMateMapped() && al.IsReverseStrand() != al.IsMateReverseStrand()) {
-                    stat.s[is_snp].n_diff_strand++;
+                    if (!is_snp)
+                        stat.n_diff_strand++;
                 } else if (!al.IsMateMapped()) {
-                    stat.s[is_snp].n_orphan++;
+                    if (!is_snp)
+                        stat.n_orphan++;
                 }
             }
             // insert size
-            if (al.InsertSize > 2<<16) {
-                logger()->error("Insert value out of range: {}", al.InsertSize);
-                std::exit(1);
-            }
-            stat.s[is_snp].i_sizes.push_back(std::abs(al.InsertSize));
-            if (stat.s[is_snp].i_sizes.back() < 0) {
-                std::cout << "OOooops!" << std::endl;
-            }
+            if (!is_snp)
+                stat.i_sizes.push_back(std::abs(al.InsertSize));
 
             constexpr uint32_t BAM_FSUPPLEMENTARY = 2048;
-            // sup/sec reads
-            if (al.AlignmentFlag & BAM_FSUPPLEMENTARY) {
-                stat.s[is_snp].n_sup++;
-            }
+            if (!is_snp) {
+                // sup/sec reads
+                if ((al.AlignmentFlag & BAM_FSUPPLEMENTARY)) {
+                    stat.n_sup++;
+                }
 
-            if (!al.IsPrimaryAlignment()) {
-                stat.s[is_snp].n_sec++;
+                if (!al.IsPrimaryAlignment()) {
+                    stat.n_sec++;
+                }
+
+                stat.map_quals.push_back(al.MapQuality);
             }
-            stat.s[is_snp].map_quals.push_back(al.MapQuality);
 
             if (base == 5
-                    || static_cast<uint32_t>(al.Qualities[i + offset - del_offset] - 33U) < 13) {
+                || static_cast<uint32_t>(al.Qualities[i + offset - del_offset] - 33U) < 13) {
                 continue;
             }
 
@@ -220,26 +224,20 @@ std::vector<Stats> contig_stats(const std::string &reference_name,
         for (uint32_t pos = 0; pos < reference_seq.size(); ++pos) {
             Stats &stat = stats[pos];
 
-            for (bool snp_match : { true, false }) {
-                // insert sizes
-                const std::vector<int32_t> &i_sizes = stat.s[snp_match].i_sizes;
-                if (!i_sizes.empty()) {
-                    std::tie(stat.s[snp_match].min_i_size, stat.s[snp_match].mean_i_size,
-                             stat.s[snp_match].max_i_size)
-                            = min_mean_max(i_sizes);
-                    stat.s[snp_match].std_dev_i_size
-                            = std_dev(i_sizes, stat.s[snp_match].mean_i_size);
-                }
+            // insert sizes
+            const std::vector<int32_t> &i_sizes = stat.i_sizes;
+            if (!i_sizes.empty()) {
+                std::tie(stat.min_i_size, stat.mean_i_size, stat.max_i_size)
+                        = min_mean_max(i_sizes);
+                stat.std_dev_i_size = std_dev(i_sizes, stat.mean_i_size);
+            }
 
-                //  Mapping Quality
-                const std::vector<uint8_t> &map_quals = stat.s[snp_match].map_quals;
-                if (!map_quals.empty()) {
-                    std::tie(stat.s[snp_match].min_map_qual, stat.s[snp_match].mean_map_qual,
-                             stat.s[snp_match].max_map_qual)
-                            = min_mean_max(map_quals);
-                    stat.s[snp_match].std_dev_map_qual
-                            = std_dev(map_quals, stat.s[snp_match].mean_map_qual);
-                }
+            //  Mapping Quality
+            const std::vector<uint8_t> &map_quals = stat.map_quals;
+            if (!map_quals.empty()) {
+                std::tie(stat.min_map_qual, stat.mean_map_qual, stat.max_map_qual)
+                        = min_mean_max(map_quals);
+                stat.std_dev_map_qual = std_dev(map_quals, stat.mean_map_qual);
             }
         }
     }

@@ -31,28 +31,27 @@ struct Stats {
 
     uint16_t n_discord = 0;
 
-    struct S {
-        int32_t min_i_size = std::numeric_limits<int32_t>::max();
-        float mean_i_size = NAN;
-        float std_dev_i_size = NAN;
-        int32_t max_i_size = std::numeric_limits<int32_t>::max();
+    int32_t min_i_size = std::numeric_limits<int32_t>::max();
+    float mean_i_size = NAN;
+    float std_dev_i_size = NAN;
+    int32_t max_i_size = std::numeric_limits<int32_t>::max();
 
-        uint8_t min_map_qual = std::numeric_limits<uint8_t>::max();
-        float mean_map_qual = NAN;
-        float std_dev_map_qual = NAN;
-        uint8_t max_map_qual = std::numeric_limits<uint8_t>::max();
+    uint8_t min_map_qual = std::numeric_limits<uint8_t>::max();
+    float mean_map_qual = NAN;
+    float std_dev_map_qual = NAN;
+    uint8_t max_map_qual = std::numeric_limits<uint8_t>::max();
 
-        uint16_t n_proper = 0;
-        uint16_t n_diff_strand = 0;
-        uint16_t n_orphan = 0;
-        uint16_t n_sup = 0;
-        uint16_t n_sec = 0;
-        uint16_t n_discord = 0;
+    uint16_t n_proper_match = 0;
+    uint16_t n_proper_snp = 0;
+    uint16_t n_diff_strand = 0;
+    uint16_t n_orphan = 0;
+    uint16_t n_sup = 0;
+    uint16_t n_sec = 0;
+    uint16_t n_discord_match = 0;
 
-        std::vector<int32_t> i_sizes;
-        std::vector<uint8_t> map_quals;
-    };
-    std::array<S, 2> s;
+
+    std::vector<int32_t> i_sizes;
+    std::vector<uint8_t> map_quals;
 
 
     float gc_percent;
@@ -94,4 +93,4 @@ std::vector<Stats> contig_stats(const std::string &reference_name,
                                 uint32_t window_size,
                                 bool is_short);
 
-std::string get_sequence(const std::string& fasta_file, const std::string& seq_name);
+std::string get_sequence(const std::string &fasta_file, const std::string &seq_name);
