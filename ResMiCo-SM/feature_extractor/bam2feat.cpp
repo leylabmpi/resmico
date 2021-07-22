@@ -47,7 +47,6 @@ void write_stats(std::vector<Stats> &&stats,
     std::unique_lock<std::mutex> lock(*mutex);
     std::ofstream &out = *o;
     logger()->info("Writing features for contig {}...", contig_name);
-    // out.setf(std::ios::fixed,std::ios::floatfield);
     out.precision(3);
     for (uint32_t pos = 0; pos < stats.size(); ++pos) {
         out << assembler << '\t' << contig_name << '\t' << pos << '\t';
@@ -62,15 +61,11 @@ void write_stats(std::vector<Stats> &&stats,
             out << stri(s.min_i_size) << '\t' << round2(s.mean_i_size) << '\t'
                 << round2(s.std_dev_i_size) << '\t' << stri(s.max_i_size) << '\t';
             out << (int)s.min_map_qual << '\t' << round2(s.mean_map_qual) << '\t'
-                << round2(s.std_dev_map_qual) << '\t' << (int)s.max_map_qual
-                << '\t';
+                << round2(s.std_dev_map_qual) << '\t' << (int)s.max_map_qual << '\t';
         }
-        out << s.n_proper_match << '\t' << '\t' << s.n_orphan << '\t'
-            << s.n_discord << '\t';
+        out << s.n_proper_match << '\t' << s.n_orphan << '\t' << s.n_discord << '\t';
 
-        out << s.n_proper_snp << '\t';
-
-        out << s.entropy << '\t' << s.gc_percent << '\n';
+        out << s.n_proper_snp << '\t' << s.entropy << '\t' << s.gc_percent << '\n';
         // uncomment and use of py compatibility
         //        if (s.entropy == 0) {
         //            out << "0.0\t";
