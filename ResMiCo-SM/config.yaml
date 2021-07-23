@@ -20,45 +20,55 @@ email: nyoungblut@tuebingen.mpg.de
 params:
   ionice: -c 3
   # simulating metagenomes
-  reps: 3
   MGSIM:
     genome_download: ""
+    sim_reps: 3
     community:
       richness:
-        - 0.8
-      other_params: --rnd-seed 8712
-    reads: --art-paired --art-mflen 270 --art-sdev 50 --rndSeed 8712
-    read_depth:
-      - 1000000
-  keep_reads: True # False
-  # read quality cutoffs
-  skewer: -n -l 100 -q 25
+        - 0.8        
+      abundance_distribution:
+        - "mean:10,sigma:2"
+      other_sim_params: --rnd-seed 8712
+    reads: 
+      length:
+        - 100
+        - 150
+      depth:
+        - 1000000
+      other_sim_params: --art-paired --art-mflen 270 --art-sdev 50 --rndSeed 8712
+      skewer: -n -l 70 -q 25
+      keep_reads: True # False
   # coverage
-  nonpareil: -T kmer
-  nonpareil_summary: 1e9   # this is target seq. depth
+  nonpareil:
+    params: -T kmer
+    summary: 1e9   # this is target seq. depth
   # assemblying metagenomes
   assemblers:
     metaspades: -k auto --only-assembler
     megahit: --min-count 1 --min-contig-len 1000
   # assembly filtering
-  contig_length_cutoff: 1000       # length in bp 
+  contigs:
+    length_cutoff: 1000       # length in bp 
   # assessing assembly errors
-  metaquast: --max-ref-number 0 --min-contig 1000 --min-identity 95 --extensive-mis-size 100
-             --no-html --no-plots --no-icarus --no-gc --no-snps --no-sv
-  # mapping reads to contigs  
-  samtools: ""
-  keep_bam: True
-  # creating DL features
-  make_features: --window 6
+  asmbl_errors:
+    metaquast: --max-ref-number 0 --min-contig 1000 --min-identity 95 --extensive-mis-size 100
+               --no-html --no-plots --no-icarus --no-gc --no-snps --no-sv
+  # mapping reads to contigs
+  map:
+    samtools: ""
+    bowtie2: ""
+    max_coverage: 20
+    keep_bam: True
+  # creating ResMiCo feature tables
+  feature_table:
+    make: --window 6
   # state-of-the-art
-  ## ALE
-  ALE: ""
-  ## VALET
-  VALET: ""
-  ## metaMIC
-  metaMIC:
-    extract: --mlen 5000
-    predict: -a MEGAHIT
+  SotA:
+    ALE: ""
+    VALET: ""  
+    metaMIC:
+      extract: --mlen 5000
+      predict: -a MEGAHIT
 
 # params just for creating feature tables for non-simulated data
 nonsim_params:
