@@ -158,7 +158,7 @@ std::vector<Stats> pileup_bam(const std::string &reference,
             if (al.IsPaired() && al.IsMapped()) {
                 if (!al.IsProperPair() && al.IsMateMapped()) {
                     if (!is_snp)
-                        stat.n_discord++;
+                        stat.n_discord_match++;
                     stat.n_discord++;
                 } else if (al.IsProperPair() && al.IsMateMapped()) {
                     if (is_snp) {
