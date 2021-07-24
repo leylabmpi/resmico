@@ -8,6 +8,7 @@
 #include <gflags/gflags.h>
 
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <future>
 #include <string>
@@ -22,6 +23,10 @@ DEFINE_int32(procs, 1, "Number of parallel processes");
 DEFINE_int32(window, 4, "Sliding window size for sequence entropy & GC content");
 DEFINE_bool(short, false, "Short feature list instead of all features?");
 DEFINE_bool(debug, false, "Debug mode; just for troubleshooting");
+DEFINE_uint32(
+        queue_size,
+        32,
+        "Maximum size of the queue for stats waiting to be written to disk, before blocking.");
 
 /** Truncate to 3 decimals */
 std::string r3(float v) {
@@ -50,7 +55,7 @@ void write_stats(QueueItem &&item, const std::string &assembler, std::ofstream *
     out.precision(3);
     for (uint32_t pos = 0; pos < item.stats.size(); ++pos) {
         out << assembler << '\t' << item.reference_name << '\t' << pos << '\t';
-        const Stats &s = item[pos];
+        const Stats &s = item.stats[pos];
         assert(s.ref_base == 0 || s.ref_base == item.reference[pos]);
         out << item.reference[pos] << '\t' << s.n_bases[0] << '\t' << s.n_bases[1] << '\t'
             << s.n_bases[2] << '\t' << s.n_bases[3] << '\t' << s.num_snps() << '\t' << s.coverage()
@@ -197,6 +202,7 @@ int main(int argc, char *argv[]) {
     }
 
     logger()->info("Waiting for pending data to be written to disk...");
+    wq.shutdown();
     t.join();
     logger()->info("All done.");
 }

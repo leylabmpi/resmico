@@ -1,8 +1,5 @@
 #pragma once
 
-#include "duration.hpp"
-#include "iclock.hpp"
-
 #include <cassert>
 #include <condition_variable>
 #include <deque>
@@ -79,27 +76,6 @@ class WaitQueue {
         }
 
         return pop_back_impl(r);
-    }
-
-    /**
-     * dequeue, block when empty for up to a period of @timeout as measured by @clock.
-     * Returns -1 if and only if the queue is shut down and empty.
-     * otherwise, returns the number of items read (0 or 1, depending on
-     * whether timeout expired or not).
-     */
-    int pop_back(value_type *const r, IClock *clock, Duration timeout) {
-        std::unique_lock<std::mutex> l(mu_);
-
-        if (!clock->waitForConditionTimed(
-                    &l, &not_empty_, [this]() { return shutdown_ || !empty(); }, timeout)) {
-            return 0;
-        }
-
-        if (!pop_back_impl(r)) {
-            return -1;
-        }
-
-        return 1;
     }
 
   private:
