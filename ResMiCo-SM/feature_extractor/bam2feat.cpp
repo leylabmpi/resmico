@@ -2,10 +2,10 @@
 #include "util/filesystem.hpp"
 #include "util/logger.hpp"
 #include "util/util.hpp"
+#include "util/wait_queue.hpp"
 
 #include <api/BamReader.h>
 #include <gflags/gflags.h>
-
 
 #include <array>
 #include <cmath>
@@ -37,24 +37,24 @@ std::string stri(T v) {
     return std::to_string(v);
 }
 
+struct QueueItem {
+    std::vector<Stats> stats;
+    std::string reference_name;
+    std::string reference;
+};
+
 /** Pretty print of the results */
-void write_stats(std::vector<Stats> &&stats,
-                 const std::string &assembler,
-                 const std::string &contig_name,
-                 const std::string &contig,
-                 std::ofstream *o,
-                 std::mutex *mutex) {
-    std::unique_lock<std::mutex> lock(*mutex);
+void write_stats(QueueItem &&item, const std::string &assembler, std::ofstream *o) {
     std::ofstream &out = *o;
-    logger()->info("Writing features for contig {}...", contig_name);
+    logger()->info("Writing features for contig {}...", item.reference_name);
     out.precision(3);
-    for (uint32_t pos = 0; pos < stats.size(); ++pos) {
-        out << assembler << '\t' << contig_name << '\t' << pos << '\t';
-        const Stats &s = stats[pos];
-        assert(s.ref_base == 0 || s.ref_base == contig[pos]);
-        out << contig[pos] << '\t' << s.n_bases[0] << '\t' << s.n_bases[1] << '\t' << s.n_bases[2]
-            << '\t' << s.n_bases[3] << '\t' << s.num_snps() << '\t' << s.coverage() << '\t'
-            << s.n_discord << '\t';
+    for (uint32_t pos = 0; pos < item.stats.size(); ++pos) {
+        out << assembler << '\t' << item.reference_name << '\t' << pos << '\t';
+        const Stats &s = item[pos];
+        assert(s.ref_base == 0 || s.ref_base == item.reference[pos]);
+        out << item.reference[pos] << '\t' << s.n_bases[0] << '\t' << s.n_bases[1] << '\t'
+            << s.n_bases[2] << '\t' << s.n_bases[3] << '\t' << s.num_snps() << '\t' << s.coverage()
+            << '\t' << s.n_discord << '\t';
         if (std::isnan(s.mean_i_size)) { // zero coverage, no i_size, no mapping quality
             out << "NA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\t";
         } else {
@@ -84,7 +84,7 @@ void write_stats(std::vector<Stats> &&stats,
         //            out << s.gc_percent << '\n';
         //        }
     }
-    logger()->info("Writing features for contig {} done.", contig_name);
+    logger()->info("Writing features for contig {} done.", item.reference_name);
 }
 
 int main(int argc, char *argv[]) {
@@ -176,17 +176,27 @@ int main(int argc, char *argv[]) {
     std::vector<std::future<void>> futures;
     std::mutex mutex;
 
+    util::WaitQueue<QueueItem> wq(32);
+
+    std::thread t([&] {
+        for (;;) {
+            QueueItem stats;
+            if (!wq.pop_back(&stats)) {
+                break;
+            }
+            write_stats(std::move(stats), FLAGS_assembler, &out);
+        }
+    });
+
 #pragma omp parallel for num_threads(FLAGS_procs)
     for (uint32_t c = 0; c < ref_names.size(); ++c) {
         const std::string reference_seq = get_sequence(FLAGS_fasta_file, ref_names[c]);
         std::vector<Stats> stats = contig_stats(ref_names[c], reference_seq, FLAGS_bam_file,
                                                 FLAGS_window, FLAGS_short);
-        futures.push_back(std::async(std::launch::async, write_stats, std::move(stats),
-                                     FLAGS_assembler, ref_names[c], reference_seq, &out, &mutex));
+        wq.push_front({ std::move(stats), ref_names[c], reference_seq });
     }
 
-    // make sure all futures are done, although in theory the destructor of future should block
-    for (auto &f : futures) {
-        f.get();
-    }
+    logger()->info("Waiting for pending data to be written to disk...");
+    t.join();
+    logger()->info("All done.");
 }
