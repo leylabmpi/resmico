@@ -27,20 +27,20 @@ jobs:
     - name: Checkout submodules
       run: git submodule update --init --recursive
     - name: bam2feat Create build dir
-      run: mkdir ${{runner.workspace}}/ResMicCo/ResMiCo-SM/feature_extractor/build
+      run: mkdir ${{runner.workspace}}/ResMiCo/ResMiCo-SM/feature_extractor/build
     - name: bam2feat Configure CMake
-      working-directory: ${{runner.workspace}}/ResMicCo/ResMiCo-SM/feature_extractor/build
+      working-directory: ${{runner.workspace}}/ResMiCo/ResMiCo-SM/feature_extractor/build
       shell: bash
       run: |
         export CC=$(which ${{ matrix.cc }})
         export CXX=$(which ${{ matrix.cxx }})
         cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
     - name: bam2feat Build
-      working-directory: ${{runner.workspace}}/ResMicCo/ResMiCo-SM/feature_extractor/build
+      working-directory: ${{runner.workspace}}/ResMiCo/ResMiCo-SM/feature_extractor/build
       shell: bash
       run: make -j
     - name: bam2feat Test
-      working-directory: ${{runner.workspace}}/ResMicCo/ResMiCo-SM/feature_extractor/build
+      working-directory: ${{runner.workspace}}/ResMiCo/ResMiCo-SM/feature_extractor/build
       shell: bash
       run: ./tests
     - uses: conda-incubator/setup-miniconda@v2
