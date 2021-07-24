@@ -21,7 +21,7 @@ snake_dir = config['pipeline']['snakemake_folder']
 include: snake_dir + 'bin/dirs'
 config['output_dir'] = config['output_dir'].rstrip('/') + '/'
 ## temp_dir
-config['tmp_dir'] = os.path.join(config['tmp_dir'], 'deepmased-sm_' + \
+config['tmp_dir'] = os.path.join(config['tmp_dir'], 'resmico-sm_' + \
                                  str(os.stat('.').st_ino) + '/')
 print('\33[33mUsing temporary directory: {} \x1b[0m'.format(config['tmp_dir']))
 try:
@@ -57,21 +57,29 @@ else:
     
 # Config calculated parameters
 ## if user provided
-config['sim_params'] = {'richness' : [], 'read_depth' : [], 'rep' : [], 'assembler' : []}
-df_dtypes = {'richness' : str, 'read_depth' : int, 'rep' : int, 'assembler' : str}
+config['sim_params'] = {'richness' : [], 'abund_dist' : [],
+                        'read_depth' : [], 'read_length' : [],
+                        'rep' : [], 'assembler' : []}
+df_dtypes = {'richness' : str, 'abund_dist' : [],
+             'read_depth' : int, 'read_length' : [],
+             'rep' : int, 'assembler' : str}
 if config['just_features']:
     config['taxa_unique'] = config['genomes_tbl'].Taxon.unique().tolist()
     config['samples_unique'] = config['genomes_tbl'].Sample.unique().tolist()    
 else:
-    reps = [x+1 for x in range(config['params']['reps'])]
+    richness = config['params']['MGSIM']['community']['richness']
+    abund_dist = [re.sub(r'[:,]+', '-', x) for x in config['params']['MGSIM']['community']['abundance_distribution']]
+    read_length = config['params']['MGSIM']['reads']['length']    
+    read_depth = config['params']['MGSIM']['reads']['depth']
+    reps = [x+1 for x in range(config['params']['MGSIM']['sim_reps'])]
     assemblers = [k for k,v in config['params']['assemblers'].items() if not skipped(v)]
-    read_depth = config['params']['MGSIM']['read_depth']
-    richness = config['params']['MGSIM']['community']['richness'] 
-    for x in itertools.product(richness, read_depth, reps, assemblers):
+    for x in itertools.product(richness, abund_dist, read_length, read_depth, reps, assemblers):
         config['sim_params']['richness'].append(x[0])
-        config['sim_params']['read_depth'].append(x[1])
-        config['sim_params']['rep'].append(x[2])
-        config['sim_params']['assembler'].append(x[3])
+        config['sim_params']['abund_dist'].append(x[1])
+        config['sim_params']['read_length'].append(x[2])
+        config['sim_params']['read_depth'].append(x[3])
+        config['sim_params']['rep'].append(x[4])
+        config['sim_params']['assembler'].append(x[5])
 ## data.frame of all varying simulation parameters
 config['sim_params'] = pd.DataFrame.from_dict(config['sim_params'])
 
@@ -106,7 +114,6 @@ wildcard_constraints:
     read_depth='[^/]+',
     assembler='[^/]+'
     
-
 localrules: all
 rule all:
     input:

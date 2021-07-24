@@ -3,32 +3,32 @@ rule bam_to_DL_features:
     Converting bam to features
     """
     input:
-        fasta = config['tmp_dir'] + \
-                '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta',
+        fna = config['tmp_dir'] + \
+              '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/contigs_filtered.fasta',
 	fai = config['tmp_dir'] + \
-              '{richness}/{rep}/{read_depth}/{assembler}/contigs_filtered.fasta.fai',
+              '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/contigs_filtered.fasta.fai',
         bam = config['tmp_dir'] + \
-              '{richness}/{rep}/{read_depth}/{assembler}.bam',
+              'map/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.bam',
         bai = config['tmp_dir'] + \
-              '{richness}/{rep}/{read_depth}/{assembler}.bam.bai'
+              'map/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.bam.bai'
     output:
-        tsv = temp(config['tmp_dir'] + 'feats/{richness}/{rep}/{read_depth}/{assembler}/features.tsv')
+        tsv = temp(config['tmp_dir'] + 'feats/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/features.tsv')
     params:
-        exe = config['pipeline']['script_folder'] + 'bam2feat',  #bam2feat.py',
-	params = config['params']['make_features'],
+        exe = config['pipeline']['script_folder'] + 'bam2feat', 
+	params = config['params']['feature_table']['make'],
         assembler = lambda wildcards: wildcards.assembler
     threads:
         4
     resources:
-        time = lambda wildcards, attempt: attempt ** 2 * 60 * 12,
+        time = lambda wildcards, attempt: attempt ** 3 * 59,
         n = lambda wildcards, threads: threads,
-        mem_gb_pt = lambda wildcards, attempt: attempt ** 3 * 6
+        mem_gb_pt = lambda wildcards, attempt: attempt ** 2 * 4
     conda:
         '../envs/bowtie2.yaml'
     log:
-        log_dir + 'bam_to_DL_features/{richness}/{rep}/{read_depth}/{assembler}.log'
+        log_dir + 'bam_to_DL_features/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.log'
     benchmark:
-        benchmark_dir + 'bam_to_DL_features/{richness}/{rep}/{read_depth}/{assembler}.txt'
+        benchmark_dir + 'bam_to_DL_features/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.txt'
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
@@ -36,7 +36,7 @@ rule bam_to_DL_features:
           --batches 100 --chunks 100 \
           --assembler {params.assembler} \
           --bam_file {input.bam} \
-          --fasta_file {input.fasta} \
+          --fasta_file {input.fna} \
           --o {output.tsv} \
           2> {log} 1>&2
         """
@@ -90,28 +90,28 @@ rule metaquast_masmbl_feature_join:
     """
     input:
         fasta = true_errors_dir + \
-            '{richness}/{rep}/{read_depth}/{assembler}/combined_reference/' + \
+            '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/combined_reference/' + \
 	    'contigs_reports/contigs_filtered.mis_contigs.fa',
         masmbl = true_errors_dir + \
-            '{richness}/{rep}/{read_depth}/{assembler}/combined_reference/' + \
+            '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/combined_reference/' + \
 	    'contigs_reports/contigs_report_contigs_filtered.mis_contigs.info',
-        feats = config['tmp_dir'] + 'feats/{richness}/{rep}/{read_depth}/{assembler}/features.tsv'
+        feats = config['tmp_dir'] + 'feats/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/features.tsv'
     output:
         temp(config['tmp_dir'] + \
-            'feats/{richness}/{rep}/{read_depth}/{assembler}/features_j.tsv')
+            'feats/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/features_j.tsv')
     params:
         exe = config['pipeline']['script_folder'] + 'metaquast_masmbl_report_feature_join.py'
     resources:
-        time = lambda wildcards, attempt: attempt ** 3 * 60 * 8,
-        mem_gb_pt = lambda wildcards, attempt: attempt ** 2 * 2 + 10
+        time = lambda wildcards, attempt: attempt ** 2 * 60 * 12,
+        mem_gb_pt = lambda wildcards, attempt: attempt ** 2 * 2 + 20
     conda:
         '../envs/bowtie2.yaml'
     log:
         log_dir + \
-            'metaquast_masmbl_feature_join/{richness}/{rep}/{read_depth}/{assembler}.log'
+            'metaquast_masmbl_feature_join/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.log'
     benchmark:
         log_dir + \
-            'metaquast_masmbl_feature_join/{richness}/{rep}/{read_depth}/{assembler}.txt'
+            'metaquast_masmbl_feature_join/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.txt'
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
@@ -124,16 +124,16 @@ rule features_compress:
     """
     input:
         config['tmp_dir'] + \
-            'feats/{richness}/{rep}/{read_depth}/{assembler}/features_j.tsv'
+            'feats/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/features_j.tsv'
     output:
-        features_dir + '{richness}/{rep}/{read_depth}/{assembler}/features.tsv.gz'
+        features_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/features.tsv.gz'
     resources:
         time = lambda wildcards, attempt: attempt ** 3 * 59,
         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 * 8
     log:
-        log_dir + 'features_compress/{richness}/{rep}/{read_depth}/{assembler}.log'
+        log_dir + 'features_compress/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.log'
     benchmark:
-        benchmark_dir + 'features_compress/{richness}/{rep}/{read_depth}/{assembler}.txt'
+        benchmark_dir + 'features_compress/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.txt'
     shell:
         """
         gzip -c {input} > {output} 2> {log}
@@ -146,12 +146,12 @@ rule features_file_table:
     """
     input:
         feats = Expand(features_dir + \
-                       '{richness}/{rep}/{read_depth}/{assembler}/features.tsv.gz',
+                       '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/features.tsv.gz',
                        config['sim_params'])
     output:
         tsv = features_dir + 'feature_files.tsv'
     params:
-        reads = config['params']['MGSIM']['reads']
+        reads = config['params']['MGSIM']['reads']['other_sim_params']
     log:
         log_dir + 'features_file_table.log'
     benchmark:
@@ -159,7 +159,8 @@ rule features_file_table:
     run:
         import os,sys
         MGSIM_reads = '"' + params.reads + '"'
-        cols = ['richness', 'rep', 'read_depth', 'assembler',
+        cols = ['richness', 'abundance_distribution', 'rep',
+                'read_length', 'read_depth', 'assembler',
                 'feature_file', 'MGSIM_reads_params']
         with open(output.tsv, 'w') as outF:
             outF.write('\t'.join(cols) + '\n')
@@ -167,9 +168,11 @@ rule features_file_table:
                 D,feat_file = os.path.split(F)
                 D,assembler = os.path.split(D)
                 D,read_depth = os.path.split(D)
+                D,read_length = os.path.split(D)
                 D,rep = os.path.split(D)
+                D,abund_dist = os.path.split(D)
                 D,richness = os.path.split(D)
-                rel_path = os.path.join(richness, rep, read_depth, assembler,
+                rel_path = os.path.join(richness, abund_dist, rep, read_length, read_depth, assembler,
                                         os.path.split(F)[1])
-                x = '\t'.join([richness, rep, read_depth, assembler, rel_path, MGSIM_reads])
+                x = '\t'.join([richness, abund_dist, rep, read_length, read_depth, assembler, rel_path, MGSIM_reads])
                 outF.write(x + '\n')

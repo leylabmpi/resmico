@@ -5,6 +5,7 @@ import sys,os
 import copy
 import argparse
 import logging
+import random
 import itertools
 import statistics
 from math import log
@@ -40,49 +41,44 @@ parser.add_argument('-M', '--max-insert-size', type=int, default=30000,
                     help='Max insert size')
 parser.add_argument('-o', '--output', type=str, default='subsampled.bam',
                     help='Output BAM file name')
+parser.add_argument('-S', '--seed', type=str, default=928,
+                    help='Randomization seed')
 parser.add_argument('--version', action='version', version='0.0.1')
 
 # functions
 def main(args):
+    random.seed(args.seed)
     bam = pysam.AlignmentFile(args.bam_file)
     fasta = pysam.FastaFile(args.fasta_file) 
     output = pysam.AlignmentFile(args.output, 'wb', template=bam)
     # getting contig lengths
-    logging.info('Getting contig lengths...')
-    contig_lens = {}
-    for contig in bam.references:
-        contig_lens[contig] = len(fasta.fetch(contig))
-    # per contig: subsample down to max coverage
     logging.info('Subsampling reads...')
     contig_cov = {contig : 0 for contig in bam.references}
-    for i,read in enumerate(bam.fetch()):
-        # if cov hit, skipping read
-        if contig_cov[read.reference_name] >= args.max_coverage:
-            continue
-        # if very large insert size, skipping
-        if abs(read.template_length) > args.max_insert_size:
-            continue
-        # contig length
-        try:
-            ref_len = float(contig_lens[read.reference_name])
-        except KeyError:
-            msg = 'Cannot find contig: {}'
-            raise KeyError(msg.format(read.reference_name))
-        # keeping read
-        contig_cov[read.reference_name] = contig_cov[read.reference_name] + \
-                                          read.query_length / ref_len
-        output.write(read)
-        # status
-        if (i+1) % 100000 == 0:
-            logging.info('  Reads processed: {}'.format(i+1))
+    for contig in bam.references:
+        logging.info('Processing contig: {}'.format(contig))
+        contig_len = len(fasta.fetch(contig))
+        for read in sorted(bam.fetch(contig), key=lambda k: random.random()):
+            # new cov
+            added_cov = read.query_length / contig_len
+            # if max cov hit, skipping read
+            if contig_cov[read.reference_name] + added_cov >= args.max_coverage:
+                continue
+            # if very large insert size, skipping
+            if abs(read.template_length) > args.max_insert_size:
+                continue
+            # keeping read & tracking added coverage
+            contig_cov[read.reference_name] = contig_cov[read.reference_name] + added_cov
+            output.write(read)
+        logging.info('  Final coverage: {}'.format(round(contig_cov[contig],2)))
+                    
     # finish up
     bam.close()
     fasta.close()
     output.close()
     # status
-    print('\t'.join(['contig', 'contig_length', 'coverage']))
+    print('\t'.join(['contig', 'coverage']))
     for contig,cov in sorted(contig_cov.items(), key=lambda x: -x[1]):
-        print('\t'.join([contig, str(contig_lens[contig]), str(cov)]))
+        print('\t'.join([contig, str(cov)]))
         
                         
 if __name__ == '__main__':

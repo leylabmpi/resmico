@@ -1,5 +1,4 @@
 localrules: nonpareil_precheck
-
 rule nonpareil_precheck:
     """
     nonpareil conda env check
@@ -32,11 +31,11 @@ rule nonpareil:
     input:
         check = coverage_dir + 'precheck_nonpareil.done',
         read1 = config['tmp_dir'] + \
-                '{richness}/{rep}/{read_depth}/sim_reads/R1.fq'
+                '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/sim_reads/R1.fq'
     output:
-        npo = coverage_dir + '{richness}/{rep}/{read_depth}/nonpareil.npo'
+        npo = coverage_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/nonpareil.npo'
     params:
-        params = config['params']['nonpareil']
+        params = config['params']['nonpareil']['params']
     conda:
         '../envs/nonpareil.yaml'
     threads:
@@ -47,9 +46,9 @@ rule nonpareil:
         mem_mb_pt = lambda wildcards, attempt: attempt * 3000,
         mem_gb_pt = lambda wildcards, attempt: attempt * 3
     log:
-        log_dir + 'nonpareil/{richness}/{rep}/{read_depth}.log'
+        log_dir + 'nonpareil/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}.log'
     benchmark:
-        benchmark_dir + 'nonpareil/{richness}/{rep}/{read_depth}.txt'
+        benchmark_dir + 'nonpareil/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}.txt'
     shell:
         """
         BASENAME=`dirname {output.npo}`"/nonpareil"
@@ -67,7 +66,7 @@ rule nonpareil_summary:
     Summarizing nonpareil data
     """
     input:
-        Expand(coverage_dir + '{richness}/{rep}/{read_depth}/nonpareil.npo',
+        Expand(coverage_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/nonpareil.npo',
                config['sim_params'])        
     output:
         curves = coverage_dir + 'nonpareil/all_curve.pdf',
@@ -76,7 +75,7 @@ rule nonpareil_summary:
     params:
         exe = config['pipeline']['script_folder'] + 'nonpareil_summary.R',
         basename = coverage_dir + 'nonpareil/all',
-        params = config['params']['nonpareil_summary'],
+        params = config['params']['nonpareil']['summary']
     conda:
         '../envs/nonpareil.yaml'
     log:

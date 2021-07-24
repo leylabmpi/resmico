@@ -114,15 +114,15 @@ rule map_read_filter:
     conda:
         '../envs/bowtie2.yaml'
     threads:
-        8
+        4
     resources:
         time = lambda wildcards, attempt: attempt ** 3 * 59,
         n = lambda wildcards, threads: threads,
-        mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 1
+        mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 3
     log:
-        log_dir + 'map_read_filter/{sample}.log',    
+        log_dir + 'map/read_filter/{sample}.log',    
     benchmark:
-        benchmark_dir + 'map_read_filter/{sample}.txt'
+        benchmark_dir + 'map/read_filter/{sample}.txt'
     shell:
         """
         OUTDIR=`dirname {output.read1}`
@@ -150,9 +150,9 @@ rule map_bowtie2_build:
     conda:
         '../envs/bowtie2.yaml'
     log:
-        log_dir + 'map_bowtie2_build/{genome}.log'
+        log_dir + 'map/bowtie2_build/{genome}.log'
     benchmark:
-        benchmark_dir + 'map_bowtie2_build/{genome}.log'
+        benchmark_dir + 'map/bowtie2_build/{genome}.log'
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
@@ -183,10 +183,10 @@ rule map_bowtie2:
         n = lambda wildcards, threads: threads,
         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 3
     log:
-        bt2 = log_dir + 'map_bowtie2/{genome}/{sample}.log',    
-        sam = log_dir + 'map_bowtie2_samtools/{genome}/{sample}.log'
+        bt2 = log_dir + 'map/bowtie2/{genome}/{sample}.log',    
+        sam = log_dir + 'map/bowtie2_samtools/{genome}/{sample}.log'
     benchmark:
-        benchmark_dir + 'map_bowtie2/{genome}/{sample}.txt'
+        benchmark_dir + 'map/bowtie2/{genome}/{sample}.txt'
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
@@ -201,7 +201,33 @@ rule map_bowtie2:
           > {output.bam} 2>> {log.sam}
         """
 
-rule map_bowtie2_index_bam:
+# rule map_shuffle_bam:
+#     """
+#     Shuffle BAM for downstream subsampling
+#     """
+#     input:
+#         bam = config['tmp_dir'] + 'gs_map/map_raw/{genome}/{sample}.bam'
+#     output:
+#         bam = config['tmp_dir'] + 'gs_map/map/{genome}/{sample}.bam'
+#     threads:
+#         4
+#     resources:
+#         time = lambda wildcards, attempt: attempt ** 3 * 59,
+#         n = lambda wildcards, threads: threads,
+#         mem_gb_pt = lambda wildcards, attempt: attempt * 2
+#     conda:
+#         '../envs/bowtie2.yaml'
+#     log:
+#         log_dir + 'map/shuff_bam/{genome}/{sample}.log'
+#     benchmark:
+#         benchmark_dir + 'map/shuff_bam/{genome}/{sample}.txt'
+#     shell:
+#         """
+#         export PATH=$CONDA_PREFIX/bin:$PATH
+#         samtools bamshuf -@ {threads} -o {output.bam} {input.bam} 2> {log} 1>&2
+#         """        
+        
+rule map_index_bam:
     """
     Indexing BAM
     """
@@ -218,9 +244,9 @@ rule map_bowtie2_index_bam:
     conda:
         '../envs/bowtie2.yaml'
     log:
-        log_dir + 'map_bowtie2_index_bam/{genome}/{sample}.log'
+        log_dir + 'map/index_bam/{genome}/{sample}.log'
     benchmark:
-        benchmark_dir + 'map_bowtie2_index_bam/{genome}/{sample}.txt'
+        benchmark_dir + 'map/index_bam/{genome}/{sample}.txt'
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
@@ -241,9 +267,9 @@ rule map_samtools_faidx:
     conda:
         '../envs/bowtie2.yaml'
     log:
-        log_dir + 'map_samtools_faidx/{genome}.log'
+        log_dir + 'map/samtools_faidx/{genome}.log'
     benchmark:
-        benchmark_dir + 'map_samtools_faidx/{genome}.txt'
+        benchmark_dir + 'map/samtools_faidx/{genome}.txt'
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
@@ -260,7 +286,8 @@ rule map_bam_subsample:
         bam = config['tmp_dir'] + 'gs_map/map/{genome}/{sample}.bam',
         bai = config['tmp_dir'] + 'gs_map/map/{genome}/{sample}.bam.bai'
     output:
-        bam = temp(config['tmp_dir'] + 'gs_map/map-sub/{genome}/subsample/{sample}.bam')
+        bam = temp(config['tmp_dir'] + 'gs_map/map-sub/{genome}/subsample/{sample}.bam'),
+        tsv = map_dir + '{genome}/{sample}/contig_coverage.tsv'
     params:
         mc = config['nonsim_params']['max_coverage'],
         exe = config['pipeline']['script_folder'] + 'bam_subsample.py'
@@ -270,13 +297,14 @@ rule map_bam_subsample:
     conda:
         '../envs/bowtie2.yaml'
     log:
-        log_dir + 'map_bam_subsample/{genome}/{sample}.log'
+        log_dir + 'map/bam_subsample/{genome}/{sample}.log'
     benchmark:
-        benchmark_dir + 'map_bam_subsample/{genome}/{sample}.txt'
+        benchmark_dir + 'map/bam_subsample/{genome}/{sample}.txt'
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
-        {params.exe} -o {output.bam} -m {params.mc} {input.bam} {input.fna} 2> {log} 1>&2
+        {params.exe} -o {output.bam} -m {params.mc} {input.bam} \
+          {input.fna} > {output.tsv} 2> {log}
         """
         
 rule map_bowtie2_index_subsampled_bam:
@@ -296,9 +324,9 @@ rule map_bowtie2_index_subsampled_bam:
     conda:
         '../envs/bowtie2.yaml'
     log:
-        log_dir + 'map_bowtie2_index_subsampled_bam/{genome}/{sample}.log'
+        log_dir + 'map/bowtie2_index_subsampled_bam/{genome}/{sample}.log'
     benchmark:
-        benchmark_dir + 'map_bowtie2_index_subsampled_bam/{genome}/{sample}.txt'
+        benchmark_dir + 'map/bowtie2_index_subsampled_bam/{genome}/{sample}.txt'
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
