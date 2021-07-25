@@ -348,11 +348,11 @@ rule bam_to_DL_features:
         exe = config['pipeline']['script_folder'] + 'bam2feat',
 	params = config['nonsim_params']['make_features']
     threads:
-        4
+        8
     resources:
-        time = lambda wildcards, attempt: attempt ** 2 * 60 * 12,
+        time = lambda wildcards, attempt: attempt ** 3 * 59,
         n = lambda wildcards, threads: threads,
-        mem_gb_pt = lambda wildcards, attempt: attempt ** 3 * 6
+        mem_gb_pt = lambda wildcards, attempt: attempt ** 3 + 2
     conda:
         '../envs/bowtie2.yaml'
     log:
@@ -363,7 +363,7 @@ rule bam_to_DL_features:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
         {params.exe} {params.params} --procs {threads} \
-          --batches 100 --chunks 100 --assembler None \
+          --batches 50 --chunks 10 --assembler None \
           --bam_file {input.bam} \
           --fasta_file {input.fna} \
           --o {output.tsv} \
