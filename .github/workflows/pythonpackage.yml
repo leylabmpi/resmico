@@ -64,7 +64,7 @@ jobs:
 #      shell: bash -l {0}
 #      run: |
 #        pytest -s --ignore ${{runner.workspace}}/ResMiCo/ResMiCo-SM/feature_extractor
-    - name: snakemake
-      shell: bash -l {0}
-      run: |
-        snakemake --directory ResMiCo-SM --snakefile ResMiCo-SM/Snakefile -F --dryrun
+#    - name: snakemake
+#      shell: bash -l {0}
+#      run: |
+#        snakemake --directory ResMiCo-SM --snakefile ResMiCo-SM/Snakefile -F --dryrun
