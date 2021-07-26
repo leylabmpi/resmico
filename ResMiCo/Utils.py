@@ -261,13 +261,16 @@ def find_pkl_file(feat_file, force_overwrite=False):
         return feat_file, 'tsv'
                 
         
-def read_feature_file_table(feat_file_table, force_overwrite=False, technology='all-asmbl'):
+def read_feature_file_table(feat_file_table, force_overwrite=False, technology='all-asmbl', v3=False):
     """ Loads feature file table, which lists all feature tables & associated
     metadata. The table is loaded based on column names.
     Params:
       feat_file_table : str, file path of tsv table
       force_overwrite : bool, force create pkl files?
       technology : str, filter to just specified assembler(s)
+      v3 : means resmico simulations with
+      richness/abundance_distribution/simulation_replicate/read_length/sequencing_depth/assembler/
+      folder structure
     Returns:
       dict{file_type : {richness: {read_depth: {simulation_rep : {assembler : feature_file }}}}}
     """ 
@@ -284,6 +287,8 @@ def read_feature_file_table(feat_file_table, force_overwrite=False, technology='
         col_names = next(tsv)
         # indexing
         colnames = ['richness', 'rep', 'read_depth', 'assembler', 'feature_file']
+        if v3:
+            colnames.extend(['abundance_distribution', 'read_length'])
         colnames = {x:col_names.index(x) for x in colnames}
         
         # formatting rows
@@ -297,6 +302,10 @@ def read_feature_file_table(feat_file_table, force_overwrite=False, technology='
                 msg = 'Feature file table, Row{} => "{}" != --technology; Skipping'
                 logging.info(msg.format(i+2, assembler))
                 continue
+            if v3:
+                #get_row_val was useful only for printing errors
+                abnd_distr = row[colnames['abundance_distribution']]
+                read_len = row[colnames['read_length']]
             feature_file = get_row_val(row, i + 2, colnames, 'feature_file')
             if not os.path.isfile(feature_file):
                 feature_file = os.path.join(base_dir, feature_file)
@@ -317,20 +326,37 @@ def read_feature_file_table(feat_file_table, force_overwrite=False, technology='
                 msg += '; The file provided: {}'
                 raise ValueError(msg.format(i + 2, feature_file))
             
-            D[file_type][richness][read_depth][rep][assembler] = feature_file
+            if v3:
+                D[file_type][richness][abnd_distr][rep][read_len][read_depth][assembler] = feature_file
+            else:
+                D[file_type][richness][read_depth][rep][assembler] = feature_file
 
     # summary
     sys.stderr.write('#-- Feature file table summary --#\n')
     n_tech = defaultdict(dict)
-    for ft,inf in D.items():
-        for rich,info in inf.items():
-            for dep,infoo in info.items():
-                for rep,infooo in infoo.items():
-                    for tech,filename in infooo.items():
-                        try:
-                            n_tech[ft][tech] += 1
-                        except KeyError:
-                            n_tech[ft][tech] = 1
+    if v3:
+        for ft, inf in D.items():
+            for rch, info in inf.items():
+                for abnd, infoo in info.items():
+                    for rep, infooo in infoo.items():
+                        for rlen, infoooo in infooo.items():
+                            for dp,infooooo in infoooo.items():
+                                for tech,filename in infooooo.items():
+                                    try:
+                                        n_tech[ft][tech] += 1
+                                    except KeyError:
+                                        n_tech[ft][tech] = 1
+    else:
+        for ft,inf in D.items():
+            for rich,info in inf.items():
+                for dep,infoo in info.items():
+                    for rep,infooo in infoo.items():
+                        for tech,filename in infooo.items():
+                            try:
+                                n_tech[ft][tech] += 1
+                            except KeyError:
+                                n_tech[ft][tech] = 1
+                                
     msg = 'Assembler = {}; File type = {}; No. of files: {}\n'
     for ft,v in n_tech.items():
         for tech,v in v.items():
