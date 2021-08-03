@@ -6,7 +6,7 @@ import sys
 import argparse
 import logging
 ## application
-from DeepMAsED import Preprocess
+from ResMiCo import Preprocess
 
 # functions
 def parse_args(test_args=None, subparsers=None):

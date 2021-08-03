@@ -500,10 +500,10 @@ def pickle_data_b(x, set_target=True):
         w_std_mq = col_names.index('stdev_mapq_Match')
         w_gc = col_names.index('seq_window_perc_gc') #try without
         w_npropV = col_names.index('num_proper_SNP')
-        w_cov = col_names.index('coverage')  # WARNING: predict assumes coverage in -2 position
+        w_cov = col_names.index('coverage')  
 
         w_features = [w_max_is, w_min_is, w_mean_is, w_std_is,
-                      w_min_mq, w_mean_mq, w_std_mq
+                      w_min_mq, w_mean_mq, w_std_mq,
                       w_gc,
                       w_cov]
         
@@ -547,7 +547,11 @@ def pickle_data_b(x, set_target=True):
                 
             f_num_values = []
             for ind in w_num_features:
-                f_num_values.append(float(row[ind])/float(row[w_cov]))
+                if float(row[w_cov])>0:
+                    f_num_values.append(float(row[ind])/float(row[w_cov]))
+                else:
+                    f_num_values.append(float(row[ind]))
+                    print('coverage is 0', row)
                 
             f_flt_values = []
             for ind in w_features:

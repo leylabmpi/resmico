@@ -1,4 +1,4 @@
-from DeepMAsED import Utils
+from ResMiCo import Utils
 
 
 def main(args):

@@ -8,8 +8,8 @@ from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.callbacks import ModelCheckpoint
 from sklearn.metrics import average_precision_score
 # Application
-from DeepMAsED import Models_FL as Models
-from DeepMAsED import Utils
+from ResMiCo import Models_FL as Models
+from ResMiCo import Utils
 
 
 class Config(object):
