@@ -63,9 +63,9 @@ def standardize_data(feat_file_table, mean_std_file, set_target=True, real_data=
 
     mean = feat_sum / n_el
     std = np.sqrt((feat_sq_sum / n_el - mean ** 2).clip(min=0))
-    # do not change refrence and counts
-    mean[0:8] = 0
-    std[0:8] = 1
+    # do not change refrence, counts, and counts features that are already devided by corresponding coverage (3 features)
+    mean[0:8+3] = 0
+    std[0:8+3] = 1
     std[std==0]=1.
 
     print(mean)
@@ -502,12 +502,12 @@ def pickle_data_b(x, set_target=True):
         w_npropV = col_names.index('num_proper_SNP')
         w_cov = col_names.index('coverage')  # WARNING: predict assumes coverage in -2 position
 
-        w_features = [w_npropM, w_orpM,
-                      w_max_is, w_min_is, w_mean_is, w_std_is,
-                      w_min_mq, w_mean_mq, w_std_mq,
-                      w_npropV, #todo: features_sel 20 or 21
+        w_features = [w_max_is, w_min_is, w_mean_is, w_std_is,
+                      w_min_mq, w_mean_mq, w_std_mq
                       w_gc,
                       w_cov]
+        
+        w_num_features = [w_npropM, w_orpM, w_npropV]
         nf=20  # 4 for refrence feature, 4 count features, 12 important features
         
         # formatting rows
@@ -519,7 +519,11 @@ def pickle_data_b(x, set_target=True):
                 if idx != 0:
                     #filling missing values with average within contig
                     df_feat = pd.DataFrame(np.array(feat).reshape(-1,nf))
-                    df_feat.fillna(df_feat.mean(), inplace=True)
+                    #before all missing values were just filled with an average within a contig df_feat.mean()
+                    #this results in a very noisy filling, 
+                    #because missing position are getting different values depending on the contig of origin
+                    #maybe, it is better to put -1 (the minimum observed value in the data is 0) everywhere
+                    df_feat.fillna(-1, inplace=True)
                     feat_contig.append(df_feat.values)
                     if set_target == True:            
                         target_contig.append(float(tgt))
@@ -538,7 +542,13 @@ def pickle_data_b(x, set_target=True):
             f_countN = [float(row[w_nA]), float(row[w_nC]), float(row[w_nT]), float(row[w_nG])]
             # normalisation, absolute values is coded in coverage
             if np.sum(f_countN)>1:
-                f_countN = f_countN/np.sum(f_countN) 
+                f_countN = f_countN/np.sum(f_countN) #devision by coverage directly is also possible
+                
+                
+            f_num_values = []
+            for ind in w_num_features:
+                f_num_values.append(float(row[ind])/float(row[w_cov]))
+                
             f_flt_values = []
             for ind in w_features:
                 try:
@@ -549,12 +559,12 @@ def pickle_data_b(x, set_target=True):
                     else: print(ind, row[ind])
     
             # feat.append(np.concatenate((4 * [0], f_countN, f_flt_values, [int(depth)]))[None, :])
-            feat.append(np.concatenate((4 * [0], f_countN, f_flt_values))[None, :])
+            feat.append(np.concatenate((4 * [0], f_countN, f_num_values, f_flt_values))[None, :])
             feat[-1][0][letter_idx[row[w_ref]]] = 1
 
     # Append last
     df_feat = pd.DataFrame(np.array(feat).reshape(-1,nf))
-    df_feat.fillna(df_feat.mean(), inplace=True)
+    df_feat.fillna(-1, inplace=True) #df_feat.mean()
     feat_contig.append(df_feat.values)
     if set_target == True:
         target_contig.append(float(tgt))
