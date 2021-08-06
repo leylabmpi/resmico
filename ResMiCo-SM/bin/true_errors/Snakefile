@@ -10,7 +10,7 @@ rule combine_ref_genomes:
         temp(config['tmp_dir'] + '{richness}/{abund_dist}/{rep}/refs/ref_genomes.fna')
     params:
         exe = config['pipeline']['script_folder'] + 'concat_ref_genomes.py',
-	genomes_dir = genomes_dir
+	genomes_dir = genomes_dir        
     resources:
         time = lambda wildcards, attempt: attempt ** 3 * 59
     log:
@@ -107,7 +107,8 @@ rule metaquast:
     params:
         params = config['params']['asmbl_errors']['metaquast'],
         exe = config['pipeline']['script_folder'] + 'metaquast_short.py',
-        ionice = config['params']['ionice']
+        ionice = config['params']['ionice'],
+        exe_empty = config['pipeline']['script_folder'] + 'is_empty.py'
     threads:
         8
     resources:
@@ -133,17 +134,23 @@ rule metaquast:
         rm -rf $OUTDIR"/combined_reference/" 2> {log}        
         rm -rf $OUTDIR"/runs_per_reference/" 2>> {log}
 
-        # metaquast run
-        {params.exe} -t {threads} {params.params}  \
-          --max-ref-number 0 --no-gzip \
-          --reads1 {input.read1} --reads2 {input.read2} \
-          -o $TMPOUTDIR -r $REFDIR \
-          {input.contigs} 2>> {log} 1>&2
+        if [ `{params.exe_empty} {input.contigs}` -eq 0 ]; then
+          # metaquast run
+          {params.exe} -t {threads} {params.params}  \
+            --max-ref-number 0 --no-gzip \
+            --reads1 {input.read1} --reads2 {input.read2} \
+            -o $TMPOUTDIR -r $REFDIR \
+            {input.contigs} 2>> {log} 1>&2
 
-        # copying to final destination
-        mkdir -p $OUTDIR 2>> {log}
-        ionice {params.ionice} cp -rf $TMPOUTDIR/* $OUTDIR 2>> {log} 
-        touch {output.done_tmp} {output.done} 2>> {log}
+          # copying to final destination
+          mkdir -p $OUTDIR 2>> {log}
+          ionice {params.ionice} cp -rf $TMPOUTDIR/* $OUTDIR 2>> {log} 
+          touch {output.done_tmp} {output.done} 2>> {log}
+        else
+          echo "Input empty; skipping" > {log}
+          touch {output.info_tmp} {output.fasta_tmp} {output.done_tmp} 2>> {log}
+          touch {output.info} {output.fasta} {output.done} 2>> {log}
+        fi
         """
  
 localrules: metaquast_ref_genomes_rm        
