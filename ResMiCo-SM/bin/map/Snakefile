@@ -152,7 +152,7 @@ rule map_index_bam:
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
-        if [ `{params.exe} {input.ref}` -eq 0 ]; then
+        if [ `{params.exe} {input.bam}` -eq 0 ]; then
           samtools index -@ {threads} {input.bam} 2> {log}
         else
           echo "Input is empty; skipping" > {log}
@@ -232,7 +232,7 @@ rule map_sort_subsampled_bam:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
         TMPDIR=`dirname {output}`
-        if [ `{params.exe} {input.fna}` -eq 0 ]; then
+        if [ `{params.exe} {input}` -eq 0 ]; then
           samtools sort -@ {threads} -T $TMPDIR -o {output} {input} 2> {log} 1>&2
         else
           echo "Input empty; skipping" > {log}

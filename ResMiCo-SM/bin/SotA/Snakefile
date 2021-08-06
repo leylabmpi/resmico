@@ -202,6 +202,8 @@ rule metaMIC_extract:
             --contig {input.contigs} --output $OUTDIR 2>> {log}
         else
           echo "Input empty; skipping" > {log}
+          mkdir -p `dirname {output.txt}` 2>> {log}
+          mkdir -p `dirname {output.rb}` 2>> {log}
           touch {output.txt} {output.rb} 2>> {log}
         fi
         """

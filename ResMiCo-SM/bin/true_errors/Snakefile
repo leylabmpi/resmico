@@ -148,6 +148,8 @@ rule metaquast:
           touch {output.done_tmp} {output.done} 2>> {log}
         else
           echo "Input empty; skipping" > {log}
+          mkdir -p `dirname {output.info_tmp}` 2>> {log}
+          mkdir -p `dirname {output.info}` 2>> {log}
           touch {output.info_tmp} {output.fasta_tmp} {output.done_tmp} 2>> {log}
           touch {output.info} {output.fasta} {output.done} 2>> {log}
         fi
