@@ -18,6 +18,7 @@ rule bam_to_DL_features:
         exe = config['pipeline']['script_folder'] + 'bam2feat', 
 	params = config['params']['feature_table']['make'],
         assembler = lambda wildcards: wildcards.assembler,
+        exe_empty = config['pipeline']['script_folder'] + 'is_empty.py'
     threads:
         8
     resources:
@@ -33,13 +34,18 @@ rule bam_to_DL_features:
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
-        {params.exe} {params.params} \
-          --procs {threads} --batches 50 --chunks 10 \
-          --assembler {params.assembler} \
-          --bam_file {input.bam} \
-          --fasta_file {input.fna} \
-          --o {output.tsv} \
-          2>> {log} 1>&2
+        if [ `{params.exe_empty} {input.fna}` -eq 0 ]; then
+          {params.exe} {params.params} \
+            --procs {threads} --batches 50 --chunks 10 \
+            --assembler {params.assembler} \
+            --bam_file {input.bam} \
+            --fasta_file {input.fna} \
+            --o {output.tsv} \
+            2>> {log} 1>&2
+        else
+          echo "Input empty; skipping" > {log}
+          touch {output.tsv} 2>> {log}
+        fi
         """
 
 # rule bam_to_DL_features:
@@ -101,7 +107,8 @@ rule metaquast_masmbl_feature_join:
         temp(config['tmp_dir'] + \
             'feats/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/features_j.tsv')
     params:
-        exe = config['pipeline']['script_folder'] + 'metaquast_masmbl_report_feature_join.py'
+        exe = config['pipeline']['script_folder'] + 'metaquast_masmbl_report_feature_join.py',
+        exe_empty = config['pipeline']['script_folder'] + 'is_empty.py'
     resources:
         time = lambda wildcards, attempt: attempt ** 2 * 60 * 12,
         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 * 2 + 20
@@ -116,7 +123,12 @@ rule metaquast_masmbl_feature_join:
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
-        {params.exe} {input.fasta} {input.masmbl} {input.feats} > {output} 2> {log}
+        if [ `{params.exe_empty} {input.feats}` -eq 0 ]; then        
+          {params.exe} {input.fasta} {input.masmbl} {input.feats} > {output} 2> {log}
+        else
+          echo "Input empty; skipping" > {log}
+          touch {output} 2>> {log}
+        fi
         """
 
 rule features_compress:

@@ -1,6 +1,9 @@
 # Input table
+## Table of genomes
 genomes_file: tests/data/genomes_n10.tsv
 #genomes_file: tests/data/Samp2-MAG3.tsv
+## If using pre-generated reads
+reads_file: Skip
 
 # Output directory
 output_dir: tests/output_n10/

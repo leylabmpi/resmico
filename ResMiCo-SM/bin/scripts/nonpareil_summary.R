@@ -23,6 +23,12 @@ nonpareil_analyses = function(npo_files, target_seq_depth = 3e9, out_base = 'non
 
   # filtering out any empty files
   npo_files = npo_files[file.info(npo_files)$size > 0]
+  if(length(npo_files) == 0){
+    cat('All NPO files are empty! Skipping\n')
+    F = paste0(out_base, '_curve.pdf')
+    file.create(F)  
+    return(NULL)
+  }
 
   # curves for all npo files
   sample_labels = sapply(npo_files, function(x) basename(dirname(x)))
@@ -76,21 +82,44 @@ nonpareil_analyses = function(npo_files, target_seq_depth = 3e9, out_base = 'non
   return(nonpareil_results)
 }
 
+make_dir = function (dir, quiet = FALSE){
+    if (!dir.exists(dir)) {
+        dir.create(dir, recursive = TRUE, showWarnings = FALSE)
+        if (quiet == FALSE) {
+            cat("Created directory:", dir, "\n")
+        }
+    }
+    else {
+        if (quiet == FALSE) {
+            cat("Directory already exists:", dir, "\n")
+        }
+    }
+    if (!dir.exists(dir)) {
+        stop("Could not create directory!")
+    }
+}
 
-# nonpareil analyses
+write_table = function(df, out_base, suffix){
+    F = paste(c(out_base, suffix), collapse='_')
+    if(is.null(df)){
+      file.create(F)
+    } else {
+      df = as.data.frame(df)
+      df$Sample = rownames(df)
+      df = cbind(df$Sample, df[,2:(ncol(df)-1)])
+      colnames(df)[1] = 'Sample'
+      write.table(df, file=F, sep='\t', quote=FALSE, row.names=FALSE)
+    }
+    write(paste0('File written: ', F), stderr())
+    return(invisible(NULL))
+}
+
+# --main-- #
+## nonpareil analyses
 res = nonpareil_analyses(args[3:length(args)], args[1], args[2])
+make_dir(dirname(args[2]), quiet=TRUE)
 out_summary = paste0(args[2], '_summary.RDS')
 saveRDS(res, file=out_summary)
 write(paste0('File written: ', out_summary), stderr())
-## writing individual tables
-write_table = function(df, out_base, suffix){
-    df = as.data.frame(df)
-    df$Sample = rownames(df)
-    df = cbind(df$Sample, df[,2:(ncol(df)-1)])
-    colnames(df)[1] = 'Sample'
-    F = paste(c(out_base, suffix), collapse='_')
-    write.table(df, file=F, sep='\t', quote=FALSE, row.names=FALSE)
-    write(paste0('File written: ', F), stderr())
-}
-#write_table(res$curve, args[2], 'curves.txt')
+### writing individual tables
 write_table(res$summary, args[2], 'summary.txt')

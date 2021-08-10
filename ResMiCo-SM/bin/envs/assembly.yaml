@@ -1,6 +1,7 @@
 channels:
+- conda-forge
 - bioconda
 dependencies:
 - pigz
 - bioconda::megahit=1.1.3
-- bioconda::spades=3.14
+- bioconda::spades=3.15
