@@ -551,7 +551,6 @@ def pickle_data_b(x, set_target=True):
                     f_num_values.append(float(row[ind])/float(row[w_cov]))
                 else:
                     f_num_values.append(float(row[ind]))
-                    print('coverage is 0', row)
                 
             f_flt_values = []
             for ind in w_features:
