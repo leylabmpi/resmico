@@ -53,8 +53,25 @@ def compute_sum_sumsq_n(featurefiles_table, n_feat=18):  # todo: 20 or 21 featur
     np.save(path+'/mean_std', [feat_sum, feat_sq_sum, n_el])
     return 
 
+def standardize_file(filename, mean, std, set_target):
+    with open(filename, 'rb') as feat:
+        if set_target == True:
+            x, target_contig, name_to_id = pickle.load(feat)
+        else:
+            x, name_to_id = pickle.load(feat)
+        standard_x = []
+        for xi in x:
+            standard_x.append((xi - mean) / std)
 
-def standardize_data(feat_file_table, mean_std_file, set_target=True, real_data=False):
+    with open(filename, 'wb') as f:
+        logging.info('Dumping: {}'.format(filename))
+        if set_target == True:
+            pickle.dump([standard_x, target_contig, name_to_id], f)
+        else:
+            pickle.dump([standard_x, name_to_id], f)
+    return
+
+def standardize_data(feat_file_table, mean_std_file, set_target=True, real_data=False, nprocs=1):
     if real_data:
         feat_files = read_feature_ft_realdata(feat_file_table)
     else:
@@ -70,47 +87,23 @@ def standardize_data(feat_file_table, mean_std_file, set_target=True, real_data=
 
     print(mean)
     print(std)
-
+   
+    all_files = []
+    
     if real_data:
         for sample, info in feat_files['pkl'].items():
             for genome, filename in info.items():
-                with open(filename, 'rb') as feat:
-                    if set_target == True:
-                        x, target_contig, name_to_id = pickle.load(feat)
-                    else:
-                        x, name_to_id = pickle.load(feat)
-                    standard_x = []
-                    for xi in x:
-                        standard_x.append((xi - mean) / std)
-
-                with open(filename, 'wb') as f:
-                    logging.info('Dumping: {}'.format(filename))
-                    if set_target == True:
-                        pickle.dump([standard_x, target_contig, name_to_id], f)
-                    else:
-                        pickle.dump([standard_x, name_to_id], f)
-
+                all_files.append(filename)
 
     else:
         for rich,info in feat_files['pkl'].items():
             for dep,infoo in info.items():
                 for rep,infooo in infoo.items():
                     for tech,filename in infooo.items():
-                        with open(filename, 'rb') as feat:
-                            if set_target == True:
-                                x, target_contig, name_to_id = pickle.load(feat)
-                            else:
-                                x, name_to_id = pickle.load(feat)
-                            standard_x = []
-                            for xi in x:
-                                standard_x.append((xi - mean) / std)
-
-                        with open(filename, 'wb') as f:
-                            logging.info('Dumping: {}'.format(filename))
-                            if set_target == True:
-                                pickle.dump([standard_x, target_contig, name_to_id], f)
-                            else:
-                                pickle.dump([standard_x, name_to_id], f)
+                        all_files.append(filename)
+                                               
+    with pathos.multiprocessing.Pool(nprocs) as pool:
+        pool.map(lambda file: standardize_file(file, mean, std, set_target), all_files)
     return 
 
 
@@ -252,9 +245,9 @@ def find_pkl_file(feat_file, force_overwrite=False):
         
     if os.path.isfile(pkl+'.pkl'):
         logging.info('Found pkl file: {}'.format(pkl))        
-        msg = '  Using the existing pkl file. Use DeepMAsED Preprocess --pickle-tsv'
-        msg += ' --force-overwrite=True to force-recreate the pkl file from the tsv file'
-        logging.info(msg)
+#         msg = '  Using the existing pkl file. Use DeepMAsED Preprocess --pickle-tsv'
+#         msg += ' --force-overwrite=True to force-recreate the pkl file from the tsv file'
+#         logging.info(msg)
         return pkl+'.pkl', 'pkl'
     else:
         logging.info('  No pkl found. A pkl file will be created from the tsv file')
