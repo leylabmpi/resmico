@@ -77,6 +77,8 @@ def parse_args(test_args=None, subparsers=None):
                         help='Window size for chunks method, size of piece for random method (default: %(default)s)')
     parser.add_argument('--v1', action='store_true', default=False,
                         help='use deepmased')
+    parser.add_argument('--longdir', action='store_true', default=False,
+                        help='Six variable parameters in simulation (default: %(default)s)')
 
     # running test args
     if test_args:
