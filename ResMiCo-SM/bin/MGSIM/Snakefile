@@ -70,7 +70,7 @@ def abund_dist_format(wildcards):
     return ad
 
 def create_rand_seed(wildcards):
-    if not skipped(config['params']['MGSIM']['random_seed']):
+    if not skipped(config['params']['MGSIM']['community']['random_seed']):
         return random.randint(1,100000)
     else:
         return None
@@ -87,7 +87,7 @@ rule MGSIM_communities:
     params:
         richness = lambda wildcards: wildcards.richness,
         abund_dist = abund_dist_format,
-        seed = lambda wildcards: create_rand_seed,
+        seed = lambda wildcards: create_rand_seed(wildcards),
         params = config['params']['MGSIM']['community']['other_sim_params']        
     conda:
         '../envs/MGSIM.yaml'

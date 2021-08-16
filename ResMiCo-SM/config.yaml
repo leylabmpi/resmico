@@ -68,16 +68,11 @@ params:
     make: --window 6
   # state-of-the-art
   SotA:
-    ALE: Skip #""
-    VALET: Skip #""  
+    ALE: ""
+    VALET: ""  
     metaMIC:
-<<<<<<< HEAD
-      extract: Skip #--mlen 5000
-      predict: Skip #-a MEGAHIT
-=======
       extract: --mlen 1000
       predict: --mlen 1000 --slen 500 -a MEGAHIT
->>>>>>> fcd02fe1a76560eb819d22cdddda5c8cf2ac06fa
 
 # params just for creating feature tables for non-simulated data
 nonsim_params:

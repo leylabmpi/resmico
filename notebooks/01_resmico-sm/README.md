@@ -1,0 +1,1 @@
+Synthetic dataset generation via ResMiCo-SM, a snakemake pipeline that simulates metagenomes from reference genomes.
