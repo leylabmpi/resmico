@@ -28,7 +28,8 @@ params:
         - 0.8        
       abundance_distribution:
         - "mean:10,sigma:2"
-      other_sim_params: --rnd-seed 8712
+      random_seed: 8192
+      other_sim_params: ""
     reads: 
       length:
         - 100
@@ -64,11 +65,11 @@ params:
     make: --window 6
   # state-of-the-art
   SotA:
-    ALE: ""
-    VALET: ""  
+    ALE: Skip #""
+    VALET: Skip #""  
     metaMIC:
-      extract: --mlen 5000
-      predict: -a MEGAHIT
+      extract: Skip #--mlen 5000
+      predict: Skip #-a MEGAHIT
 
 # params just for creating feature tables for non-simulated data
 nonsim_params:

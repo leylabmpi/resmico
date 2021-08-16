@@ -28,7 +28,7 @@ def all_which_input(wildcards):
                    config['sim_params'])
         
     # coverage
-    if not skipped(config['params']['nonpareil']):
+    if not skipped(config['params']['nonpareil']['params']):
         F += Expand(coverage_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/nonpareil.npo',
                    config['sim_params'])  
         if not skipped(config['params']['nonpareil']['summary']):
