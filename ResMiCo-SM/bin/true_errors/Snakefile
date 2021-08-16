@@ -60,7 +60,10 @@ def metaquast_mem(wildcards, input, threads, attempt):
         for line in inF:
             n_refs += 1
     # calc mem (Gb)
-    read_depth_mem = float(wildcards.read_depth) / 1000000 * 10
+    try:
+        read_depth_mem = float(wildcards.read_depth) / 1000000 * 10
+    except ValueError:
+        read_depth_mem = float(8e6) / 1000000 * 10        
     mem_total = 0.05 * n_refs + read_depth_mem + attempt ** 2 * 10    
     return int(round(mem_total / threads, 0))
 
@@ -71,7 +74,10 @@ def metaquast_time(wildcards, input, threads, attempt):
         for line in inF:
             n_refs += 1
     # calc time (minutes)
-    read_depth_time_min = float(wildcards.read_depth) / 1000000 * 60 * 2
+    try:
+        read_depth_time_min = float(wildcards.read_depth) / 1000000 * 60 * 2
+    except ValueError:
+        read_depth_time_min = float(8e6) / 1000000 * 60 * 2
     T_min = n_refs + read_depth_time_min + 720 * attempt + 480
     return int(round(T_min,0))
 
@@ -86,14 +92,14 @@ rule metaquast:
 	read1 = config['tmp_dir'] + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/sim_reads/R1.fq',
 	read2 = config['tmp_dir'] + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/sim_reads/R2.fq'
     output:
-        info_tmp = temp(config['tmp_dir'] + \
+        info_tmp = temp(config['tmp_dir'] + 'metaquast/' + \
 	                '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
                         'combined_reference/contigs_reports/' + \
 	                'contigs_report_contigs_filtered.mis_contigs.info'),
-        fasta_tmp = temp(config['tmp_dir'] + \
+        fasta_tmp = temp(config['tmp_dir'] + 'metaquast/' + \
                          '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/combined_reference/' + \
 	                 'contigs_reports/contigs_filtered.mis_contigs.fa'),
-        done_tmp = touch(config['tmp_dir'] + \
+        done_tmp = touch(config['tmp_dir'] + 'metaquast/' + \
                          '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/metaquast.done'),
         info = true_errors_dir + \
 	   '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
@@ -144,6 +150,7 @@ rule metaquast:
 
           # copying to final destination
           mkdir -p $OUTDIR 2>> {log}
+          rm -rf $TMPOUTDIR/quast_corrected_input 2>> {log}
           ionice {params.ionice} cp -rf $TMPOUTDIR/* $OUTDIR 2>> {log} 
           touch {output.done_tmp} {output.done} 2>> {log}
         else

@@ -1,6 +1,9 @@
 # Input table
+## Table of genomes
 genomes_file: tests/data/genomes_n10.tsv
 #genomes_file: tests/data/Samp2-MAG3.tsv
+## If using pre-generated reads
+reads_file: Skip
 
 # Output directory
 output_dir: tests/output_n10/
@@ -68,8 +71,13 @@ params:
     ALE: Skip #""
     VALET: Skip #""  
     metaMIC:
+<<<<<<< HEAD
       extract: Skip #--mlen 5000
       predict: Skip #-a MEGAHIT
+=======
+      extract: --mlen 1000
+      predict: --mlen 1000 --slen 500 -a MEGAHIT
+>>>>>>> fcd02fe1a76560eb819d22cdddda5c8cf2ac06fa
 
 # params just for creating feature tables for non-simulated data
 nonsim_params:

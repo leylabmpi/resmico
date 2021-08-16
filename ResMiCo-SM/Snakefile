@@ -55,6 +55,14 @@ if 'Sample' in config['genomes_tbl'].columns:
     config['just_features'] = True
 else:
     config['just_features'] = False
+### Reads file (using genomes + pre-simulated reads)
+if not skipped(config['reads_file']):
+    config['reads_tbl'] = pd.read_csv(config['reads_file'], sep='\t', comment='#')
+    for col in ['Sample', 'Read1', 'Read2']:
+        if col not in config['reads_tbl'].columns:
+            raise IOError('"{}" column not found in reads table!'.format(col))
+else:
+    config['reads_tbl'] = None
     
 # Config calculated parameters
 ## if user provided
@@ -66,14 +74,22 @@ df_dtypes = {'richness' : str, 'abund_dist' : [],
              'rep' : int, 'assembler' : str}
 if config['just_features']:
     config['taxa_unique'] = config['genomes_tbl'].Taxon.unique().tolist()
-    config['samples_unique'] = config['genomes_tbl'].Sample.unique().tolist()    
+    config['samples_unique'] = config['genomes_tbl'].Sample.unique().tolist()
 else:
-    richness = config['params']['MGSIM']['community']['richness']
-    abund_dist = [re.sub(r'[:,]+', '-', x) for x in config['params']['MGSIM']['community']['abundance_distribution']]
-    read_length = config['params']['MGSIM']['reads']['length']    
-    read_depth = config['params']['MGSIM']['reads']['depth']
-    reps = [x+1 for x in range(config['params']['MGSIM']['sim_reps'])]
-    assemblers = [k for k,v in config['params']['assemblers'].items() if not skipped(v)]
+    if config['reads_tbl'] is None:
+        richness = config['params']['MGSIM']['community']['richness']
+        abund_dist = [re.sub(r'[:,]+', '-', x) for x in config['params']['MGSIM']['community']['abundance_distribution']]
+        read_length = config['params']['MGSIM']['reads']['length']    
+        read_depth = config['params']['MGSIM']['reads']['depth']
+        reps = [x+1 for x in range(config['params']['MGSIM']['sim_reps'])]
+        assemblers = [k for k,v in config['params']['assemblers'].items() if not skipped(v)]
+    else:
+        richness = config['reads_tbl'].Sample.tolist()
+        abund_dist = ['NA']
+        read_length = ['NA']
+        read_depth = ['NA']
+        reps = ['NA']
+        assemblers = [k for k,v in config['params']['assemblers'].items() if not skipped(v)]
     for x in itertools.product(richness, abund_dist, read_length, read_depth, reps, assemblers):
         config['sim_params']['richness'].append(x[0])
         config['sim_params']['abund_dist'].append(x[1])
@@ -83,6 +99,7 @@ else:
         config['sim_params']['assembler'].append(x[5])
 ## data.frame of all varying simulation parameters
 config['sim_params'] = pd.DataFrame.from_dict(config['sim_params'])
+
 
 def Expand(file_template, param_df, debug=False):
     """
@@ -101,7 +118,10 @@ include: snake_dir + 'bin/ll_pipeline_utils/Snakefile'
 if config['just_features']:
     include: snake_dir + 'bin/gs_map/Snakefile'
 else:
-    include: snake_dir + 'bin/MGSIM/Snakefile'
+    if config['reads_tbl'] is None:
+        include: snake_dir + 'bin/MGSIM/Snakefile'
+    else:
+        include: snake_dir + 'bin/reads/Snakefile'
     include: snake_dir + 'bin/coverage/Snakefile'
     include: snake_dir + 'bin/assembly/Snakefile'
     include: snake_dir + 'bin/true_errors/Snakefile'

@@ -53,8 +53,25 @@ def compute_sum_sumsq_n(featurefiles_table, n_feat=18):  # todo: 20 or 21 featur
     np.save(path+'/mean_std', [feat_sum, feat_sq_sum, n_el])
     return 
 
+def standardize_file(filename, mean, std, set_target):
+    with open(filename, 'rb') as feat:
+        if set_target == True:
+            x, target_contig, name_to_id = pickle.load(feat)
+        else:
+            x, name_to_id = pickle.load(feat)
+        standard_x = []
+        for xi in x:
+            standard_x.append((xi - mean) / std)
 
-def standardize_data(feat_file_table, mean_std_file, set_target=True, real_data=False):
+    with open(filename, 'wb') as f:
+        logging.info('Dumping: {}'.format(filename))
+        if set_target == True:
+            pickle.dump([standard_x, target_contig, name_to_id], f)
+        else:
+            pickle.dump([standard_x, name_to_id], f)
+    return
+
+def standardize_data(feat_file_table, mean_std_file, set_target=True, real_data=False, nprocs=1):
     if real_data:
         feat_files = read_feature_ft_realdata(feat_file_table)
     else:
@@ -70,47 +87,23 @@ def standardize_data(feat_file_table, mean_std_file, set_target=True, real_data=
 
     print(mean)
     print(std)
-
+   
+    all_files = []
+    
     if real_data:
         for sample, info in feat_files['pkl'].items():
             for genome, filename in info.items():
-                with open(filename, 'rb') as feat:
-                    if set_target == True:
-                        x, target_contig, name_to_id = pickle.load(feat)
-                    else:
-                        x, name_to_id = pickle.load(feat)
-                    standard_x = []
-                    for xi in x:
-                        standard_x.append((xi - mean) / std)
-
-                with open(filename, 'wb') as f:
-                    logging.info('Dumping: {}'.format(filename))
-                    if set_target == True:
-                        pickle.dump([standard_x, target_contig, name_to_id], f)
-                    else:
-                        pickle.dump([standard_x, name_to_id], f)
-
+                all_files.append(filename)
 
     else:
         for rich,info in feat_files['pkl'].items():
             for dep,infoo in info.items():
                 for rep,infooo in infoo.items():
                     for tech,filename in infooo.items():
-                        with open(filename, 'rb') as feat:
-                            if set_target == True:
-                                x, target_contig, name_to_id = pickle.load(feat)
-                            else:
-                                x, name_to_id = pickle.load(feat)
-                            standard_x = []
-                            for xi in x:
-                                standard_x.append((xi - mean) / std)
-
-                        with open(filename, 'wb') as f:
-                            logging.info('Dumping: {}'.format(filename))
-                            if set_target == True:
-                                pickle.dump([standard_x, target_contig, name_to_id], f)
-                            else:
-                                pickle.dump([standard_x, name_to_id], f)
+                        all_files.append(filename)
+                                               
+    with pathos.multiprocessing.Pool(nprocs) as pool:
+        pool.map(lambda file: standardize_file(file, mean, std, set_target), all_files)
     return 
 
 
@@ -252,23 +245,23 @@ def find_pkl_file(feat_file, force_overwrite=False):
         
     if os.path.isfile(pkl+'.pkl'):
         logging.info('Found pkl file: {}'.format(pkl))        
-        msg = '  Using the existing pkl file. Use DeepMAsED Preprocess --pickle-tsv'
-        msg += ' --force-overwrite=True to force-recreate the pkl file from the tsv file'
-        logging.info(msg)
+#         msg = '  Using the existing pkl file. Use DeepMAsED Preprocess --pickle-tsv'
+#         msg += ' --force-overwrite=True to force-recreate the pkl file from the tsv file'
+#         logging.info(msg)
         return pkl+'.pkl', 'pkl'
     else:
         logging.info('  No pkl found. A pkl file will be created from the tsv file')
         return feat_file, 'tsv'
                 
         
-def read_feature_file_table(feat_file_table, force_overwrite=False, technology='all-asmbl', v3=False):
+def read_feature_file_table(feat_file_table, force_overwrite=False, technology='all-asmbl', longdir=False):
     """ Loads feature file table, which lists all feature tables & associated
     metadata. The table is loaded based on column names.
     Params:
       feat_file_table : str, file path of tsv table
       force_overwrite : bool, force create pkl files?
       technology : str, filter to just specified assembler(s)
-      v3 : means resmico simulations with
+      longdir : means resmico simulations with
       richness/abundance_distribution/simulation_replicate/read_length/sequencing_depth/assembler/
       folder structure
     Returns:
@@ -287,7 +280,7 @@ def read_feature_file_table(feat_file_table, force_overwrite=False, technology='
         col_names = next(tsv)
         # indexing
         colnames = ['richness', 'rep', 'read_depth', 'assembler', 'feature_file']
-        if v3:
+        if longdir:
             colnames.extend(['abundance_distribution', 'read_length'])
         colnames = {x:col_names.index(x) for x in colnames}
         
@@ -302,7 +295,7 @@ def read_feature_file_table(feat_file_table, force_overwrite=False, technology='
                 msg = 'Feature file table, Row{} => "{}" != --technology; Skipping'
                 logging.info(msg.format(i+2, assembler))
                 continue
-            if v3:
+            if longdir:
                 #get_row_val was useful only for printing errors
                 abnd_distr = row[colnames['abundance_distribution']]
                 read_len = row[colnames['read_length']]
@@ -326,7 +319,7 @@ def read_feature_file_table(feat_file_table, force_overwrite=False, technology='
                 msg += '; The file provided: {}'
                 raise ValueError(msg.format(i + 2, feature_file))
             
-            if v3:
+            if longdir:
                 D[file_type][richness][abnd_distr][rep][read_len][read_depth][assembler] = feature_file
             else:
                 D[file_type][richness][read_depth][rep][assembler] = feature_file
@@ -334,7 +327,7 @@ def read_feature_file_table(feat_file_table, force_overwrite=False, technology='
     # summary
     sys.stderr.write('#-- Feature file table summary --#\n')
     n_tech = defaultdict(dict)
-    if v3:
+    if longdir:
         for ft, inf in D.items():
             for rch, info in inf.items():
                 for abnd, infoo in info.items():
@@ -401,7 +394,7 @@ def read_feature_ft_realdata(feat_file_table, force_overwrite=False):
     return D
 
 
-def pickle_in_parallel(feature_files, n_procs, set_target=True, real_data=False, v1=False):
+def pickle_in_parallel(feature_files, n_procs, set_target=True, real_data=False, v1=False, longdir=False):
     """
     Pickling feature files using multiproessing.Pool.
     Params:
@@ -422,6 +415,16 @@ def pickle_in_parallel(feature_files, n_procs, set_target=True, real_data=False,
                 F = filename
                 pklF = os.path.join(os.path.split(F)[0], 'features.pkl')
                 x.append([F, pklF])
+    elif longdir:
+        for rch, info in feature_files['tsv'].items():
+            for abnd, infoo in info.items():
+                for rep, infooo in infoo.items():
+                    for rlen, infoooo in infooo.items():
+                        for dp,infooooo in infoooo.items():
+                            for tech,filename in infooooo.items():        
+                                F = filename
+                                pklF = os.path.join(os.path.split(F)[0], 'features.pkl')
+                                x.append([F, pklF])
     else:
         for rich,info in feature_files['tsv'].items():
             for depth,infoo in info.items():
@@ -551,7 +554,6 @@ def pickle_data_b(x, set_target=True):
                     f_num_values.append(float(row[ind])/float(row[w_cov]))
                 else:
                     f_num_values.append(float(row[ind]))
-                    print('coverage is 0', row)
                 
             f_flt_values = []
             for ind in w_features:
@@ -1106,43 +1108,65 @@ def compute_predictions_y_known(y, n2i, model, dataGen, n_procs, x=False):
     return scores
 
 
-def _get_sample_index_from_file(f, metadata_func):
+def _get_sample_index_from_file(f, metadata_func, longdir):
     samples_dict = {}
 
     with tables.open_file(f, 'r' ) as h5:
         for s in h5.get_node('/samples'):
-            samples_name = '/'.join(metadata_func(f) + (s.decode('utf-8'), ))
+            samples_name = '/'.join(metadata_func(f, longdir) + (s.decode('utf-8'), ))
             samples_dict[samples_name] = str(f)
     return samples_dict
 
 
-def _metadata_func(p: Path):
-    return p.parts[-5:-1]
-
-
-def build_sample_index(base_path: Path, nprocs: int, sdepth=None, rich=None, rep10=False, filter10=False):
-    pattern = '**/'
-    if rich:
-        pattern += rich+'/'
+def _metadata_func(p: Path, longdir=False):
+    if longdir:
+        return p.parts[-7:-1]
     else:
-        pattern += '*/'
+        return p.parts[-5:-1]
 
-    if rep10:
-        pattern += '10/'
-    elif filter10:
-        pattern += '?/' #any 1digit number
+
+def build_sample_index(base_path: Path, nprocs: int, sdepth=None, rich=None, rep10=False, filter10=False,
+                      longdir=False):
+    if longdir:
+        pattern = '**/'
+        if rich:
+            pattern += rich+'/'
+        else:
+            pattern += '*/'
+            
+        pattern += '*/*/*/'
+        
+        if sdepth:
+            pattern += sdepth+'/'
+        else:
+            pattern += '*/'
+            
+        pattern += '*/*.h5'
+        #sample/richness/abundance_distribution/simulation_replicate/read_length/sequencing_depth/assembler/
+        
     else:
-        pattern += '*/'
+        pattern = '**/'
+        if rich:
+            pattern += rich+'/'
+        else:
+            pattern += '*/'
 
-    if sdepth:
-        pattern += sdepth+'/'
-    else:
-        pattern += '*/'
+        if rep10:
+            pattern += '10/'
+        elif filter10:
+            pattern += '?/' #any 1digit number
+        else:
+            pattern += '*/'
 
-    pattern += '*/*.h5'
+        if sdepth:
+            pattern += sdepth+'/'
+        else:
+            pattern += '*/'
+
+        pattern += '*/*.h5'
     part_files = base_path.glob(pattern)
     with pathos.multiprocessing.Pool(nprocs) as pool:
-        partial_dicts = pool.map(lambda f: _get_sample_index_from_file(f, _metadata_func), part_files)
+        partial_dicts = pool.map(lambda f: _get_sample_index_from_file(f, _metadata_func, longdir), part_files)
 
     samples_dict = {}
     for d in partial_dicts:
@@ -1400,13 +1424,16 @@ def create_batch_inds(all_lens, inds_sel, memory_limit, fulllen=False):
 def gen_sliding_mb(X, batch_size, window, step):
     n_feat = X[0].shape[1]
     x_mb = np.zeros((int(batch_size), window, n_feat))
+#     print('x_mb.shape',x_mb.shape)
     mb_pos = 0
     for i, xi in enumerate(X):
         len_contig = xi.shape[0]
+#         print('len_contig',len_contig)
         for idx_chunk in range(int(1 + n_moves_window(len_contig, window, step))):
             start_pos = int(idx_chunk * step)
             end_pos = start_pos + window
             chunked = xi[start_pos: int(min(end_pos, len_contig)), :]
+#             print('mb_pos, 0:chunked.shape[0]',mb_pos,chunked.shape[0])
             x_mb[mb_pos, 0:chunked.shape[0]] = chunked  # padding is happenning here
             mb_pos += 1
     return x_mb

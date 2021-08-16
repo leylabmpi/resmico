@@ -23,7 +23,7 @@ def predict_with_method(model, args):
                                              sdepth=args.sdepth, rich=args.rich)
     else:
         data_dict = Utils.build_sample_index(Path(args.feature_files_path), args.n_procs,
-                                             sdepth=args.sdepth, rich=args.rich)
+                                             sdepth=args.sdepth, rich=args.rich, longdir=args.longdir)
     logging.info('Data dictionary created. Number of samples: {}'.format(len(data_dict)))
     all_contigs = list(data_dict.items())
     all_lens = Utils.read_all_lens(data_dict)
