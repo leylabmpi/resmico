@@ -10,7 +10,7 @@ from tensorflow.keras.layers import GlobalMaxPooling1D, GlobalAveragePooling1D, 
 from tensorflow.keras.layers import Conv1D, Conv2D, Dropout, Dense
 from tensorflow.keras.layers import Bidirectional, LSTM
 
-from DeepMAsED import Utils
+from ResMiCo import Utils
 
 
 class deepmased(object):

@@ -6,8 +6,8 @@ import sys
 import argparse
 import logging
 ## application
-from DeepMAsED import Train
-from DeepMAsED import Train_BigD
+from ResMiCo import Train
+from ResMiCo import Train_BigD
 
 # functions
 def parse_args(test_args=None, subparsers=None):

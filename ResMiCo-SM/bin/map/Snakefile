@@ -8,6 +8,8 @@ rule map_samtools_faidx:
     output:
         temp(config['tmp_dir'] + \
              '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/contigs_filtered.fasta.fai')
+    params:
+        exe = config['pipeline']['script_folder'] + 'is_empty.py'
     resources:
         time = lambda wildcards, attempt: attempt ** 3 * 59,
         mem_gb_pt = lambda wildcards, attempt: attempt * 12
@@ -20,7 +22,12 @@ rule map_samtools_faidx:
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
-        samtools faidx {input} 2> {log} 1>&2
+        if [ `{params.exe} {input}` -eq 0 ]; then
+          samtools faidx {input} 2> {log} 1>&2
+        else
+          echo "Input is empty; skipping" > {log}
+          touch {output} 2>> {log}
+        fi
         """
 
 rule map_bowtie2_build:
@@ -33,6 +40,8 @@ rule map_bowtie2_build:
     output:
         config['tmp_dir'] + \
             '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/map_bowtie2_build.done'
+    params:
+        exe = config['pipeline']['script_folder'] + 'is_empty.py'
     threads:
         8
     resources:
@@ -52,8 +61,12 @@ rule map_bowtie2_build:
         export PATH=$CONDA_PREFIX/bin:$PATH
 	PREF=`echo {input} | perl -pe 's/\.[^.]+$//'`
 
-        bowtie2-build --threads {threads} \
-          {input} $PREF 2> {log} 1>&2
+        if [ `{params.exe} {input}` -eq 0 ]; then
+          bowtie2-build --threads {threads} \
+            {input} $PREF 2> {log} 1>&2
+        else
+          echo "Input is empty; skipping" > {log}
+        fi
 
         touch {output} 2>> {log}
         """
@@ -76,7 +89,8 @@ rule map_bowtie2:
                    'map_tmp/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.bam')
     params:
         samtools = config['params']['map']['samtools'],
-        bt2 = config['params']['map']['bowtie2']         
+        bt2 = config['params']['map']['bowtie2'],
+        exe = config['pipeline']['script_folder'] + 'is_empty.py'
     conda:
         '../envs/bowtie2.yaml'
     threads:
@@ -96,12 +110,17 @@ rule map_bowtie2:
         rm -f {log.sam} 2> {log}
 	PREF=`echo {input.ref} | perl -pe 's/\.[^.]+$//'`
         TMPDIR=`dirname {output.bam}`
- 
-        bowtie2 {params.bt2} -p {threads} -q --no-unal \
-          -x $PREF -1 {input.read1} -2 {input.read2} 2>> {log.bt2} | \
-          samtools view {params.samtools} -h -o - 2>> {log.sam}| \
-          samtools sort -@ {threads} -T $TMPDIR -o - \
-          > {output.bam} 2>> {log.sam}
+        
+        if [ `{params.exe} {input.ref}` -eq 0 ]; then
+          bowtie2 {params.bt2} -p {threads} -q --no-unal \
+            -x $PREF -1 {input.read1} -2 {input.read2} 2>> {log.bt2} | \
+            samtools view {params.samtools} -h -o - 2>> {log.sam}| \
+            samtools sort -@ {threads} -T $TMPDIR -o - \
+            > {output.bam} 2>> {log.sam}
+        else
+          echo "Input is empty; skipping" > {log}
+          touch {output.bam} 2>> {log}
+        fi
         """
         
 rule map_index_bam:
@@ -114,6 +133,8 @@ rule map_index_bam:
     output:
         bai = temp(config['tmp_dir'] + \
                    'map_tmp/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.bam.bai')
+    params:
+        exe = config['pipeline']['script_folder'] + 'is_empty.py'
     threads:
         8
     resources:
@@ -131,7 +152,12 @@ rule map_index_bam:
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
-        samtools index -@ {threads} {input.bam} 2> {log}
+        if [ `{params.exe} {input.bam}` -eq 0 ]; then
+          samtools index -@ {threads} {input.bam} 2> {log}
+        else
+          echo "Input is empty; skipping" > {log}
+          touch {output.bai} 2>> {log}
+        fi
         """
 
 rule map_subsample_bam:
@@ -154,7 +180,8 @@ rule map_subsample_bam:
               '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/contig_coverage.tsv'
     params:
         mc = config['params']['map']['max_coverage'],
-        exe = config['pipeline']['script_folder'] + 'bam_subsample.py'
+        exe = config['pipeline']['script_folder'] + 'bam_subsample.py',
+        exe_empty = config['pipeline']['script_folder'] + 'is_empty.py'
     resources:
         time = lambda wildcards, attempt: attempt ** 3 * 59,
         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 * 12
@@ -167,7 +194,12 @@ rule map_subsample_bam:
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
-        {params.exe} -o {output.bam} -m {params.mc} {input.bam} {input.fna} > {output.tsv} 2> {log}
+        if [ `{params.exe_empty} {input.fna}` -eq 0 ]; then
+          {params.exe} -o {output.bam} -m {params.mc} {input.bam} {input.fna} > {output.tsv} 2> {log}
+        else
+          echo "Input is empty; skipping" > {log}
+          touch {output.bam} {output.tsv} 2>> {log}
+        fi
         """
 
 rule map_sort_subsampled_bam:
@@ -180,6 +212,8 @@ rule map_sort_subsampled_bam:
     output:
         temp(config['tmp_dir'] + \
              'map/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.bam')
+    params:
+        exe = config['pipeline']['script_folder'] + 'is_empty.py'
     threads:
         4
     resources:
@@ -198,7 +232,12 @@ rule map_sort_subsampled_bam:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
         TMPDIR=`dirname {output}`
-        samtools sort -@ {threads} -T $TMPDIR -o {output} {input} 2> {log} 1>&2
+        if [ `{params.exe} {input}` -eq 0 ]; then
+          samtools sort -@ {threads} -T $TMPDIR -o {output} {input} 2> {log} 1>&2
+        else
+          echo "Input empty; skipping" > {log}
+          touch {output} 2>> {log}
+        fi
         """
          
 rule map_index_subsampled_bam:
@@ -211,6 +250,8 @@ rule map_index_subsampled_bam:
     output:
         bai = config['tmp_dir'] + \
               'map/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.bam.bai'
+    params:
+        exe = config['pipeline']['script_folder'] + 'is_empty.py'
     threads:
         8
     resources:
@@ -228,7 +269,12 @@ rule map_index_subsampled_bam:
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
-        samtools index -@ {threads} {input.bam} 2> {log}
+        if [ `{params.exe} {input.bam}` -eq 0 ]; then
+          samtools index -@ {threads} {input.bam} 2> {log}
+        else
+          echo "Input is empty; skipping" > {log}
+          touch {output.bai} 2> {log}
+        fi
         """
         
 rule map_bam_copy:

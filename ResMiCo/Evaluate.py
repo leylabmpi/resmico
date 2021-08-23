@@ -10,8 +10,8 @@ import tensorflow as tf
 from tensorflow.keras.models import load_model
 from sklearn.metrics import average_precision_score
 
-from DeepMAsED import Models_FL as Models  # to use contigs of variable length
-from DeepMAsED import Utils
+from ResMiCo import Models_FL as Models  # to use contigs of variable length
+from ResMiCo import Utils
 
 
 def predict_with_method(model, args):
@@ -23,7 +23,7 @@ def predict_with_method(model, args):
                                              sdepth=args.sdepth, rich=args.rich)
     else:
         data_dict = Utils.build_sample_index(Path(args.feature_files_path), args.n_procs,
-                                             sdepth=args.sdepth, rich=args.rich)
+                                             sdepth=args.sdepth, rich=args.rich, longdir=args.longdir)
     logging.info('Data dictionary created. Number of samples: {}'.format(len(data_dict)))
     all_contigs = list(data_dict.items())
     all_lens = Utils.read_all_lens(data_dict)

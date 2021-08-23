@@ -21,14 +21,19 @@ def all_which_input(wildcards):
         return F
     
     # reads
-    if str(config['params']['MGSIM']['reads']['keep_reads']).lower() == 'true':
-        F += Expand(mgsim_dir + 'sim_reads/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/Read1.fq.gz',
-                   config['sim_params'])
-        F += Expand(mgsim_dir + 'sim_reads/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/Read2.fq.gz',
-                   config['sim_params'])
+    if (str(config['params']['MGSIM']['reads']['keep_reads']).lower() == 'true' and
+        config['reads_tbl'] is None):
+        F += Expand(mgsim_dir + \
+                    'sim_reads/{richness}/{abund_dist}/{rep}/{read_length}/' + \
+                    '{read_depth}/Read1.fq.gz',
+                    config['sim_params'])
+        F += Expand(mgsim_dir + \
+                    'sim_reads/{richness}/{abund_dist}/{rep}/{read_length}/' + \
+                    '{read_depth}/Read2.fq.gz',
+                    config['sim_params'])
         
     # coverage
-    if not skipped(config['params']['nonpareil']):
+    if not skipped(config['params']['nonpareil']['params']):
         F += Expand(coverage_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/nonpareil.npo',
                    config['sim_params'])  
         if not skipped(config['params']['nonpareil']['summary']):

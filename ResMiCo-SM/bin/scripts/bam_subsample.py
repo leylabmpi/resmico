@@ -69,14 +69,14 @@ def main(args):
             # keeping read & tracking added coverage
             contig_cov[read.reference_name] = contig_cov[read.reference_name] + added_cov
             output.write(read)
-        logging.info('  Final coverage: {}'.format(round(contig_cov[contig],2)))
+        logging.info('  Final mean coverage: {}'.format(round(contig_cov[contig],2)))
                     
     # finish up
     bam.close()
     fasta.close()
     output.close()
     # status
-    print('\t'.join(['contig', 'coverage']))
+    print('\t'.join(['contig', 'mean_coverage']))
     for contig,cov in sorted(contig_cov.items(), key=lambda x: -x[1]):
         print('\t'.join([contig, str(cov)]))
         

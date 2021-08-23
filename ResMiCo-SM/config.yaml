@@ -1,6 +1,9 @@
 # Input table
+## Table of genomes
 genomes_file: tests/data/genomes_n10.tsv
 #genomes_file: tests/data/Samp2-MAG3.tsv
+## If using pre-generated reads
+reads_file: Skip
 
 # Output directory
 output_dir: tests/output_n10/
@@ -28,7 +31,8 @@ params:
         - 0.8        
       abundance_distribution:
         - "mean:10,sigma:2"
-      other_sim_params: --rnd-seed 8712
+      random_seed: 8192
+      other_sim_params: ""
     reads: 
       length:
         - 100
@@ -67,8 +71,8 @@ params:
     ALE: ""
     VALET: ""  
     metaMIC:
-      extract: --mlen 5000
-      predict: -a MEGAHIT
+      extract: --mlen 1000
+      predict: --mlen 1000 --slen 500 -a MEGAHIT
 
 # params just for creating feature tables for non-simulated data
 nonsim_params:

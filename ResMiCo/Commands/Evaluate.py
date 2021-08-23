@@ -7,7 +7,7 @@ import sys
 import argparse
 import logging
 ## application
-from DeepMAsED import Evaluate
+from ResMiCo import Evaluate
 
 # functions
 def get_desc():
@@ -30,8 +30,8 @@ def parse_args(test_args=None, subparsers=None):
                                          formatter_class=argparse.RawTextHelpFormatter)
 
     #default trained model
-    pkg_model = resource_filename('DeepMAsED','Model/fl_all_model.h5')
-    pkg_mstd = resource_filename('DeepMAsED','Model/fl_all_mean_std.pkl')
+    pkg_model = resource_filename('ResMiCo','Model/fl_all_model.h5')
+    pkg_mstd = resource_filename('ResMiCo','Model/fl_all_mean_std.pkl')
     pkg_path, pkg_model = os.path.split(pkg_model)
     _, pkg_mstd  = os.path.split(pkg_mstd)
     # args
@@ -77,6 +77,8 @@ def parse_args(test_args=None, subparsers=None):
                         help='Window size for chunks method, size of piece for random method (default: %(default)s)')
     parser.add_argument('--v1', action='store_true', default=False,
                         help='use deepmased')
+    parser.add_argument('--longdir', action='store_true', default=False,
+                        help='Six variable parameters in simulation (default: %(default)s)')
 
     # running test args
     if test_args:

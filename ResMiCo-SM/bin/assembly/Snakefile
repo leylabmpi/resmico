@@ -48,9 +48,9 @@ rule asmbl_metaSPAdes:
                                         unit='per_thread_gb'),
         attempt = lambda wildcards, attempt, threads, input: attempt
     log:
-        log_dir + 'asmbl/metaspades/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/.log'
+        log_dir + 'asmbl/metaspades/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}.log'
     benchmark:
-        benchmark_dir + 'asmbl/metaspades/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/.txt'
+        benchmark_dir + 'asmbl/metaspades/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}.txt'
     shell:
         """
         OUTDIR=`dirname {output.contigs}`

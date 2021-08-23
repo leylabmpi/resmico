@@ -68,7 +68,13 @@ def abund_dist_format(wildcards):
     ad = re.sub(r'mean-', 'mean:', wildcards.abund_dist)
     ad = re.sub(r'-sigma-', ',sigma:', ad)
     return ad
-            
+
+def create_rand_seed(wildcards):
+    if not skipped(config['params']['MGSIM']['community']['random_seed']):
+        return random.randint(1,100000)
+    else:
+        return None
+
 rule MGSIM_communities:
     """
     Using MGSIM to simulate communities
@@ -81,7 +87,8 @@ rule MGSIM_communities:
     params:
         richness = lambda wildcards: wildcards.richness,
         abund_dist = abund_dist_format,
-        params = config['params']['MGSIM']['community']['other_sim_params']
+        seed = lambda wildcards: create_rand_seed(wildcards),
+        params = config['params']['MGSIM']['community']['other_sim_params']        
     conda:
         '../envs/MGSIM.yaml'
     resources:
@@ -98,6 +105,7 @@ rule MGSIM_communities:
 
         MGSIM communities {params.params} \
           --n-comm 1 \
+          --rnd-seed {params.seed} \
           --richness {params.richness} \
           --abund-dist-p "{params.abund_dist}" \
           {input} $PREFIX 2> {log} 1>&2

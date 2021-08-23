@@ -76,10 +76,10 @@ if not skipped(config['nonsim_params']['subsample_reads']):
               {input.reads} > {output.reads} 2> {log}
             """
 else:
-    localrules: symlink_reads
-    rule symlink_reads:
+    localrules: copy_reads
+    rule copy_reads:
         """
-        Uncompressing reads
+        Copying reads to temp directory
         """
         input:
             read1 = lambda wildcards: config['genomes_tbl'].loc[config['genomes_tbl'].Sample == wildcards.sample, 'Read1'].unique().tolist(),
@@ -87,14 +87,16 @@ else:
         output:
             read1 = temp(config['tmp_dir'] + 'gs_map/reads/subsample/{sample}/R1.fq'),
             read2 = temp(config['tmp_dir'] + 'gs_map/reads/subsample/{sample}/R2.fq')
+        params:
+            ionice = config['params']['ionice']
         log:
-            log_dir + 'symlink_reads/{sample}.log'
+            log_dir + 'copy_reads/{sample}.log'
         benchmark:
-            benchmark_dir + 'symlink_reads/{sample}.txt'
+            benchmark_dir + 'copy_reads/{sample}.txt'
         shell:
             """
-            seqkit seq {input.read1} > {output.read1} 2> {log}
-            seqkit seq {input.read2} > {output.read2} 2>> {log}
+            ionice {params.ionice} seqkit seq {input.read1} > {output.read1} 2> {log}
+            ionice {params.ionice} seqkit seq {input.read2} > {output.read2} 2>> {log}
             """
 
 rule map_read_filter:
@@ -348,11 +350,11 @@ rule bam_to_DL_features:
         exe = config['pipeline']['script_folder'] + 'bam2feat',
 	params = config['nonsim_params']['make_features']
     threads:
-        4
+        8
     resources:
-        time = lambda wildcards, attempt: attempt ** 2 * 60 * 12,
+        time = lambda wildcards, attempt: attempt ** 3 * 59,
         n = lambda wildcards, threads: threads,
-        mem_gb_pt = lambda wildcards, attempt: attempt ** 3 * 6
+        mem_gb_pt = lambda wildcards, attempt: attempt ** 3 + 2
     conda:
         '../envs/bowtie2.yaml'
     log:
@@ -363,7 +365,7 @@ rule bam_to_DL_features:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
         {params.exe} {params.params} --procs {threads} \
-          --batches 100 --chunks 100 --assembler None \
+          --batches 50 --chunks 10 --assembler None \
           --bam_file {input.bam} \
           --fasta_file {input.fna} \
           --o {output.tsv} \

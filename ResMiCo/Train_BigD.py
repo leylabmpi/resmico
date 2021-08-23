@@ -10,8 +10,8 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras import backend as K
 from sklearn.metrics import recall_score, roc_auc_score, average_precision_score, log_loss
 
-from DeepMAsED import Models_FL as Models
-from DeepMAsED import Utils
+from ResMiCo import Models_FL as Models
+from ResMiCo import Utils
 
 
 class Config(object):

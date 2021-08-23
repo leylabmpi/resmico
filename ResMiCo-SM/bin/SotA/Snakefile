@@ -17,7 +17,8 @@ rule ALE:
     params:
         params = config['params']['SotA']['ALE'],
         exe = config['pipeline']['script_folder'] + 'ALE',
-        ionice = config['params']['ionice']
+        ionice = config['params']['ionice'],
+        exe_empty = config['pipeline']['script_folder'] + 'is_empty.py'         
     resources:
         time = lambda wildcards, attempt: attempt * 59 * 12,
         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 7
@@ -27,10 +28,14 @@ rule ALE:
         benchmark_dir + 'ALE/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.txt'
     shell:
         """
-        {params.exe} {params.params} \
-           {input.bam} {input.ref} {output.txt} \
-           2> {log} 1>&2
-        ionice {params.ionice} gzip -c {output.txt} > {output.gz} 2> {log}
+        if [ `{params.exe_empty} {input.ref}` -eq 0 ]; then
+          {params.exe} {params.params} \
+            {input.bam} {input.ref} {output.txt} 2> {log} 1>&2
+          ionice {params.ionice} gzip -c {output.txt} > {output.gz} 2> {log}
+        else
+          echo "Input empty; skipping" > {log}
+          touch {output.txt} {output.gz} 2>> {log}
+        fi
         """
 
 rule VALET:
@@ -52,7 +57,8 @@ rule VALET:
         params = config['params']['SotA']['VALET'],
         ionice = config['params']['ionice'],
         tmp_dir = config['tmp_dir'] + \
-                  'VALET/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/valet_out/reference/'
+                  'VALET/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/valet_out/reference/',
+        exe_empty = config['pipeline']['script_folder'] + 'is_empty.py' 
     threads:
         8
     resources:
@@ -72,23 +78,28 @@ rule VALET:
         TMPDIR=`dirname {params.tmp_dir}`
         rm -rf $TMPDIR 2> {log}
 
-        # valet run
-        valet.py --threads {threads} \
-          --assembly-names reference \
-          --skip-reapr {params.params} \
-          --output-dir $TMPDIR -a {input.ref} \
-          -1 {input.read1} -2 {input.read2} \
-          2>> {log}        
+        if [ `{params.exe_empty} {input.ref}` -eq 0 ]; then
+          # valet run        
+          valet.py --threads {threads} \
+            --assembly-names reference \
+            --skip-reapr {params.params} \
+            --output-dir $TMPDIR -a {input.ref} \
+            -1 {input.read1} -2 {input.read2} \
+            2>> {log}        
 
-        # copying files
-        ionice {params.ionice} cp -f {params.tmp_dir}/summary.tsv {output.sum} 2>> {log}
-        ionice {params.ionice} cp -f {params.tmp_dir}/summary.bed {output.sbed} 2>> {log}
-        ionice {params.ionice} cp -f {params.tmp_dir}/suspicious.bed {output.ssbed} 2>> {log}
-        ionice {params.ionice} cp -f {params.tmp_dir}/coverage.bed {output.cbed} 2>> {log}
-        ionice {params.ionice} cp -f {params.tmp_dir}/breakpoints.bed {output.bbed} 2>> {log}
+          # copying files
+          ionice {params.ionice} cp -f {params.tmp_dir}/summary.tsv {output.sum} 2>> {log}
+          ionice {params.ionice} cp -f {params.tmp_dir}/summary.bed {output.sbed} 2>> {log}
+          ionice {params.ionice} cp -f {params.tmp_dir}/suspicious.bed {output.ssbed} 2>> {log}
+          ionice {params.ionice} cp -f {params.tmp_dir}/coverage.bed {output.cbed} 2>> {log}
+          ionice {params.ionice} cp -f {params.tmp_dir}/breakpoints.bed {output.bbed} 2>> {log}
         
-        # removing tmp dir
-        rm -rf $TMPDIR 2>> {log}
+          # removing tmp dir
+          rm -rf $TMPDIR 2>> {log}
+        else
+          echo "Input empty; skipping" > {log}
+          touch {output.sum} {output.sbed} {output.ssbed} {output.cbed} {output.bbed} 2>> {log}
+        fi
         """
 
 rule samtools_pileup:
@@ -106,7 +117,8 @@ rule samtools_pileup:
         txt = temp(config['tmp_dir'] + \
                '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/pileup.txt')
     params:
-        ionice = config['params']['ionice']
+        ionice = config['params']['ionice'],
+        exe_empty = config['pipeline']['script_folder'] + 'is_empty.py'          
     resources:
         time = lambda wildcards, attempt: attempt * 60 * 24,
         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 4
@@ -117,8 +129,13 @@ rule samtools_pileup:
     shell:
         """
         > {log}
-        samtools mpileup -C 50 -A -f {input.fna} {input.bam} 2>> {log} | \
-          awk '$3 != "N"' > {output.txt} 2>> {log}
+        if [ `{params.exe_empty} {input.fna}` -eq 0 ]; then
+          samtools mpileup -C 50 -A -f {input.fna} {input.bam} 2>> {log} | \
+            awk '$3 != "N"' > {output.txt} 2>> {log}
+        else
+          echo "Input empty; skipping" > {log}
+          touch {output.txt} 2>> {log}
+        fi
         """
 
 localrules: metaMIC_model_dl
@@ -156,11 +173,15 @@ rule metaMIC_extract:
         txt = temp(config['tmp_dir'] + \
                    '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
                    'metaMIC/feature_matrix/window_fea_matrix.txt'),
+        mtx = temp(config['tmp_dir'] + \
+                   '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
+                   'metaMIC/feature_matrix/contig_fea_matrix.txt'),
         rb = temp(config['tmp_dir'] + \
                    '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
                    'metaMIC/temp/read_breakpoint/read_breakpoint_per_base.txt')        
     params:
-        params = config['params']['SotA']['metaMIC']['extract']
+        params = config['params']['SotA']['metaMIC']['extract'],
+        exe_empty = config['pipeline']['script_folder'] + 'is_empty.py'          
     conda:
         '../envs/metaMIC.yaml'
     threads:
@@ -178,9 +199,17 @@ rule metaMIC_extract:
         OUTDIR=`dirname {output.txt}`
         OUTDIR=`dirname $OUTDIR`
         rm -rf $OUTDIR/temp/ $OUTDIR/feature_matrix/ 2> {log}
-        metaMIC extract_feature {params.params} -t {threads} -m meta \
-          --pileup {input.pileup} --bam {input.bam} \
-          --contig {input.contigs} --output $OUTDIR 2>> {log}
+        if [ `{params.exe_empty} {input.contigs}` -eq 0 ]; then
+          metaMIC extract_feature {params.params} -t {threads} -m meta \
+            --pileup {input.pileup} --bam {input.bam} \
+            --contig {input.contigs} --output $OUTDIR 2>> {log} && \
+            touch {output.txt} {output.mtx} {output.rb} 2>> {log}
+        else
+          echo "Input empty; skipping" > {log}
+          mkdir -p `dirname {output.txt}` 2>> {log}
+          mkdir -p `dirname {output.rb}` 2>> {log}
+          touch {output.txt} {output.mtx} {output.rb} 2>> {log}
+        fi
         """
 
 rule metaMIC_predict:
@@ -194,6 +223,9 @@ rule metaMIC_predict:
         txt = config['tmp_dir'] + \
               '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
               'metaMIC/feature_matrix/window_fea_matrix.txt',
+        mtx = config['tmp_dir'] + \
+              '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
+              'metaMIC/feature_matrix/contig_fea_matrix.txt',
         rb = config['tmp_dir'] + \
              '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
              'metaMIC/temp/read_breakpoint/read_breakpoint_per_base.txt' 
@@ -207,7 +239,8 @@ rule metaMIC_predict:
         brk = temp(config['tmp_dir'] + \
                '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/metaMIC/misassembly_breakpoint.txt')
     params:
-        params = config['params']['SotA']['metaMIC']['predict']
+        params = config['params']['SotA']['metaMIC']['predict'],
+        exe_empty = config['pipeline']['script_folder'] + 'is_empty.py'          
     conda:
         '../envs/metaMIC.yaml'
     resources:
@@ -220,8 +253,13 @@ rule metaMIC_predict:
     shell:
         """
         OUTDIR=`dirname {output.txt}`
-        metaMIC predict {params.params} -m meta \
-          --contig {input.contigs} --output $OUTDIR 2> {log} 1>&2
+        if [[ `{params.exe_empty} {input.contigs}` -eq 0 && `{params.exe_empty} {input.mtx}` -eq 0 ]]; then
+          metaMIC predict {params.params} -m meta \
+            --contig {input.contigs} --output $OUTDIR 2> {log} 1>&2
+        else
+          echo "Input empty; skipping" > {log}
+          touch {output.scr} {output.txt} {output.fna} {output.brk}
+        fi
         """
 
 localrules: metaMIC_copy

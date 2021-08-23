@@ -6,10 +6,10 @@ __version__ = '0.3.1'
 import sys
 import argparse
 
-from DeepMAsED.Commands import Train
-from DeepMAsED.Commands import Predict
-from DeepMAsED.Commands import Evaluate
-from DeepMAsED.Commands import Preprocess
+from ResMiCo.Commands import Train
+from ResMiCo.Commands import Predict
+from ResMiCo.Commands import Evaluate
+from ResMiCo.Commands import Preprocess
 
 
 def main(args=None):
@@ -18,12 +18,12 @@ def main(args=None):
     if args is None:
         args = sys.argv[1:]
 
-    desc = 'DeepMAsED: Deep learning for Metagenome Assembly Error Detection'
+    desc = 'ResMiCo: increasing the quality of metagenome-assembledgenomes with deep learning'
     epi = """DESCRIPTION:
-    Usage: DeepMAsED <subcommand> <subcommand_params>
-    Example: DeepMAsED train -h
+    Usage: ResMiCo <subcommand> <subcommand_params>
+    Example: ResMiCo train -h
 
-    For general info, see https://github.com/leylabmpi/DeepMAsED/
+    For general info, see https://github.com/leylabmpi/ResMiCo/
     """
     parser = argparse.ArgumentParser(description=desc,
                                      epilog=epi,
