@@ -2,7 +2,7 @@
 @SQ	SN:1	LN:500
 @CO	read_id FLAG Chromosome Position Align_qual Cigar mate_id mate_pos frag_lent bases quality
 @CO	the first read is identical with test1.sam; adding a 2nd read here at the same pos
-r001	163	1	1	6	5M	=	421	425	AAAAA	*
-r002	163	1	1	6	5M	=	421	425	AGGGG	*
-r001	83	1	421	6	5M	=	1	-425	CCCCC	*
-r002	83	1	421	6	5M	=	1	-425	TTTTT	*
+r001	163	1	1	6	5M	=	421	425	AAAAA	JGCG8	AS:i:0
+r002	163	1	1	6	5M	=	421	425	AGGGG	JGCG8	AS:i:-28
+r001	83	1	421	6	5M	=	1	-425	CCCCC	JGCG8	AS:i:-6
+r002	83	1	421	6	5M	=	1	-425	TTTTT	JGCG8	AS:i:-3
