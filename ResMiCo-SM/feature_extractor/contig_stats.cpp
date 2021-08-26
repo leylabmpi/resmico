@@ -190,9 +190,15 @@ std::vector<Stats> pileup_bam(const std::string &reference,
                 }
 
                 stat.map_quals.push_back(al.MapQuality);
+
+                int32_t alignment_score = 255;
+                al.GetTag("AS", alignment_score);
+                stat.al_scores.push_back(std::clamp(alignment_score, 0, 255));
             }
 
+            // Alignment score
             if (base == 5
+
                 || static_cast<uint32_t>(al.Qualities[i + offset - del_offset] - 33U) < 13) {
                 continue;
             }
@@ -238,6 +244,13 @@ std::vector<Stats> contig_stats(const std::string &reference_name,
                 std::tie(stat.min_map_qual, stat.mean_map_qual, stat.max_map_qual)
                         = min_mean_max(map_quals);
                 stat.std_dev_map_qual = std_dev(map_quals, stat.mean_map_qual);
+            }
+            // Alignment score
+            const std::vector<uint8_t> &al_scores = stat.al_scores;
+            if (!al_scores.empty()) {
+                std::tie(stat.min_al_score, stat.mean_al_score, stat.max_al_score)
+                        = min_mean_max(al_scores);
+                stat.std_dev_al_score = std_dev(al_scores, stat.mean_al_score);
             }
         }
     }

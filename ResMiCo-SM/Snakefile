@@ -13,6 +13,7 @@ def skipped(x):
     return str(x).strip().lower().startswith('skip')
 
 # setup
+random.seed(21212)
 ## config
 configfile: 'config.yaml'
 config['pipeline']['email'] = config['email']

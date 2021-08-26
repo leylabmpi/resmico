@@ -41,6 +41,11 @@ struct Stats {
     float std_dev_map_qual = NAN;
     uint8_t max_map_qual = std::numeric_limits<uint8_t>::max();
 
+    uint8_t min_al_score = std::numeric_limits<uint8_t>::max();
+    float mean_al_score = NAN;
+    float std_dev_al_score = NAN;
+    uint8_t max_al_score = std::numeric_limits<uint8_t>::max();
+
     uint16_t n_proper_match = 0;
     uint16_t n_proper_snp = 0;
     uint16_t n_diff_strand = 0;
@@ -52,7 +57,7 @@ struct Stats {
 
     std::vector<int32_t> i_sizes;
     std::vector<uint8_t> map_quals;
-
+    std::vector<uint8_t> al_scores; // alignment scores as computed by BowTie2
 
     float gc_percent;
     float entropy;

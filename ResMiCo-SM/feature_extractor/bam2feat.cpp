@@ -61,12 +61,14 @@ void write_stats(QueueItem &&item, const std::string &assembler, std::ofstream *
             << s.n_bases[2] << '\t' << s.n_bases[3] << '\t' << s.num_snps() << '\t' << s.coverage()
             << '\t' << s.n_discord << '\t';
         if (std::isnan(s.mean_i_size)) { // zero coverage, no i_size, no mapping quality
-            out << "NA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\t";
+            out << "NA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\t";
         } else {
             out << stri(s.min_i_size) << '\t' << round2(s.mean_i_size) << '\t'
                 << round2(s.std_dev_i_size) << '\t' << stri(s.max_i_size) << '\t';
             out << (int)s.min_map_qual << '\t' << round2(s.mean_map_qual) << '\t'
                 << round2(s.std_dev_map_qual) << '\t' << (int)s.max_map_qual << '\t';
+            out << (int)s.min_al_score << '\t' << round2(s.mean_al_score) << '\t'
+                << round2(s.std_dev_al_score) << '\t' << (int)s.max_al_score << '\t';
         }
         out << s.n_proper_match << '\t' << s.n_orphan << '\t' << s.n_discord << '\t';
 
@@ -146,6 +148,10 @@ int main(int argc, char *argv[]) {
                          "mean_mapq_Match",
                          "stdev_mapq_Match",
                          "max_mapq_Match",
+                         "min_al_score_Match",
+                         "mean_al_score_Match",
+                         "stdev_al_score_Match",
+                         "max_al_score_Match",
                          "num_proper_Match",
                          "num_orphans_Match",
                          "num_discordant_Match",

@@ -173,6 +173,9 @@ rule metaMIC_extract:
         txt = temp(config['tmp_dir'] + \
                    '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
                    'metaMIC/feature_matrix/window_fea_matrix.txt'),
+        mtx = temp(config['tmp_dir'] + \
+                   '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
+                   'metaMIC/feature_matrix/contig_fea_matrix.txt'),
         rb = temp(config['tmp_dir'] + \
                    '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
                    'metaMIC/temp/read_breakpoint/read_breakpoint_per_base.txt')        
@@ -199,12 +202,13 @@ rule metaMIC_extract:
         if [ `{params.exe_empty} {input.contigs}` -eq 0 ]; then
           metaMIC extract_feature {params.params} -t {threads} -m meta \
             --pileup {input.pileup} --bam {input.bam} \
-            --contig {input.contigs} --output $OUTDIR 2>> {log}
+            --contig {input.contigs} --output $OUTDIR 2>> {log} && \
+            touch {output.txt} {output.mtx} {output.rb} 2>> {log}
         else
           echo "Input empty; skipping" > {log}
           mkdir -p `dirname {output.txt}` 2>> {log}
           mkdir -p `dirname {output.rb}` 2>> {log}
-          touch {output.txt} {output.rb} 2>> {log}
+          touch {output.txt} {output.mtx} {output.rb} 2>> {log}
         fi
         """
 
@@ -219,6 +223,9 @@ rule metaMIC_predict:
         txt = config['tmp_dir'] + \
               '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
               'metaMIC/feature_matrix/window_fea_matrix.txt',
+        mtx = config['tmp_dir'] + \
+              '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
+              'metaMIC/feature_matrix/contig_fea_matrix.txt',
         rb = config['tmp_dir'] + \
              '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
              'metaMIC/temp/read_breakpoint/read_breakpoint_per_base.txt' 
@@ -246,7 +253,7 @@ rule metaMIC_predict:
     shell:
         """
         OUTDIR=`dirname {output.txt}`
-        if [ `{params.exe_empty} {input.contigs}` -eq 0 ]; then
+        if [[ `{params.exe_empty} {input.contigs}` -eq 0 && `{params.exe_empty} {input.mtx}` -eq 0 ]]; then
           metaMIC predict {params.params} -m meta \
             --contig {input.contigs} --output $OUTDIR 2> {log} 1>&2
         else

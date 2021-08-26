@@ -31,7 +31,8 @@ params:
         - 0.8        
       abundance_distribution:
         - "mean:10,sigma:2"
-      other_sim_params: --rnd-seed 8712
+      random_seed: 8192
+      other_sim_params: ""
     reads: 
       length:
         - 100

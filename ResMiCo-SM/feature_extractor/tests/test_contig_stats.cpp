@@ -120,6 +120,7 @@ TEST(PileupBam, OneRead) {
         ASSERT_EQ(stats[i].entropy, 0);
         ASSERT_EQ(stats[i].num_snps(), 0);
         ASSERT_EQ(stats[i].coverage(), 1);
+        ASSERT_THAT(stats[i].al_scores, ElementsAre(-27));
     }
     for (uint32_t i = 420; i < 424; ++i) {
         ASSERT_EQ('A', stats[i].ref_base);
@@ -136,6 +137,7 @@ TEST(PileupBam, OneRead) {
         ASSERT_EQ(stats[i].entropy, 0);
         ASSERT_EQ(stats[i].num_snps(), 1);
         ASSERT_EQ(stats[i].coverage(), 1);
+        ASSERT_TRUE(stats[i].al_scores.empty()); // because all positions are SNVs
     }
 }
 
@@ -155,8 +157,11 @@ TEST(PileupBam, TwoReads) {
         ASSERT_EQ(0, stats[i].n_diff_strand);
         if (i == 0) {
             ASSERT_THAT(stats[i].n_bases, ElementsAre(2, 0, 0, 0));
+            // 228 corresponds to -28, 255 to 0
+            ASSERT_THAT(stats[i].al_scores, ElementsAre(255, 228));
         } else {
             ASSERT_THAT(stats[i].n_bases, ElementsAre(1, 0, 1, 0));
+            ASSERT_THAT(stats[i].al_scores, ElementsAre(255));
         }
         ASSERT_EQ(stats[i].gc_percent, 0);
         ASSERT_EQ(stats[i].entropy, 0);
@@ -200,8 +205,14 @@ TEST(ContigStats, TwoReads) {
             ASSERT_EQ(0, stats[i].n_diff_strand);
             if (i == 0) {
                 ASSERT_THAT(stats[i].n_bases, ElementsAre(2, 0, 0, 0));
+                ASSERT_EQ(stats[i].min_al_score, 228);
+                ASSERT_EQ(stats[i].max_al_score, 255);
+                ASSERT_EQ(stats[i].mean_al_score, 241.5);
             } else {
                 ASSERT_THAT(stats[i].n_bases, ElementsAre(1, 0, 1, 0));
+                ASSERT_EQ(stats[i].min_al_score, 255);
+                ASSERT_EQ(stats[i].max_al_score, 255);
+                ASSERT_EQ(stats[i].mean_al_score, 255);
             }
             ASSERT_EQ(stats[i].gc_percent, 0);
             ASSERT_EQ(stats[i].entropy, 0);
