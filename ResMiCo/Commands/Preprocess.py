@@ -76,8 +76,8 @@ def parse_args(test_args=None, subparsers=None):
 
     parser.add_argument('--deepmased_v1', action='store_true', default=False,
                         help='Preprocessing is different for the deepmased v1 (default: %(default)s)')
-    parser.add_argument('--longdir', action='store_true', default=False,
-                        help='Six variable parameters in simulation (default: %(default)s)')
+#     parser.add_argument('--longdir', action='store_true', default=False,
+#                         help='Six variable parameters in simulation (default: %(default)s)')
     
     parser.add_argument('--feature-file-table',  default='feature_file_table', type=str, 
                         help='Table listing feature table files (see DESCRIPTION)')
