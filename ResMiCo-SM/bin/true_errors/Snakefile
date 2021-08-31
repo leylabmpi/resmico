@@ -88,9 +88,7 @@ rule metaquast:
     input:
         contigs = config['tmp_dir'] + \
                   '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/contigs_filtered.fasta',
-        refs = config['tmp_dir'] + 'metaquast/{richness}/{abund_dist}/{rep}/genomes/genomes.tsv',
-	read1 = config['tmp_dir'] + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/sim_reads/R1.fq',
-	read2 = config['tmp_dir'] + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/sim_reads/R2.fq'
+        refs = config['tmp_dir'] + 'metaquast/{richness}/{abund_dist}/{rep}/genomes/genomes.tsv'
     output:
         info_tmp = temp(config['tmp_dir'] + 'metaquast/' + \
 	                '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
@@ -144,10 +142,8 @@ rule metaquast:
           # metaquast run
           {params.exe} -t {threads} {params.params}  \
             --max-ref-number 0 --no-gzip \
-            --reads1 {input.read1} --reads2 {input.read2} \
             -o $TMPOUTDIR -r $REFDIR \
             {input.contigs} 2>> {log} 1>&2
-
           # copying to final destination
           mkdir -p $OUTDIR 2>> {log}
           rm -rf $TMPOUTDIR/quast_corrected_input 2>> {log}
