@@ -29,7 +29,7 @@ rule combine_ref_genomes:
         """
 
 localrules: metaquast_ref_genomes
-rule metaquast_ref_genomes:
+checkpoint metaquast_ref_genomes:
     """
     Creating ref genome set for just those genomes with non-zero
     abundances in the simulated community.
@@ -81,35 +81,48 @@ def metaquast_time(wildcards, input, threads, attempt):
     T_min = n_refs + read_depth_time_min + 720 * attempt + 480
     return int(round(T_min,0))
 
+def chpt_mq_ref_genomes(wildcards):
+    """
+    Checkpointing for compiled ref genome files for metaQUAST 
+    """
+    chpt_out = checkpoints.metaquast_ref_genomes.get(**wildcards).output[0]
+    d = os.path.join(config['tmp_dir'],  'metaquast', wildcards.richness,
+                      wildcards.abund_dist, wildcards.rep, 'genomes')
+    files = glob.glob(os.path.join(d, '*.fna'))
+    if len(files) < 1:
+        sys.stderr.write('WARNING: No ref genomes for metaQUAST found\n')
+    return files
+    
 rule metaquast:
     """
     MetaQUAST assessment of assemblies
     """
     input:
-        contigs = config['tmp_dir'] + \
-                  '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/contigs_filtered.fasta',
-        refs = config['tmp_dir'] + 'metaquast/{richness}/{abund_dist}/{rep}/genomes/genomes.tsv',
-	read1 = config['tmp_dir'] + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/sim_reads/R1.fq',
-	read2 = config['tmp_dir'] + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/sim_reads/R2.fq'
+        contigs = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                    '{read_depth}', '{assembler}', 'contigs_filtered.fasta'),
+        refs = J(config['tmp_dir'], 'metaquast', '{richness}', '{abund_dist}', '{rep}',
+                 'genomes', 'genomes.tsv'),
+        genomes = chpt_mq_ref_genomes
     output:
-        info_tmp = temp(config['tmp_dir'] + 'metaquast/' + \
-	                '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
-                        'combined_reference/contigs_reports/' + \
-	                'contigs_report_contigs_filtered.mis_contigs.info'),
-        fasta_tmp = temp(config['tmp_dir'] + 'metaquast/' + \
-                         '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/combined_reference/' + \
-	                 'contigs_reports/contigs_filtered.mis_contigs.fa'),
-        done_tmp = touch(config['tmp_dir'] + 'metaquast/' + \
-                         '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/metaquast.done'),
-        info = true_errors_dir + \
-	   '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
-           'combined_reference/contigs_reports/' + \
-	   'contigs_report_contigs_filtered.mis_contigs.info',
-        fasta = true_errors_dir + \
-            '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/combined_reference/' + \
-	    'contigs_reports/contigs_filtered.mis_contigs.fa',
-        done = touch(true_errors_dir + \
-                     '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/metaquast.done')
+        info_tmp = temp(J(config['tmp_dir'], 'metaquast', '{richness}', '{abund_dist}',
+                          '{rep}', '{read_length}', '{read_depth}', '{assembler}',
+                          'combined_reference', 'contigs_reports',
+	                  'contigs_report_contigs_filtered.mis_contigs.info')),
+        fasta_tmp = temp(J(config['tmp_dir'], 'metaquast', '{richness}', '{abund_dist}',
+                           '{rep}', '{read_length}', '{read_depth}', '{assembler}',
+                           'combined_reference' + 'contigs_reports',
+                           'contigs_filtered.mis_contigs.fa')),
+        done_tmp = touch(J(config['tmp_dir'], 'metaquast', '{richness}', '{abund_dist}',
+                           '{rep}', '{read_length}', '{read_depth}', '{assembler}',
+                           'metaquast.done')),
+        info = J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                 '{read_depth}', '{assembler}', 'combined_reference', 'contigs_reports',
+	         'contigs_report_contigs_filtered.mis_contigs.info'),
+        fasta = J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                  '{read_depth}', '{assembler}', 'combined_reference' + 'contigs_reports',
+                  'contigs_filtered.mis_contigs.fa'),
+        done = touch(J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                       '{read_depth}', '{assembler}', 'metaquast.done'))
     params:
         params = config['params']['asmbl_errors']['metaquast'],
         exe = config['pipeline']['script_folder'] + 'metaquast_short.py',
@@ -124,9 +137,11 @@ rule metaquast:
     conda:
         '../envs/quast.yaml'	
     log:
-        log_dir + 'metaquast/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.log'
+        J(log_dir, 'metaquast', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+          '{read_depth}', '{assembler}.log')
     benchmark:
-        benchmark_dir + 'metaquast/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.txt'
+        J(benchmark_dir, 'metaquast', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+          '{read_depth}', '{assembler}.txt')
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
@@ -144,10 +159,8 @@ rule metaquast:
           # metaquast run
           {params.exe} -t {threads} {params.params}  \
             --max-ref-number 0 --no-gzip \
-            --reads1 {input.read1} --reads2 {input.read2} \
             -o $TMPOUTDIR -r $REFDIR \
             {input.contigs} 2>> {log} 1>&2
-
           # copying to final destination
           mkdir -p $OUTDIR 2>> {log}
           rm -rf $TMPOUTDIR/quast_corrected_input 2>> {log}
@@ -165,22 +178,40 @@ rule metaquast:
 localrules: metaquast_ref_genomes_rm        
 rule metaquast_ref_genomes_rm:
     """
-    Removing ref genomes directory
+    Removing ref genome files
     """
     input:
-        refs = config['tmp_dir'] + \
-               'metaquast/{richness}/{abund_dist}/{rep}/genomes/genomes.tsv',
-        done = Expand(true_errors_dir + \
-                      '{richness}/{abund_dist}/{rep}/{read_length}/' + \
-                      '{read_depth}/{assembler}/metaquast.done',
-                      config['sim_params'])
+        refs = J(config['tmp_dir'], 'metaquast', '{richness}', '{abund_dist}', '{rep}',
+                 'genomes', 'genomes.tsv'),
+        done = Expand(J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}',
+                        '{read_length}', '{read_depth}', '{assembler}', 'metaquast.done'),
+                      config['sim_params']),
+        fna = chpt_mq_ref_genomes,
     output:
-        done = true_errors_dir + '{richness}/{abund_dist}/{rep}/metaquast_cleanup.done'
-    log:
-        log_dir + 'metaquast_ref_genomes_rm/{richness}/{abund_dist}/{rep}.log'
-    shell:
-        """
-        > {log}
-        find `dirname {input.refs}` -name "*.fna" 2>> {log} | xargs rm -f 2>> {log}
-        touch {output.done}
-        """
+        done = J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}',
+                 'metaquast_cleanup.done')
+    run:
+        import os,sys
+        for F in input.fna:
+            if os.path.isfile(F):
+                os.unlink(F)
+        open(output.done, 'w').close()
+
+localrules: ref_genomes_rm
+rule ref_genomes_rm:
+    """
+    Removing ref genome files
+    """
+    input:
+        done = Expand(J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}',
+                        'metaquast_cleanup.done'),
+                      config['sim_params']),
+        fna = chpt_ref_genomes
+    output:
+        done = genomes_dir + 'genomes_rm.done'
+    run:
+        import os,sys
+        for F in input.fna:
+            if os.path.isfile(F):
+                os.unlink(F)
+        open(output.done, 'w').close()

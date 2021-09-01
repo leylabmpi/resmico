@@ -3,6 +3,7 @@ from __future__ import print_function
 import os
 import re
 import sys
+import glob
 import getpass
 import socket
 import pandas as pd
@@ -11,6 +12,8 @@ import itertools
 
 def skipped(x):
     return str(x).strip().lower().startswith('skip')
+def J(*args):
+    return os.path.join(*args)
 
 # setup
 random.seed(21212)

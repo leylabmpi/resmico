@@ -23,32 +23,39 @@ from tensorflow.keras.layers import Input, Conv1D, ReLU, BatchNormalization, Add
 def nested_dict():
     return defaultdict(nested_dict)
 
+def iter_all_values(nested_dictionary):
+    for key, value in nested_dictionary.items():
+        if type(value) is defaultdict:
+            yield from iter_all_values(value)
+        else:
+            yield value
+            
+def get_all_values(nested_dictionary):
+    return list(iter_all_values(nested_dictionary))
 
-def compute_sum_sumsq_n(featurefiles_table, n_feat=18):  # todo: 20 or 21 features_sel
+
+def compute_sum_sumsq_n(featurefiles_table, n_feat=18): 
     """
     This function is applied once to the whole training data to compute
     mean and standard deviation. File is saved in the same directory.
     """
     feat_files = read_feature_file_table(featurefiles_table)
-    
+    all_files = get_all_values(feat_files['pkl'])
     feat_sum = np.zeros(n_feat)
     feat_sq_sum = np.zeros(n_feat)
     n_el = 0
-    
-    for rich,info in feat_files['pkl'].items():
-        for dep,infoo in info.items():
-            for rep,infooo in infoo.items():
-                for tech,filename in infooo.items():
-                    with open(filename, 'rb') as feat:
-                        logging.info('opening file: {}'.format(filename))
-                        x, _, _ = pickle.load(feat)
-                        for xi in x:
-                            sum_xi = np.sum(xi, 0)
-                            sum_sq = np.sum(xi ** 2, 0)
-                            feat_sum += sum_xi
-                            feat_sq_sum += sum_sq
-                            n_el += xi.shape[0]
-                    
+
+    for filename in all_files:    
+        with open(filename, 'rb') as feat:
+            logging.info('openning file: {}'.format(filename))
+            x, _, _ = pickle.load(feat)
+            for xi in x:
+                sum_xi = np.sum(xi, 0)
+                sum_sq = np.sum(xi ** 2, 0)
+                feat_sum += sum_xi
+                feat_sq_sum += sum_sq
+                n_el += xi.shape[0]
+
     path = os.path.split(featurefiles_table)[0]
     np.save(path+'/mean_std', [feat_sum, feat_sq_sum, n_el])
     return 
@@ -87,20 +94,8 @@ def standardize_data(feat_file_table, mean_std_file, set_target=True, real_data=
 
     print(mean)
     print(std)
-   
-    all_files = []
     
-    if real_data:
-        for sample, info in feat_files['pkl'].items():
-            for genome, filename in info.items():
-                all_files.append(filename)
-
-    else:
-        for rich,info in feat_files['pkl'].items():
-            for dep,infoo in info.items():
-                for rep,infooo in infoo.items():
-                    for tech,filename in infooo.items():
-                        all_files.append(filename)
+    all_files = get_all_values(feat_files['pkl'])
                                                
     with pathos.multiprocessing.Pool(nprocs) as pool:
         pool.map(lambda file: standardize_file(file, mean, std, set_target), all_files)
@@ -254,16 +249,13 @@ def find_pkl_file(feat_file, force_overwrite=False):
         return feat_file, 'tsv'
                 
         
-def read_feature_file_table(feat_file_table, force_overwrite=False, technology='all-asmbl', longdir=False):
+def read_feature_file_table(feat_file_table, force_overwrite=False, technology='all-asmbl'):
     """ Loads feature file table, which lists all feature tables & associated
     metadata. The table is loaded based on column names.
     Params:
       feat_file_table : str, file path of tsv table
       force_overwrite : bool, force create pkl files?
       technology : str, filter to just specified assembler(s)
-      longdir : means resmico simulations with
-      richness/abundance_distribution/simulation_replicate/read_length/sequencing_depth/assembler/
-      folder structure
     Returns:
       dict{file_type : {richness: {read_depth: {simulation_rep : {assembler : feature_file }}}}}
     """ 
@@ -278,6 +270,14 @@ def read_feature_file_table(feat_file_table, force_overwrite=False, technology='
         # load
         tsv = csv.reader(f, delimiter='\t')
         col_names = next(tsv)
+        if 'read_length' in col_names:
+            longdir=True
+        else:
+            longdir=False
+        #longdir : means resmico simulations with
+        #richness/abundance_distribution/simulation_replicate/read_length/sequencing_depth/assembler/
+        #folder structure
+            
         # indexing
         colnames = ['richness', 'rep', 'read_depth', 'assembler', 'feature_file']
         if longdir:
@@ -394,7 +394,7 @@ def read_feature_ft_realdata(feat_file_table, force_overwrite=False):
     return D
 
 
-def pickle_in_parallel(feature_files, n_procs, set_target=True, real_data=False, v1=False, longdir=False):
+def pickle_in_parallel(feature_files, n_procs, set_target=True, real_data=False, v1=False):
     """
     Pickling feature files using multiproessing.Pool.
     Params:
@@ -408,31 +408,7 @@ def pickle_in_parallel(feature_files, n_procs, set_target=True, real_data=False,
         logging.info('Pickling...')
     pool = mp.Pool(processes = n_procs)
     # list of lists for input to pool.map
-    x = []
-    if real_data:
-        for sample, info in feature_files['tsv'].items():
-            for genome, filename in info.items():
-                F = filename
-                pklF = os.path.join(os.path.split(F)[0], 'features.pkl')
-                x.append([F, pklF])
-    elif longdir:
-        for rch, info in feature_files['tsv'].items():
-            for abnd, infoo in info.items():
-                for rep, infooo in infoo.items():
-                    for rlen, infoooo in infooo.items():
-                        for dp,infooooo in infoooo.items():
-                            for tech,filename in infooooo.items():        
-                                F = filename
-                                pklF = os.path.join(os.path.split(F)[0], 'features.pkl')
-                                x.append([F, pklF])
-    else:
-        for rich,info in feature_files['tsv'].items():
-            for depth,infoo in info.items():
-                for rep,infooo in infoo.items():
-                    for tech,filename in infooo.items():
-                        F = filename
-                        pklF = os.path.join(os.path.split(F)[0], 'features.pkl')
-                        x.append([F, pklF]) #, tech, depth])
+    x = get_all_values(feature_files['tsv'])
 
     # Pickle in parallel and saving file paths in dict
     if v1:
@@ -448,7 +424,7 @@ def pickle_in_parallel(feature_files, n_procs, set_target=True, real_data=False,
     return
 
 
-def pickle_data_b(x, set_target=True):
+def pickle_data_b(features_in, set_target=True):
     """
     One time function parsing the tsv file and dumping the 
     values of interest into a pickle file. 
@@ -459,8 +435,7 @@ def pickle_data_b(x, set_target=True):
     Returns:
       features_out       
     """
-    features_in, features_out = x[:]
-
+    features_out = os.path.join(os.path.split(features_in)[0], 'features.pkl')
     msg = 'Pickling feature data: {} => {}'
 #    logging.info(msg.format(features_in, features_out))
 
