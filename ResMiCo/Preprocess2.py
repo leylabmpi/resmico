@@ -146,7 +146,7 @@ if __name__ == '__main__':
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--i', help='Input directory. All .tsv.gz files will be read recursively.', default='./')
-    parser.add_argument('--p', help='Number of processes to use for parallelization', default=1)
+    parser.add_argument('--p', help='Number of processes to use for parallelization', default=1, type=int)
     parser.add_argument('--features', help='List of features to pre-process',
                         default=['assembler', 'contig', 'position', 'ref_base'])
     parser.add_argument('--feature_types',
