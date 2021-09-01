@@ -23,18 +23,17 @@ def all_which_input(wildcards):
     # reads
     if (str(config['params']['MGSIM']['reads']['keep_reads']).lower() == 'true' and
         config['reads_tbl'] is None):
-        F += Expand(mgsim_dir + \
-                    'sim_reads/{richness}/{abund_dist}/{rep}/{read_length}/' + \
-                    '{read_depth}/Read1.fq.gz',
+        F += Expand(J(mgsim_dir, 'sim_reads', '{richness}', '{abund_dist}', '{rep}',
+                      '{read_length}', '{read_depth}', 'Read1.fq.gz'),
                     config['sim_params'])
-        F += Expand(mgsim_dir + \
-                    'sim_reads/{richness}/{abund_dist}/{rep}/{read_length}/' + \
-                    '{read_depth}/Read2.fq.gz',
+        F += Expand(J(mgsim_dir, 'sim_reads', '{richness}', '{abund_dist}', '{rep}',
+                      '{read_length}', '{read_depth}', 'Read2.fq.gz'),
                     config['sim_params'])
         
     # coverage
     if not skipped(config['params']['nonpareil']['params']):
-        F += Expand(coverage_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/nonpareil.npo',
+        F += Expand(J(coverage_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                      '{read_depth}', 'nonpareil.npo'),
                    config['sim_params'])  
         if not skipped(config['params']['nonpareil']['summary']):
             F.append(coverage_dir + 'nonpareil/all_summary.RDS')
@@ -42,22 +41,26 @@ def all_which_input(wildcards):
             F.append(coverage_dir + 'nonpareil/all_curve.pdf')
             
     # MG assemblies
-    F += Expand(asmbl_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/contigs_filtered.fasta.gz',
+    F += Expand(J(asmbl_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                  '{read_depth}', '{assembler}', 'contigs_filtered.fasta.gz'),
                config['sim_params'])
     
     ## metaquast
     if not skipped(config['params']['asmbl_errors']['metaquast']):
-        F += Expand(true_errors_dir + \
-                    '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/metaquast.done',
+        F += Expand(J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                      '{read_depth}', '{assembler}', 'metaquast.done'),
                     config['sim_params'])        
-        F += Expand(true_errors_dir + '{richness}/{abund_dist}/{rep}/metaquast_cleanup.done',
-                    config['sim_params'])        
+        F += Expand(J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}',
+                      'metaquast_cleanup.done'),
+                    config['sim_params'])
+        F.append(genomes_dir + 'genomes_rm.done')
         
     # read mapping to contigs
     if not skipped(config['params']['map']['samtools']):
         if str(config['params']['map']['keep_bam']).lower() == 'true':
-            F += Expand(map_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.bam',
-                       config['sim_params']) 
+            F += Expand(J(map_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                          '{read_depth}', '{assembler}.bam'),
+                        config['sim_params']) 
 
         # feature table
         if not skipped(config['params']['feature_table']['make']):   
@@ -66,28 +69,38 @@ def all_which_input(wildcards):
     # State of the Art
     ## ALE
     if not skipped(config['params']['SotA']['ALE']):
-        F += Expand(ale_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/ALE_results.txt.gz',
+        F += Expand(J(ale_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                      '{read_depth}', '{assembler}', 'ALE_results.txt.gz'),
                     config['sim_params']) 
     ## VALET
     if not skipped(config['params']['SotA']['VALET']):
-        F += Expand(valet_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/summary.tsv',
+        F += Expand(J(valet_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                      '{read_depth}', '{assembler}', 'summary.tsv'),
                    config['sim_params'])
     ## metaMIC
     if (not skipped(config['params']['SotA']['metaMIC']['extract']) and
         not skipped(config['params']['SotA']['metaMIC']['predict'])):
-        F += Expand(metamic_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
-                    'metaMIC/metaMIC_contig_score.txt.gz', config['sim_params'])
-        F += Expand(metamic_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
-                    'metaMIC/metaMIC_corrected_contigs.fa.gz', config['sim_params'])
-        F += Expand(metamic_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
-                    'metaMIC/anomaly_score.txt.gz', config['sim_params'])
-        F += Expand(metamic_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
-                    'metaMIC/misassembly_breakpoint.txt.gz', config['sim_params'])
-        F += Expand(metamic_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
-                    'metaMIC/feature_matrix/window_fea_matrix.txt.gz',
+        F += Expand(J(metamic_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                      '{read_depth}', '{assembler}', 'metaMIC', 'metaMIC_contig_score.txt.gz'),
                     config['sim_params'])
-        F += Expand(metamic_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
-                    'metaMIC/temp/read_breakpoint/read_breakpoint_per_base.txt.gz',
+        F += Expand(J(metamic_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                      '{read_depth}', '{assembler}', 'metaMIC',
+                      'metaMIC_corrected_contigs.fa.gz'),
+                    config['sim_params'])
+        F += Expand(J(metamic_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                      '{read_depth}', '{assembler}', 'metaMIC', 'anomaly_score.txt.gz'),
+                    config['sim_params'])
+        F += Expand(J(metamic_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                      '{read_depth}', '{assembler}', 'metaMIC',
+                      'misassembly_breakpoint.txt.gz'),
+                    config['sim_params'])
+        F += Expand(J(metamic_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                      '{read_depth}', '{assembler}', 'metaMIC', 'feature_matrix',
+                      'window_fea_matrix.txt.gz'),
+                    config['sim_params'])
+        F += Expand(J(metamic_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                      '{read_depth}', '{assembler}', 'metaMIC', 'temp', 'read_breakpoint',
+                      'read_breakpoint_per_base.txt.gz'),
                     config['sim_params'])        
     # return
     return F
