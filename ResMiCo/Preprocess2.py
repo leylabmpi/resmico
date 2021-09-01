@@ -154,6 +154,8 @@ if __name__ == '__main__':
                              'f=float (normalized to mean 0 and stddev 1',
                         default=['s', 's', 'i', 'c'])
     args = parser.parse_args()
+    logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG)
+
 
     all_data = preprocess(args.p, args.i, args.features, args.feature_types)
 
