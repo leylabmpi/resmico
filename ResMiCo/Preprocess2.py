@@ -57,36 +57,34 @@ def read_file(fname, feature_info, coverage_pos):
     rd = csv.reader(f, delimiter='\t')
     row = next(rd)
 
+    cols_to_read = []
+    types_to_read = []
     for i, (pos, tp) in enumerate(feature_info):
         if tp == 'f':
-            result[i] = ([], 0, 0)  # the list of values, the sum and the sum of squares
+            cols_to_read.append(pos)
+            types_to_read.append('f4')
         elif tp == 'i':
-            result[i] = []
-        else: # a constant string value, such as contig name or assembler
+            if pos == coverage_pos:
+                cov_j = len(cols_to_read)
+            cols_to_read.append(pos)
+            types_to_read.append('i2')
+
+        else:  # a constant string value, such as contig name or assembler
             result[i] = row[pos]
 
-    # unread the first row
-    f.seek(0)
-    f.readline()
+    # read the entire file module the 's' columns
+    if cols_to_read:
+        data = np.genfromtxt(fname, delimiter='\t', usecols=cols_to_read, dtype=types_to_read, names=True, unpack=True,
+                             loose=True)
 
-    rd = csv.reader(f, delimiter='\t')
-    for row in rd:
-        coverage = max(1, int(row[coverage_pos])) if coverage_pos > 0 else 1
-        for i, (pos, tp) in enumerate(feature_info):
-            if tp == 'f':
-                # None will be converted to np.nan when we create the Numpy array
-                result[i][0].append(float(row[pos]) if row[pos] != 'NA' else None)
-            elif tp == 'i':
-                if pos != coverage_pos:
-                    result[i].append(int(row[pos]) / coverage)
-                else:
-                    result[i].append(coverage)
-
+    j = 0
     for i, (pos, tp) in enumerate(feature_info):
+        if tp == 'i':
+            result[i] = data[j] / data[cov_j] if j != cov_j else data[j]
+            j += 1
         if tp == 'f':
-            #
-            np_array = np.array(result[i][0], dtype=get_numpy_type(tp))
-            result[i] = (np_array, np.nansum(np_array), np.nansum(np_array ** 2))
+            result[i] = (data[j], np.nansum(data[j]), np.nansum(data[j] ** 2))
+            j += 1
 
     return result
 
@@ -105,7 +103,7 @@ def preprocess(process_count, input_dir, features, feature_types):
     for file_data in pool.starmap(read_file, params):
         result[(file_data[0], file_data[1])] = file_data
         process = psutil.Process(os.getpid())
-        logging.info(f'Memory used: {process.memory_info().rss//1e6}MB')
+        logging.info(f'Memory used: {process.memory_info().rss // 1e6}MB')
 
     means = [0.0] * len(feature_info)
     std_devs = [0.0] * len(feature_info)
