@@ -40,7 +40,7 @@ def compute_sum_sumsq_n(featurefiles_table, n_feat=18):  # todo: 20 or 21 featur
             for rep,infooo in infoo.items():
                 for tech,filename in infooo.items():
                     with open(filename, 'rb') as feat:
-                        logging.info('openning file: {}'.format(filename))
+                        logging.info('opening file: {}'.format(filename))
                         x, _, _ = pickle.load(feat)
                         for xi in x:
                             sum_xi = np.sum(xi, 0)
@@ -511,7 +511,7 @@ def pickle_data_b(x, set_target=True):
                       w_cov]
         
         w_num_features = [w_npropM, w_orpM, w_npropV]
-        nf=20  # 4 for refrence feature, 4 count features, 12 important features
+        nf=20  # 4 for reference features, 4 count features, 12 important features
         
         # formatting rows
         for row in tsv:
