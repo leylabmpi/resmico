@@ -2,6 +2,7 @@ import argparse
 import csv
 import gzip
 import itertools
+import logging
 import math
 from multiprocessing import Pool
 import os
@@ -47,6 +48,7 @@ def read_file(fname, feature_info, coverage_pos):
      - coverage_pos the position of the 'coverage' column in the file (used to normalize the count features). If
        negative, no normalization by coverage takes place
     """
+    logging.info(f'Reading {fname}')
     result = [None] * len(feature_info)
 
     # read the first row and set the constant fields (e.g. contig name, assembler)
@@ -91,9 +93,9 @@ def read_file(fname, feature_info, coverage_pos):
 
 def preprocess(process_count, input_dir, features, feature_types):
     file_list = [str(f) for f in list(Path(input_dir).rglob("*.tsv.gz"))]
-    print(f'Processing {len(file_list)} *.tsv.gz files found in {input_dir} ...');
+    logging.info(f'Processing {len(file_list)} *.tsv.gz files found in {input_dir} ...');
     if not file_list:
-        print('Noting to do.')
+        logging.info('Noting to do.')
         exit(0)
 
     result = {}
@@ -103,7 +105,7 @@ def preprocess(process_count, input_dir, features, feature_types):
     for file_data in pool.starmap(read_file, params):
         result[(file_data[0], file_data[1])] = file_data
         process = psutil.Process(os.getpid())
-        print(f'Memory used: {process.memory_info().rss//1e6}MB')
+        logging.info(f'Memory used: {process.memory_info().rss//1e6}MB')
 
     means = [0.0] * len(feature_info)
     std_devs = [0.0] * len(feature_info)
