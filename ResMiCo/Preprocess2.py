@@ -86,6 +86,7 @@ def read_file(fname, feature_info, coverage_pos):
             result[i] = (data[j], np.nansum(data[j]), np.nansum(data[j] ** 2))
             j += 1
 
+    logging.info(f'Finished reading {fname}')
     return result
 
 
