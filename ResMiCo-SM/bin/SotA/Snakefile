@@ -3,17 +3,17 @@ rule ALE:
     Running ALE on assemblies
     """
     input:
-        ref = config['tmp_dir'] + \
-              '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/contigs_filtered.fasta',
-        bam = config['tmp_dir'] + \
-              'map/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.bam',
-        bai = config['tmp_dir'] + \
-              'map/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.bam.bai'
+        ref = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                '{read_depth}', '{assembler}', 'contigs_filtered.fasta'),
+        bam = J(config['tmp_dir'], 'map', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                '{read_depth}', '{assembler}.bam'),
+        bai = J(config['tmp_dir'], 'map', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                '{read_depth}', '{assembler}.bam.bai')
     output:
-        txt = temp(config['tmp_dir'] + \
-               '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/ALE_results.txt'),
-        gz = ale_dir + \
-              '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/ALE_results.txt.gz'
+        txt = temp(J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                     '{read_depth}', '{assembler}', 'ALE_results.txt')),
+        gz = J(ale_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}',
+               '{assembler}', 'ALE_results.txt.gz')
     params:
         params = config['params']['SotA']['ALE'],
         exe = config['pipeline']['script_folder'] + 'ALE',
@@ -23,9 +23,11 @@ rule ALE:
         time = lambda wildcards, attempt: attempt * 59 * 12,
         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 7
     log:
-        log_dir + 'ALE/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.log'
+        J(log_dir, 'ALE', '{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}',
+          '{assembler}.log')
     benchmark:
-        benchmark_dir + 'ALE/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.txt'
+        J(benchmark_dir, 'ALE', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+          '{read_depth}', '{assembler}.txt')
     shell:
         """
         if [ `{params.exe_empty} {input.ref}` -eq 0 ]; then
@@ -43,21 +45,28 @@ rule VALET:
     Running VALET on assemblies
     """
     input:
-        ref = config['tmp_dir'] + \
-              '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/contigs_filtered.fasta',
-    	read1 = config['tmp_dir'] + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/sim_reads/R1.fq',
-	read2 = config['tmp_dir'] + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/sim_reads/R2.fq'
+        ref = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                '{read_depth}', '{assembler}', 'contigs_filtered.fasta'),
+    	read1 = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                  '{read_depth}', 'sim_reads/R1.fq'),
+	read2 = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                  '{read_depth}', 'sim_reads', 'R2.fq')
     output:
-        sum = valet_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/summary.tsv',
-        sbed = valet_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/summary.bed',
-        ssbed = valet_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/suspicious.bed',
-        cbed = valet_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/coverage.bed',
-        bbed = valet_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/breakpoints.bed'
+        sum = J(valet_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                '{read_depth}', '{assembler}', 'summary.tsv'),
+        sbed = J(valet_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                 '{read_depth}', '{assembler}', 'summary.bed'),
+        ssbed = J(valet_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                  '{read_depth}', '{assembler}', 'suspicious.bed'),
+        cbed = J(valet_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                 '{read_depth}', '{assembler}', 'coverage.bed'),
+        bbed = J(valet_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                 '{read_depth}', '{assembler}', 'breakpoints.bed')
     params:
         params = config['params']['SotA']['VALET'],
         ionice = config['params']['ionice'],
-        tmp_dir = config['tmp_dir'] + \
-                  'VALET/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/valet_out/reference/',
+        tmp_dir = J(config['tmp_dir'], 'VALET', '{richness}', '{abund_dist}', '{rep}',
+                    '{read_length}', '{read_depth}', '{assembler}', 'valet_out', 'reference/'),
         exe_empty = config['pipeline']['script_folder'] + 'is_empty.py' 
     threads:
         8
@@ -68,9 +77,11 @@ rule VALET:
     conda:
         '../envs/valet.yaml'
     log:
-        log_dir + 'VALET/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.log'
+        J(log_dir, 'VALET', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+          '{read_depth}', '{assembler}.log')
     benchmark:
-        benchmark_dir + 'VALET/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.txt'
+        J(benchmark_dir, 'VALET', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+          '{read_depth}', '{assembler}.txt')
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
