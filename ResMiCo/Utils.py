@@ -44,7 +44,7 @@ def compute_sum_sumsq_n(featurefiles_table, n_feat=18):
     feat_sum = np.zeros(n_feat)
     feat_sq_sum = np.zeros(n_feat)
     n_el = 0
-                        
+
     for filename in all_files:    
         with open(filename, 'rb') as feat:
             logging.info('openning file: {}'.format(filename))
@@ -55,7 +55,7 @@ def compute_sum_sumsq_n(featurefiles_table, n_feat=18):
                 feat_sum += sum_xi
                 feat_sq_sum += sum_sq
                 n_el += xi.shape[0]
-                    
+
     path = os.path.split(featurefiles_table)[0]
     np.save(path+'/mean_std', [feat_sum, feat_sq_sum, n_el])
     return 
@@ -486,7 +486,7 @@ def pickle_data_b(features_in, set_target=True):
                       w_cov]
         
         w_num_features = [w_npropM, w_orpM, w_npropV]
-        nf=20  # 4 for refrence feature, 4 count features, 12 important features
+        nf=20  # 4 for reference features, 4 count features, 12 important features
         
         # formatting rows
         for row in tsv:

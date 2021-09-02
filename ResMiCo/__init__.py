@@ -1,2 +1,2 @@
-__project__ = "DeepMAsED"
+__project__ = "ResMiCo"
 __author__ = "Nick Youngblut"
