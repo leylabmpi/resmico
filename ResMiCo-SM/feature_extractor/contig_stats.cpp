@@ -231,7 +231,7 @@ std::vector<Stats> contig_stats(const std::string &reference_name,
             Stats &stat = stats[pos];
 
             // insert sizes
-            const std::vector<int32_t> &i_sizes = stat.i_sizes;
+            const std::vector<int16_t> &i_sizes = stat.i_sizes;
             if (!i_sizes.empty()) {
                 std::tie(stat.min_i_size, stat.mean_i_size, stat.max_i_size)
                         = min_mean_max(i_sizes);

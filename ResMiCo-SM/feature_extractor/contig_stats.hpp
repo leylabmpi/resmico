@@ -55,7 +55,7 @@ struct Stats {
     uint16_t n_discord_match = 0;
 
 
-    std::vector<int32_t> i_sizes;
+    std::vector<int16_t> i_sizes;
     std::vector<uint8_t> map_quals;
     std::vector<uint8_t> al_scores; // alignment scores as computed by BowTie2
 

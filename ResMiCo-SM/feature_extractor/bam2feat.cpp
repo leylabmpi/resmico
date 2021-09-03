@@ -84,34 +84,36 @@ void write_stats(QueueItem &&item,
     for (uint32_t pos = 0; pos < item.stats.size(); ++pos) {
         const Stats &s = item.stats[pos];
 
-        std::cout << pos << '\t' <<  std::endl;
-//        uint16_t v = s.coverage();
-//        streams["coverage"]->write(reinterpret_cast<char *>(&v), 2);
-//        write_value(s.n_bases[0], s.coverage(), *streams["num_query_A"]);
-//        write_value(s.n_bases[1], s.coverage(), *streams["num_query_C"]);
-//        write_value(s.n_bases[2], s.coverage(), *streams["num_query_G"]);
-//        write_value(s.n_bases[3], s.coverage(), *streams["num_query_T"]);
-//        write_value(s.num_snps(), s.coverage(), *streams["num_SNPs"]);
-//        write_value(s.n_discord, s.coverage(), *streams["num_discordant"]);
-//
-//        streams["min_insert_size_Match"]->write(reinterpret_cast<const char *>(&s.min_i_size), 2);
-//        write_float_value(s.mean_i_size, *streams["mean_insert_size_Match"]);
-//        write_float_value(s.std_dev_i_size, *streams["stdev_insert_size_Match"]);
-//        streams["max_insert_size_Match"]->write(reinterpret_cast<const char *>(&s.max_i_size), 2);
-//
-//        streams["min_mapq_Match"]->put(s.min_map_qual);
-//        write_float_value(s.mean_map_qual, *streams["mean_mapq_Match"]);
-//        write_float_value(s.std_dev_map_qual, *streams["stdev_mapq_Match"]);
-//        streams["max_mapq_Match"]->put(s.max_map_qual);
-//
-//        streams["min_al_score_Match"]->put(s.min_al_score);
-//        write_float_value(s.mean_al_score, *streams["mean_al_score_Match"]);
-//        write_float_value(s.std_dev_al_score, *streams["stdev_al_score_Match"]);
-//        streams["max_al_score_Match"]->put(s.max_al_score);
-//
-//        write_value(s.n_proper_snp, s.n_proper_snp, *streams["num_proper_SNP"]);
-//        write_float_value(s.gc_percent, *streams["seq_window_perc_gc"]);
-//        streams["ref_base"]->put(s.ref_base);
+        std::cout << pos << '\t' << std::endl;
+        //        uint16_t v = s.coverage();
+        //        streams["coverage"]->write(reinterpret_cast<char *>(&v), 2);
+        //        write_value(s.n_bases[0], s.coverage(), *streams["num_query_A"]);
+        //        write_value(s.n_bases[1], s.coverage(), *streams["num_query_C"]);
+        //        write_value(s.n_bases[2], s.coverage(), *streams["num_query_G"]);
+        //        write_value(s.n_bases[3], s.coverage(), *streams["num_query_T"]);
+        //        write_value(s.num_snps(), s.coverage(), *streams["num_SNPs"]);
+        //        write_value(s.n_discord, s.coverage(), *streams["num_discordant"]);
+        //
+        //        streams["min_insert_size_Match"]->write(reinterpret_cast<const char
+        //        *>(&s.min_i_size), 2); write_float_value(s.mean_i_size,
+        //        *streams["mean_insert_size_Match"]); write_float_value(s.std_dev_i_size,
+        //        *streams["stdev_insert_size_Match"]);
+        //        streams["max_insert_size_Match"]->write(reinterpret_cast<const char
+        //        *>(&s.max_i_size), 2);
+        //
+        //        streams["min_mapq_Match"]->put(s.min_map_qual);
+        //        write_float_value(s.mean_map_qual, *streams["mean_mapq_Match"]);
+        //        write_float_value(s.std_dev_map_qual, *streams["stdev_mapq_Match"]);
+        //        streams["max_mapq_Match"]->put(s.max_map_qual);
+        //
+        //        streams["min_al_score_Match"]->put(s.min_al_score);
+        //        write_float_value(s.mean_al_score, *streams["mean_al_score_Match"]);
+        //        write_float_value(s.std_dev_al_score, *streams["stdev_al_score_Match"]);
+        //        streams["max_al_score_Match"]->put(s.max_al_score);
+        //
+        //        write_value(s.n_proper_snp, s.n_proper_snp, *streams["num_proper_SNP"]);
+        //        write_float_value(s.gc_percent, *streams["seq_window_perc_gc"]);
+        //        streams["ref_base"]->put(s.ref_base);
 
         if (!std::isnan(s.mean_i_size)) { // coverage > 0
             (*count_mean)++;
@@ -302,7 +304,15 @@ int main(int argc, char *argv[]) {
     std::vector<double> sums(12, 0);
     std::vector<double> sums2(12, 0);
 
-
+    //============
+    for (uint32_t c = 0; c < ref_names.size(); ++c) {
+        const std::string reference_seq = get_sequence(FLAGS_fasta_file, ref_names[c]);
+        std::vector<Stats> stats = contig_stats(ref_names[c], reference_seq, FLAGS_bam_file,
+                                                FLAGS_window, FLAGS_short);
+        write_stats({ std::move(stats), ref_names[c], reference_seq }, FLAGS_assembler, &out,
+                    binary_streams, &count_mean, &count_std_dev, &sums, &sums2);
+    }
+    //============
     util::WaitQueue<QueueItem> wq(32);
 
     std::thread t([&] {
