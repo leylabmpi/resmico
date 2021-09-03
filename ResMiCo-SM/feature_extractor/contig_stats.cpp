@@ -66,8 +66,8 @@ void fill_seq_entropy(const std::string &seq, uint32_t window_size, std::vector<
     }
 }
 
-uint32_t Stats::num_snps() const {
-    uint32_t result = 0;
+uint16_t Stats::num_snps() const {
+    uint16_t result = 0;
     for (uint32_t i : { 0, 1, 2, 3 }) {
         if (i != IDX[ref_base]) {
             result += n_bases[i];

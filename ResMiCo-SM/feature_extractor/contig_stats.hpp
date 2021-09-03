@@ -25,16 +25,16 @@ struct Stats {
     std::array<uint16_t, 4> n_bases; // total number of bases (ACGT) aligned to this position
 
     // number of SNPs (relative to the reference contig
-    uint32_t num_snps() const;
+    uint16_t num_snps() const;
 
-    uint32_t coverage() const { return n_bases[0] + n_bases[1] + n_bases[2] + n_bases[3]; }
+    uint16_t coverage() const { return n_bases[0] + n_bases[1] + n_bases[2] + n_bases[3]; }
 
     uint16_t n_discord = 0;
 
-    int32_t min_i_size = std::numeric_limits<int32_t>::max();
+    uint16_t min_i_size = std::numeric_limits<uint16_t>::max();
     float mean_i_size = NAN;
     float std_dev_i_size = NAN;
-    int32_t max_i_size = std::numeric_limits<int32_t>::max();
+    uint16_t max_i_size = std::numeric_limits<uint16_t>::max();
 
     uint8_t min_map_qual = std::numeric_limits<uint8_t>::max();
     float mean_map_qual = NAN;
