@@ -196,6 +196,8 @@ std::vector<Stats> pileup_bam(const std::string &reference,
                 stat.al_scores.push_back(std::clamp(alignment_score, 0, 255));
             }
 
+            stat.coverage++; // this also counts N's, in addition to ACGT
+
             // Alignment score
             if (base == 5
 
@@ -208,7 +210,7 @@ std::vector<Stats> pileup_bam(const std::string &reference,
             // make sure we have a 'N' on an alignment gap position
             assert(al.CigarData[cigar_idx].Type != 'N' || al.AlignedBases[i + offset] == 'N');
 
-            result.at(al.Position + i).n_bases[base]++;
+            stat.n_bases[base]++;
         }
     }
 
