@@ -119,7 +119,7 @@ TEST(PileupBam, OneRead) {
         ASSERT_EQ(stats[i].gc_percent, 0);
         ASSERT_EQ(stats[i].entropy, 0);
         ASSERT_EQ(stats[i].num_snps(), 0);
-        ASSERT_EQ(stats[i].coverage(), 1);
+        ASSERT_EQ(stats[i].coverage, 1);
         ASSERT_THAT(stats[i].al_scores, ElementsAre(-27));
     }
     for (uint32_t i = 420; i < 424; ++i) {
@@ -136,7 +136,7 @@ TEST(PileupBam, OneRead) {
         ASSERT_EQ(stats[i].gc_percent, 0);
         ASSERT_EQ(stats[i].entropy, 0);
         ASSERT_EQ(stats[i].num_snps(), 1);
-        ASSERT_EQ(stats[i].coverage(), 1);
+        ASSERT_EQ(stats[i].coverage, 1);
         ASSERT_TRUE(stats[i].al_scores.empty()); // because all positions are SNVs
     }
 }
@@ -166,7 +166,7 @@ TEST(PileupBam, TwoReads) {
         ASSERT_EQ(stats[i].gc_percent, 0);
         ASSERT_EQ(stats[i].entropy, 0);
         ASSERT_EQ(stats[i].num_snps(), i == 0 ? 0 : 1);
-        ASSERT_EQ(stats[i].coverage(), 2);
+        ASSERT_EQ(stats[i].coverage, 2);
     }
     for (uint32_t i = 420; i < 424; ++i) {
         ASSERT_EQ('A', stats[i].ref_base);
@@ -182,7 +182,7 @@ TEST(PileupBam, TwoReads) {
         ASSERT_EQ(stats[i].gc_percent, 0);
         ASSERT_EQ(stats[i].entropy, 0);
         ASSERT_EQ(stats[i].num_snps(), 2);
-        ASSERT_EQ(stats[i].coverage(), 2);
+        ASSERT_EQ(stats[i].coverage, 2);
     }
 }
 
@@ -217,7 +217,7 @@ TEST(ContigStats, TwoReads) {
             ASSERT_EQ(stats[i].gc_percent, 0);
             ASSERT_EQ(stats[i].entropy, 0);
             ASSERT_EQ(stats[i].num_snps(), i == 0 ? 0 : 1);
-            ASSERT_EQ(stats[i].coverage(), 2);
+            ASSERT_EQ(stats[i].coverage, 2);
         }
         for (uint32_t i = 420; i < 424; ++i) {
             ASSERT_EQ('A', stats[i].ref_base);
@@ -233,7 +233,7 @@ TEST(ContigStats, TwoReads) {
             ASSERT_EQ(stats[i].gc_percent, 0);
             ASSERT_EQ(stats[i].entropy, 0);
             ASSERT_EQ(stats[i].num_snps(), 2);
-            ASSERT_EQ(stats[i].coverage(), 2);
+            ASSERT_EQ(stats[i].coverage, 2);
         }
     }
 }

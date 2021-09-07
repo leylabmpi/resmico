@@ -6,6 +6,7 @@
 
 #include <api/BamReader.h>
 #include <gflags/gflags.h>
+#include <util/gzstream.hpp>
 
 #include <array>
 #include <chrono>
@@ -52,14 +53,17 @@ struct QueueItem {
     std::string reference;
 };
 
-inline void write_value(uint16_t v, uint16_t normalize_by, std::ofstream &out) {
+inline void write_value(uint16_t v, uint16_t normalize_by, ogzstream &out) {
     static uint16_t MAX_16 = std::numeric_limits<uint16_t>::max();
     assert(v <= normalize_by || v == MAX_16);
+    if (normalize_by == 0) {
+        normalize_by = 1;
+    }
     uint16_t to_write = v == MAX_16 ? MAX_16 : static_cast<uint16_t>((v * 10000.) / normalize_by);
     out.write(reinterpret_cast<const char *>(&to_write), 2);
 }
 
-inline void write_float_value(float v, std::ofstream &out) {
+inline void write_float_value(float v, ogzstream &out) {
     assert(std::isnan(v) || v <= std::numeric_limits<int16_t>::max());
     int16_t to_write
             = isnan(v) ? std::numeric_limits<int16_t>::max() : static_cast<int16_t>(v * 100);
@@ -70,12 +74,13 @@ inline void write_float_value(float v, std::ofstream &out) {
 void write_stats(QueueItem &&item,
                  const std::string &assembler,
                  std::ofstream *o,
-                 std::unordered_map<std::string, std::unique_ptr<std::ofstream>> &streams,
+                 std::unordered_map<std::string, std::unique_ptr<ogzstream>> *bin_streams,
                  uint32_t *count_mean,
                  uint32_t *count_std_dev,
                  std::vector<double> *sums,
                  std::vector<double> *sums2) {
     std::ofstream &out = *o;
+    auto& streams = *bin_streams;
     logger()->info("Writing features for contig {}...", item.reference_name);
     out.precision(3);
 
@@ -84,36 +89,33 @@ void write_stats(QueueItem &&item,
     for (uint32_t pos = 0; pos < item.stats.size(); ++pos) {
         const Stats &s = item.stats[pos];
 
-        std::cout << pos << '\t' << std::endl;
-        //        uint16_t v = s.coverage();
-        //        streams["coverage"]->write(reinterpret_cast<char *>(&v), 2);
-        //        write_value(s.n_bases[0], s.coverage(), *streams["num_query_A"]);
-        //        write_value(s.n_bases[1], s.coverage(), *streams["num_query_C"]);
-        //        write_value(s.n_bases[2], s.coverage(), *streams["num_query_G"]);
-        //        write_value(s.n_bases[3], s.coverage(), *streams["num_query_T"]);
-        //        write_value(s.num_snps(), s.coverage(), *streams["num_SNPs"]);
-        //        write_value(s.n_discord, s.coverage(), *streams["num_discordant"]);
-        //
-        //        streams["min_insert_size_Match"]->write(reinterpret_cast<const char
-        //        *>(&s.min_i_size), 2); write_float_value(s.mean_i_size,
-        //        *streams["mean_insert_size_Match"]); write_float_value(s.std_dev_i_size,
-        //        *streams["stdev_insert_size_Match"]);
-        //        streams["max_insert_size_Match"]->write(reinterpret_cast<const char
-        //        *>(&s.max_i_size), 2);
-        //
-        //        streams["min_mapq_Match"]->put(s.min_map_qual);
-        //        write_float_value(s.mean_map_qual, *streams["mean_mapq_Match"]);
-        //        write_float_value(s.std_dev_map_qual, *streams["stdev_mapq_Match"]);
-        //        streams["max_mapq_Match"]->put(s.max_map_qual);
-        //
-        //        streams["min_al_score_Match"]->put(s.min_al_score);
-        //        write_float_value(s.mean_al_score, *streams["mean_al_score_Match"]);
-        //        write_float_value(s.std_dev_al_score, *streams["stdev_al_score_Match"]);
-        //        streams["max_al_score_Match"]->put(s.max_al_score);
-        //
-        //        write_value(s.n_proper_snp, s.n_proper_snp, *streams["num_proper_SNP"]);
-        //        write_float_value(s.gc_percent, *streams["seq_window_perc_gc"]);
-        //        streams["ref_base"]->put(s.ref_base);
+        uint16_t v = s.coverage;
+        streams["coverage"]->write(reinterpret_cast<char *>(&v), 2);
+        write_value(s.n_bases[0], s.coverage, *streams["num_query_A"]);
+        write_value(s.n_bases[1], s.coverage, *streams["num_query_C"]);
+        write_value(s.n_bases[2], s.coverage, *streams["num_query_G"]);
+        write_value(s.n_bases[3], s.coverage, *streams["num_query_T"]);
+        write_value(s.num_snps(), s.coverage, *streams["num_SNPs"]);
+        write_value(s.n_discord, s.coverage, *streams["num_discordant"]);
+
+        streams["min_insert_size_Match"]->write(reinterpret_cast<const char *>(&s.min_i_size), 2);
+        write_float_value(s.mean_i_size, *streams["mean_insert_size_Match"]);
+        write_float_value(s.std_dev_i_size, *streams["stdev_insert_size_Match"]);
+        streams["max_insert_size_Match"]->write(reinterpret_cast<const char *>(&s.max_i_size), 2);
+
+        streams["min_mapq_Match"]->put(s.min_map_qual);
+        write_float_value(s.mean_map_qual, *streams["mean_mapq_Match"]);
+        write_float_value(s.std_dev_map_qual, *streams["stdev_mapq_Match"]);
+        streams["max_mapq_Match"]->put(s.max_map_qual);
+
+        streams["min_al_score_Match"]->put(s.min_al_score);
+        write_float_value(s.mean_al_score, *streams["mean_al_score_Match"]);
+        write_float_value(s.std_dev_al_score, *streams["stdev_al_score_Match"]);
+        streams["max_al_score_Match"]->put(s.max_al_score);
+
+        write_value(s.n_proper_snp, s.n_proper_snp, *streams["num_proper_SNP"]);
+        write_float_value(s.gc_percent, *streams["seq_window_perc_gc"]);
+        streams["ref_base"]->put(s.ref_base);
 
         if (!std::isnan(s.mean_i_size)) { // coverage > 0
             (*count_mean)++;
@@ -156,16 +158,11 @@ void write_stats(QueueItem &&item,
 
         assert(s.ref_base == 0 || s.ref_base == item.reference[pos]);
         out << item.reference[pos] << '\t' << s.n_bases[0] << '\t' << s.n_bases[1] << '\t'
-            << s.n_bases[2] << '\t' << s.n_bases[3] << '\t' << s.num_snps() << '\t' << s.coverage()
+            << s.n_bases[2] << '\t' << s.n_bases[3] << '\t' << s.num_snps() << '\t' << s.coverage
             << '\t' << s.n_discord << '\t';
         if (std::isnan(s.mean_i_size)) { // zero coverage, no i_size, no mapping quality
             out << "NA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\t";
         } else {
-            count_mean++;
-            if (!std::isnan(s.std_dev_i_size)) {
-                assert(!std::isnan(s.std_dev_al_score && !std::isnan(s.std_dev_map_qual)));
-                count_std_dev++;
-            }
             out << stri(s.min_i_size) << '\t' << round2(s.mean_i_size) << '\t'
                 << round2(s.std_dev_i_size) << '\t' << stri(s.max_i_size) << '\t';
             out << (int)s.min_map_qual << '\t' << round2(s.mean_map_qual) << '\t'
@@ -263,14 +260,14 @@ int main(int argc, char *argv[]) {
     }
     H.insert(H.end(), { "seq_window_entropy", "seq_window_perc_gc" });
 
-    std::unordered_map<std::string, std::unique_ptr<std::ofstream>> binary_streams;
+    std::unordered_map<std::string, std::unique_ptr<ogzstream>> binary_streams;
     for (const std::string &header : H) {
         auto fname = std::filesystem::path(FLAGS_o).replace_extension("_" + header);
-        binary_streams[header] = std::make_unique<std::ofstream>(fname, std::ios::binary);
+        binary_streams[header] = std::make_unique<ogzstream>(fname.string().c_str());
     }
     // the "Table of Contents" stream
-    binary_streams["toc"] = std::make_unique<std::ofstream>(
-            std::filesystem::path(FLAGS_o).replace_extension("_toc"));
+    binary_streams["toc"] = std::make_unique<ogzstream>( // TODO: make it ofstream
+            std::filesystem::path(FLAGS_o).replace_extension("_toc").c_str());
 
     std::ofstream out(FLAGS_o.c_str());
     out << join_vec(H, '\t');
@@ -304,15 +301,6 @@ int main(int argc, char *argv[]) {
     std::vector<double> sums(12, 0);
     std::vector<double> sums2(12, 0);
 
-    //============
-    for (uint32_t c = 0; c < ref_names.size(); ++c) {
-        const std::string reference_seq = get_sequence(FLAGS_fasta_file, ref_names[c]);
-        std::vector<Stats> stats = contig_stats(ref_names[c], reference_seq, FLAGS_bam_file,
-                                                FLAGS_window, FLAGS_short);
-        write_stats({ std::move(stats), ref_names[c], reference_seq }, FLAGS_assembler, &out,
-                    binary_streams, &count_mean, &count_std_dev, &sums, &sums2);
-    }
-    //============
     util::WaitQueue<QueueItem> wq(32);
 
     std::thread t([&] {
@@ -321,7 +309,7 @@ int main(int argc, char *argv[]) {
             if (!wq.pop_back(&stats)) {
                 break;
             }
-            write_stats(std::move(stats), FLAGS_assembler, &out, binary_streams, &count_mean,
+            write_stats(std::move(stats), FLAGS_assembler, &out, &binary_streams, &count_mean,
                         &count_std_dev, &sums, &sums2);
         }
     });

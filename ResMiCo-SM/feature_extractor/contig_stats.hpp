@@ -27,7 +27,8 @@ struct Stats {
     // number of SNPs (relative to the reference contig
     uint16_t num_snps() const;
 
-    uint16_t coverage() const { return n_bases[0] + n_bases[1] + n_bases[2] + n_bases[3]; }
+    // this is >= than sum(n_bases), because it also counts the N's
+    uint16_t coverage = 0;
 
     uint16_t n_discord = 0;
 
