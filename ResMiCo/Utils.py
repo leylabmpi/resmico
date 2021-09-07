@@ -561,16 +561,16 @@ def pickle_data_b(features_in, set_target=True):
         else:
             pickle.dump([feat_contig, name_to_id], f)
             
-    return x
+    return 
 
 
-def pickle_data_b_v1(x, set_target=True):
+def pickle_data_b_v1(features_in, set_target=True):
     """
     One time function parsing the csv file and dumping the
     values of interest into a pickle file.
     It generates features exactly in the same format at deepmased v1 and standardize them
     """
-    features_in, features_out = x[:]
+    features_out = os.path.join(os.path.split(features_in)[0], 'features.pkl')
     feat_contig, target_contig = [], []
     name_to_id = {}
 
@@ -671,7 +671,7 @@ def pickle_data_b_v1(x, set_target=True):
         else:
             pickle.dump([feat_contig, name_to_id], f)
 
-    return x
+    return
 
 
 def load_features_tr(feat_file_table, max_len=10000,
@@ -1180,6 +1180,7 @@ def _read_len_from_file(f, samples):
 
 
 def read_all_lens(samples_dict):
+    #works only when no samples missing from the file
     files_dict = itertoolz.groupby(lambda t:t[1], list(itertoolz.map(
                                    lambda s: (s, samples_dict[s]), samples_dict.keys())))
     y = []
@@ -1431,9 +1432,9 @@ def add_stats(df, column_name='chunk_scores'):
     return df
 
 
-def aggregate_chunks(batches_list, all_lens, all_labels, all_preds, window, step):
+def aggregate_chunks(batches_list, all_lens, all_labels, all_names, all_preds, window, step):
     if all_labels != []:
-        dic_predictions = {'cont_glob_index': [], 'length': [], 'label': [], 'chunk_scores': []}
+        dic_predictions = {'cont_name': [], 'length': [], 'label': [], 'chunk_scores': []}
     else:
         dic_predictions = {'cont_index': [], 'length': [], 'chunk_scores': []}
 
@@ -1455,7 +1456,7 @@ def aggregate_chunks(batches_list, all_lens, all_labels, all_preds, window, step
             dic_predictions['chunk_scores'].append(cont_preds)
             start_pos = end_pos
             if all_labels != []:
-                dic_predictions['cont_glob_index'].append(cont_ind)
+                dic_predictions['cont_name'].append(all_names[cont_ind])
                 dic_predictions['label'].append(all_labels[cont_ind])
 
             else:
