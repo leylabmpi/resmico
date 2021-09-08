@@ -64,6 +64,8 @@ def parse_args(test_args=None, subparsers=None):
                         help='Prefix for name in the save-path (default: %(default)s)') 
     parser.add_argument('--val-path', default=None, type=str, 
                         help='Path to validation data (default: %(default)s)')
+    parser.add_argument('--val-ind-f', default=None, type=str, 
+                        help='Validation data indicies (default: %(default)s)')
     parser.add_argument('--early-stop', action='store_true', default=False,
                         help='Early stopping. Can be used only if val-path provided (default: %(default)s)')
     parser.add_argument('--net-type', default='cnn_resnet', type=str,
