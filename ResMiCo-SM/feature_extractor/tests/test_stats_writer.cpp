@@ -3,6 +3,11 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <filesystem>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
 namespace {
 using namespace ::testing;
 
