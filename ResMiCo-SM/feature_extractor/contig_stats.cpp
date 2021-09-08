@@ -198,7 +198,7 @@ std::vector<Stats> pileup_bam(const std::string &reference,
                 int8_t alignment_score = 0;
                 char tp;
                 al.GetTagType(("AS"), tp);
-                bool succ;
+                bool succ = false;
                 switch(tp) {
                     case 'c':
                         int8_t al_score;
