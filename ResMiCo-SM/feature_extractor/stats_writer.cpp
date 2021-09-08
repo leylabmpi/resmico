@@ -4,6 +4,7 @@
 #include "util/util.hpp"
 
 #include <cstddef>
+#include <filesystem>
 #include <limits>
 #include <string>
 #include <vector>
