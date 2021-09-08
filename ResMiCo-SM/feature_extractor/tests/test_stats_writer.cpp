@@ -1,5 +1,7 @@
 #include "stats_writer.hpp"
 
+#include "util/gzstream.hpp"
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -15,7 +17,7 @@ TEST(WriteStats, Empty) {
     QueueItem item;
     uint32_t count_mean = 0, count_std_dev = 0;
     std::vector<double> sums(12, 0), sums2(12, 0);
-    std::ofstream out;
+    ogzstream out;
     std::unordered_map<std::string, std::unique_ptr<ogzstream>> bin_streams
             = get_streams("/tmp/out");
     std::ofstream toc("/tmp/out.toc");
@@ -36,7 +38,7 @@ TEST(WriteStats, Empty) {
 TEST(WriteStats, TwoReads) {
     uint32_t count_mean = 0, count_std_dev = 0;
     std::vector<double> sums(12, 0), sums2(12, 0);
-    std::ofstream out;
+    ogzstream out;
     std::unordered_map<std::string, std::unique_ptr<ogzstream>> bin_streams
             = get_streams("/tmp/out");
     std::ofstream toc("/tmp/out.toc");

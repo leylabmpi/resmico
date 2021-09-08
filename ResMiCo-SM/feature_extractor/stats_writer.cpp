@@ -111,7 +111,7 @@ get_streams(const std::string &out_prefix) {
 void write_stats(QueueItem &&item,
                  const std::string &assembler,
                  const std::vector<MisassemblyInfo> &mis,
-                 std::ofstream *o,
+                 ogzstream *o,
                  std::ofstream *toc,
                  std::unordered_map<std::string, std::unique_ptr<ogzstream>> *bin_streams,
                  uint32_t *count_mean,
@@ -120,7 +120,7 @@ void write_stats(QueueItem &&item,
                  std::vector<double> *sums2) {
     assert(sums->size() == 12 && sums2->size() == 12);
 
-    std::ofstream &out = *o;
+    ogzstream &out = *o;
     auto &streams = *bin_streams;
     logger()->info("Writing features for contig {}...", item.reference_name);
     out.precision(3);

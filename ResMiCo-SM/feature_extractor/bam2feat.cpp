@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
     // the "Table of Contents" stream
     std::ofstream toc(std::filesystem::path(FLAGS_o).replace_extension("toc").c_str());
 
-    std::ofstream out(FLAGS_o.c_str());
+    ogzstream out(FLAGS_o.c_str());
     out << join_vec(headers, '\t');
 
     // Getting contig list

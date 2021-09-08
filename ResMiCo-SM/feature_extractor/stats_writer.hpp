@@ -37,7 +37,7 @@ struct QueueItem {
 void write_stats(QueueItem &&item,
                  const std::string &assembler,
                  const std::vector<MisassemblyInfo>& mis,
-                 std::ofstream *o,
+                 ogzstream *o,
                  std::ofstream *toc,
                  std::unordered_map<std::string, std::unique_ptr<ogzstream>> *bin_streams,
                  uint32_t *count_mean,
