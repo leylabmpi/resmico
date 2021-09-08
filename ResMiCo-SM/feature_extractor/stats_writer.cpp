@@ -92,7 +92,7 @@ inline void write_value(uint16_t v, uint16_t normalize_by, ogzstream &out) {
 inline void write_float_value(float v, ogzstream &out) {
     assert(std::isnan(v) || v <= std::numeric_limits<int16_t>::max());
     int16_t to_write
-            = isnan(v) ? std::numeric_limits<int16_t>::max() : static_cast<int16_t>(v * 100);
+            = std::isnan(v) ? std::numeric_limits<int16_t>::max() : static_cast<int16_t>(v * 100);
     out.write(reinterpret_cast<const char *>(&to_write), 2);
 }
 
