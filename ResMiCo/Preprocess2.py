@@ -57,17 +57,72 @@ def read_file(fname, feature_info, coverage_pos):
     rd = csv.reader(f, delimiter='\t')
     row = next(rd)
 
+    for i, (pos, tp) in enumerate(feature_info):
+        if tp == 'f' or tp == 'i':
+            result[i] = []
+        else:  # a constant string value, such as contig name or assembler
+            result[i] = row[pos]
+
+    # unread the first row
+    f.seek(0)
+    f.readline()
+
+    rd = csv.reader(f, delimiter='\t')
+    for row in rd:
+        coverage = max(1, int(row[coverage_pos])) if coverage_pos > 0 else 1
+        for i, (pos, tp) in enumerate(feature_info):
+            if tp == 'f':
+                # None will be converted to np.nan when we create the Numpy array
+                result[i].append(float(row[pos]) if row[pos] != 'NA' else None)
+            elif tp == 'i':
+                if pos != coverage_pos:
+                    result[i].append(int(row[pos]) / coverage)
+                else:
+                    result[i].append(coverage)
+
+    logging.info(f'Finished reading data into memory')
+    for i, (pos, tp) in enumerate(feature_info):
+        if tp == 'f':
+            np_array = np.array(result[i], dtype=np.single)
+            result[i] = (np_array, np.nansum(np_array), np.nansum(np_array ** 2))
+        if tp == 'i':
+            result[i] = np.array(result[i], dtype=np.single)
+
+    logging.info(f'Finished converting to numpy array')
+    return result
+
+
+def read_file_np(fname, feature_info, coverage_pos):
+    """
+    Reads a zipped tsv file containing tab separated features and places the result for the desired features into
+    numpy arrays. For float arrays the sum and sum2 of the values is also computed (to be used for normalization)
+    Parameters:
+     - fname: the file to read
+     - feature_info: list of (position, type) tuples indicating the column number and type of the features that we are
+     interested in
+     - coverage_pos the position of the 'coverage' column in the file (used to normalize the count features). If
+       negative, no normalization by coverage takes place
+    """
+    logging.info(f'Reading {fname}')
+    result = [None] * len(feature_info)
+
+    # read the first row and set the constant fields (e.g. contig name, assembler)
+    f = gzip.open(fname, mode='rt')
+    f.readline()  # skip header
+    rd = csv.reader(f, delimiter='\t')
+    row = next(rd)
+
     cols_to_read = []
     types_to_read = []
     for i, (pos, tp) in enumerate(feature_info):
+        if pos == coverage_pos:
+            cov_j = len(cols_to_read)
         if tp == 'f':
             cols_to_read.append(pos)
             types_to_read.append('f4')
         elif tp == 'i':
-            if pos == coverage_pos:
-                cov_j = len(cols_to_read)
             cols_to_read.append(pos)
-            types_to_read.append('i2')
+            types_to_read.append('f4')
 
         else:  # a constant string value, such as contig name or assembler
             result[i] = row[pos]
@@ -77,10 +132,12 @@ def read_file(fname, feature_info, coverage_pos):
         data = np.genfromtxt(fname, delimiter='\t', usecols=cols_to_read, dtype=types_to_read, names=True, unpack=True,
                              loose=True)
 
+    logging.info(f'Finished reading data into memory')
     j = 0
     for i, (pos, tp) in enumerate(feature_info):
         if tp == 'i':
-            result[i] = data[j] / data[cov_j] if j != cov_j else data[j]
+            np.divide(data[j], data[cov_j], data[j], where=data[cov_j] != 0)
+            result[i] = data[j]
             j += 1
         if tp == 'f':
             result[i] = (data[j], np.nansum(data[j]), np.nansum(data[j] ** 2))
@@ -147,14 +204,33 @@ if __name__ == '__main__':
     parser.add_argument('--i', help='Input directory. All .tsv.gz files will be read recursively.', default='./')
     parser.add_argument('--p', help='Number of processes to use for parallelization', default=1, type=int)
     parser.add_argument('--features', help='List of features to pre-process',
-                        default=['assembler', 'contig', 'position', 'ref_base'])
+                        default=['assembler',
+                                 'contig',
+                                 'num_query_A',
+                                 'num_query_C',
+                                 'num_query_G',
+                                 'num_query_T',
+                                 'coverage',
+                                 'num_proper_Match',
+                                 'num_orphans_Match',
+                                 'max_insert_size_Match',
+                                 'mean_insert_size_Match',
+                                 'min_insert_size_Match',
+                                 'stdev_insert_size_Match',
+                                 'mean_mapq_Match',
+                                 'min_mapq_Match',
+                                 'stdev_mapq_Match',
+                                 'seq_window_perc_gc',
+                                 'num_proper_SNP'
+                                 ])
     parser.add_argument('--feature_types',
                         help='Type of each feature in features. s=static,i=int (normalized by coverage),'
                              'f=float (normalized to mean 0 and stddev 1',
-                        default=['s', 's', 'i', 'c'])
+                        default=['s', 's', 'i', 'i', 'i', 'i', 'f', 'i', 'i', 'f', 'f', 'f', 'f', 'f', 'f', 'f', 'f',
+                                 'i'])
     args = parser.parse_args()
+    assert 'coverage' in args.features, '"overage" must be in --features, because it\'s used for normalization'
     logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG)
-
 
     all_data = preprocess(args.p, args.i, args.features, args.feature_types)
 

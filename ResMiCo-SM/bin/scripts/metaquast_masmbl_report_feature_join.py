@@ -123,8 +123,6 @@ def add_masmbl_info(feature_file, contig_itrees):
       'Extensive_misassembly_by_pos' : comma-delim list of misassembies by position
     """
     contigs_joined = 0
-    msgK = 'Cannot find mis-assembly contig in the feature table: {}'
-    msgV = 'Cannot find mis-assembly contig position in the feature table: {} => {}'    
     with open(feature_file) as inF:
         header = None
         curr_contig = ''

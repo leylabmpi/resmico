@@ -25,26 +25,30 @@ struct Stats {
     std::array<uint16_t, 4> n_bases; // total number of bases (ACGT) aligned to this position
 
     // number of SNPs (relative to the reference contig
-    uint32_t num_snps() const;
+    uint16_t num_snps() const;
 
-    uint32_t coverage() const { return n_bases[0] + n_bases[1] + n_bases[2] + n_bases[3]; }
+    // this is >= than sum(n_bases), because it also counts the N's
+    uint16_t coverage = 0;
 
     uint16_t n_discord = 0;
 
-    int32_t min_i_size = std::numeric_limits<int32_t>::max();
+    uint16_t min_i_size = std::numeric_limits<uint16_t>::max();
     float mean_i_size = NAN;
     float std_dev_i_size = NAN;
-    int32_t max_i_size = std::numeric_limits<int32_t>::max();
+    uint16_t max_i_size = std::numeric_limits<uint16_t>::max();
 
     uint8_t min_map_qual = std::numeric_limits<uint8_t>::max();
     float mean_map_qual = NAN;
     float std_dev_map_qual = NAN;
     uint8_t max_map_qual = std::numeric_limits<uint8_t>::max();
 
-    uint8_t min_al_score = std::numeric_limits<uint8_t>::max();
+    // Alignment scores measure how close (in terms of edit distance) is the aligned sequence to the
+    // reference sequence. In Bowties this values seems to be between 0 (meaning perfect match) and
+    //  ~ -10. Bamtools is not reading this value as an unsigned, so the values are from 0 to 10
+    int8_t min_al_score = std::numeric_limits<int8_t>::max();
     float mean_al_score = NAN;
     float std_dev_al_score = NAN;
-    uint8_t max_al_score = std::numeric_limits<uint8_t>::max();
+    int8_t max_al_score = std::numeric_limits<int8_t>::max();
 
     uint16_t n_proper_match = 0;
     uint16_t n_proper_snp = 0;
@@ -55,9 +59,9 @@ struct Stats {
     uint16_t n_discord_match = 0;
 
 
-    std::vector<int32_t> i_sizes;
+    std::vector<int16_t> i_sizes;
     std::vector<uint8_t> map_quals;
-    std::vector<uint8_t> al_scores; // alignment scores as computed by BowTie2
+    std::vector<int8_t> al_scores; // alignment scores as computed by BowTie2
 
     float gc_percent;
     float entropy;

@@ -4,6 +4,7 @@ import time
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import math
 import tensorflow as tf
 from tensorflow.keras.callbacks import ModelCheckpoint
@@ -49,11 +50,11 @@ def main(args):
     logging.info('Number of devices: {}'.format(strategy.num_replicas_in_sync))
 
     with strategy.scope():
-        deepmased = Models.deepmased(config)
-    deepmased.print_summary()
+        resmico = Models.resmico(config)
+    resmico.print_summary()
 
     # check if seed works, print weights for the first 5 layers -> seed works
-    # for n, layer in enumerate(deepmased.net.layers):
+    # for n, layer in enumerate(resmico.net.layers):
     #     if n<5:
     #         logging.info('layer: {}, config: {}, weights: {}'.format(
     #             n, layer.get_config(), layer.get_weights()))
@@ -76,7 +77,7 @@ def main(args):
         #                                shuffle=False,
         #                                rnd_seed=args.seed, nprocs=args.n_procs)
         # list_callbacks = [tb_logs, mc,
-        #                   deepmased.reduce_lr,
+        #                   resmico.reduce_lr,
         #                   Utils.auc_callback(dataGen_val)]
         # # if args.early_stop:
         # #     es = EarlyStopping(monitor='val_loss', verbose=1, patience=9)
@@ -85,7 +86,7 @@ def main(args):
         # #     mc = ModelCheckpoint(mc_file, monitor='val_loss', verbose=1, save_best_only=True)
         # #     list_callbacks.append(mc)
         #
-        # deepmased.net.fit(x=data_gen,validation_data=dataGen_val,
+        # resmico.net.fit(x=data_gen,validation_data=dataGen_val,
         #                             epochs=args.n_epochs,
         #                             use_multiprocessing=args.n_procs > 1,
         #                             workers=args.n_procs,
@@ -94,28 +95,54 @@ def main(args):
 
     elif not TRAINFULL:
         # main working area
-        logging.info('Split data: reps 1-9 for training, 10 for validation')
-        train_data_dict = Utils.build_sample_index(Path(args.feature_files_path), args.n_procs, filter10=True)
-        logging.info('Train data dictionary created. number of samples: {}'.format(len(train_data_dict)))
-        val_data_dict = Utils.build_sample_index(Path(args.feature_files_path), args.n_procs, rep10=True)
-        logging.info('Validation data dictionary created. number of samples: {}'.format(len(val_data_dict)))
+        if args.val_ind_f:
+            logging.info('Split data: for validation {} used, \
+                         for training everything else'.format(
+                                                args.val_ind_f))
+            all_data_dict = Utils.build_sample_index(Path(args.feature_files_path), args.n_procs, longdir=True)
+            logging.info('Data dictionary created. number of samples: {}'.format(len(all_data_dict)))
+            inds_val = list(pd.read_csv(args.val_ind_f)['val_ind'])
+            inds_train = list(set(range(len(all_data_dict))) - set(inds_val))
+            all_lens = Utils.read_all_lens(all_data_dict)
+            all_labels = Utils.read_all_labels(all_data_dict)
+            if FILTERLONG:
+                inds_long = np.arange(len(all_lens))[np.array(all_lens) > args.max_len]
+                logging.info('Long contigs: {}'.format(len(inds_long)))
+                inds_val = list(set(inds_val) - set(inds_long))
+                inds_val.sort()
+                inds_train = list(set(inds_train) - set(inds_long))
+            all_contigs = list(all_data_dict.items())
+            train_data_dict = dict(np.array(all_contigs)[inds_train])
+            logging.info('Train data dictionary created. number of samples: {}'.format(len(train_data_dict)))
+            val_data_dict = dict(np.array(all_contigs)[inds_val])
+            logging.info('Validation data dictionary created. number of samples: {}'.format(len(val_data_dict)))
+            
+            
+        else:
+            logging.info('Split data: reps 1-9 for training, 10 for validation')
+            train_data_dict = Utils.build_sample_index(Path(args.feature_files_path), args.n_procs, filter10=True)
+            logging.info('Train data dictionary created. number of samples: {}'.format(len(train_data_dict)))
+            val_data_dict = Utils.build_sample_index(Path(args.feature_files_path), args.n_procs, rep10=True)
+            logging.info('Validation data dictionary created. number of samples: {}'.format(len(val_data_dict)))
 
-        if FILTERLONG:
-            #train
-            logging.info('max_len for train: {}'.format(args.max_len))
-            all_lens = Utils.read_all_lens(train_data_dict)
-            #TODO: try to keep a bit longer contigs, to learn that chunck does not always start in the beginning
-            inds_short = np.arange(len(all_lens))[np.array(all_lens) <= args.max_len] # + 1000
-            all_contigs = list(train_data_dict.items())
-            train_data_dict = dict(np.array(all_contigs)[inds_short])
-            logging.info('from {}, {} short contigs left'.format(len(all_lens), len(inds_short)))
-            # validation is not downsampled and always the same max len 5k -- NO, now args.max_len
-            logging.info('max_len for validation: {}'.format(args.max_len))
-            all_lens = Utils.read_all_lens(val_data_dict)
-            inds_short = np.arange(len(all_lens))[np.array(all_lens) <= args.max_len]
-            all_contigs = list(val_data_dict.items())
-            val_data_dict = dict(np.array(all_contigs)[inds_short])
-            logging.info('from {}, {} short contigs left'.format(len(all_lens), len(inds_short)))
+            if FILTERLONG:
+                #train
+                logging.info('max_len for train: {}'.format(args.max_len))
+                all_lens = Utils.read_all_lens(train_data_dict)
+                #TODO: try to keep a bit longer contigs, to learn that chunck does not always start in the beginning
+                inds_short = np.arange(len(all_lens))[np.array(all_lens) <= args.max_len] # + 1000
+                all_contigs = list(train_data_dict.items())
+                train_data_dict = dict(np.array(all_contigs)[inds_short])
+                logging.info('from {}, {} short contigs left'.format(len(all_lens), len(inds_short)))
+                # validation is not downsampled and always the same max len 5k -- NO, now args.max_len
+                logging.info('max_len for validation: {}'.format(args.max_len))
+                all_lens = Utils.read_all_lens(val_data_dict)
+                all_labels = Utils.read_all_labels(val_data_dict)
+                inds_short = np.arange(len(all_lens))[np.array(all_lens) <= args.max_len]
+                all_contigs = list(val_data_dict.items())
+                val_data_dict = dict(np.array(all_contigs)[inds_short])
+                logging.info('from {}, {} short contigs left'.format(len(all_lens), len(inds_short)))
+                y_true_val = np.array(all_labels)[inds_short]
 
         # random split
         # logging.info('split data randomly')
@@ -126,14 +153,23 @@ def main(args):
         # split_train_dict = dict(items_train)
         # split_val_dict = dict(items_test)
 
-        logging.info('Train dataset:')
+        logging.info('Train dataset')
         dataGen_split_train = Models.GeneratorBigD(train_data_dict, args.max_len, args.batch_size,
                                        shuffle_data=True, fraq_neg=args.fraq_neg,
                                        rnd_seed=args.seed, nprocs=args.n_procs)
-        logging.info('Validation dataset:')
-        dataGen_split_val = Models.GeneratorBigD(val_data_dict, args.max_len, args.batch_size,
-                                       shuffle_data=False, nprocs=args.n_procs)
-        y_true_val = Utils.read_all_labels(val_data_dict)
+        logging.info('Validation dataset')
+        batches_list = Utils.create_batch_inds(all_lens, inds_sel=inds_val, 
+                                               memory_limit=500000)
+        logging.info("Number of batches: {}".format(len(batches_list)))
+        y_true_val = np.array(all_labels)[inds_val]
+        dataGen_split_val = Models.GeneratorPredLong(all_data_dict, batches_list, 
+                                                     window=args.max_len, 
+                                                    step=args.max_len/2.,
+                                                     nprocs=1)#args.n_procs
+# 
+#         dataGen_split_val = Models.GeneratorBigD(val_data_dict, args.max_len, args.batch_size,
+#                                        shuffle_data=False, nprocs=1) #args.n_procs
+        
 
 
         # def scheduler(epoch, lr):
@@ -146,15 +182,15 @@ def main(args):
         #         return lr
         # lr_scheduler = tf.keras.callbacks.LearningRateScheduler(scheduler)
         # list_callbacks = [lr_scheduler], #tb_logs, mc
-        #                   # deepmased.reduce_lr,
+        #                   # resmico.reduce_lr,
         #                   # Utils.auc_callback(dataGen_split_val)]
 
         logging.info('Training network...')
         num_epochs = 2 #todo: last run monitor more often
-        auc_val_best = 0.84
+        auc_val_best = 0.5
         for iter in range(math.ceil(args.n_epochs/num_epochs)):
             start = time.time()
-            deepmased.net.fit(x=dataGen_split_train,
+            resmico.net.fit(x=dataGen_split_train,
                         epochs=num_epochs,
                         workers=args.n_procs,
                         use_multiprocessing=args.n_procs > 1,
@@ -166,32 +202,34 @@ def main(args):
 
             logging.info('validation')
             start = time.time()
-            y_pred_val = deepmased.predict(dataGen_split_val,
-                                           workers=args.n_procs,
-                                           use_multiprocessing=args.n_procs > 1,
-                                           max_queue_size=max(args.n_procs, 10),
-                                           verbose=2)
+            y_pred_val = resmico.predict(dataGen_split_val)#, 
+#                                          use_multiprocessing=args.n_procs > 1, workers=args.n_procs)
+#             y_pred_val = resmico.predict(dataGen_split_val,
+#                                            workers=1, #args.n_procs
+#                                            use_multiprocessing=False, #args.n_procs > 1
+#                                            max_queue_size=10,
+#                                            verbose=2)
             auc_val = average_precision_score(y_true_val, y_pred_val)
             # loss_val = log_loss(y_true_val, y_pred_val)
             recall1_val = recall_score(y_true_val, y_pred_val>0.5, pos_label=1)
             recall0_val = recall_score(y_true_val, y_pred_val>0.5, pos_label=0)
-            logging.info('Validation scores after {} epochs: aucPR: {} - - recall1: {} - recall0: {} - mean: {}'.format(
+            logging.info('Validation scores after {} epochs: aucPR: {} - recall1: {} - recall0: {} - mean: {}'.format(
                 (iter+1)*num_epochs, auc_val, recall1_val, recall0_val, np.mean(y_pred_val)))
             duration = time.time() - start
             logging.info("time validation {}".format(duration))
 
             # update the learning rate
             if ((iter+1)*num_epochs>10) and (auc_val < auc_val_best):
-                lr_old = K.get_value(deepmased.net.optimizer.lr)
+                lr_old = K.get_value(resmico.net.optimizer.lr)
                 print("[INFO] old learning rate: {}".format(lr_old))
-                K.set_value(deepmased.net.optimizer.lr, lr_old*0.8) #changed for 120h jobs
-                print("[INFO] new learning rate: {}".format(K.get_value(deepmased.net.optimizer.lr)))
+                K.set_value(resmico.net.optimizer.lr, lr_old*0.8) #changed for 120h jobs
+                print("[INFO] new learning rate: {}".format(K.get_value(resmico.net.optimizer.lr)))
 
             if auc_val > auc_val_best:
                 auc_val_best = auc_val
                 best_file = os.path.join(save_path, '_'.join(
                     ['mc_epoch', str((iter+1)*num_epochs), 'aucPR', str(auc_val_best)[:5], args.save_name, 'model.h5']))
-                deepmased.save(best_file)
+                resmico.save(best_file)
                 logging.info('  File written: {}'.format(best_file))
 
     else:
@@ -212,7 +250,7 @@ def main(args):
                                        rnd_seed=args.seed, nprocs=args.n_procs)
         logging.info('Training network...')
 
-        deepmased.net.fit(x=data_gen,
+        resmico.net.fit(x=data_gen,
                     epochs=args.n_epochs,
                     workers=args.n_procs,
                     use_multiprocessing=args.n_procs > 1,
@@ -222,7 +260,7 @@ def main(args):
     logging.info('Saving trained model...')
     x = [args.save_name, args.technology, 'model.h5']
     outfile = os.path.join(save_path, '_'.join(x))
-    deepmased.save(outfile)
+    resmico.save(outfile)
     logging.info('  File written: {}'.format(outfile))
 
     # predict for long and fit classifier on top

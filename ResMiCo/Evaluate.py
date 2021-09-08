@@ -26,6 +26,7 @@ def predict_with_method(model, args):
                                              sdepth=args.sdepth, rich=args.rich, longdir=args.longdir)
     logging.info('Data dictionary created. Number of samples: {}'.format(len(data_dict)))
     all_contigs = list(data_dict.items())
+    all_names = list(data_dict.keys())
     all_lens = Utils.read_all_lens(data_dict)
     all_labels = Utils.read_all_labels(data_dict)
 
@@ -61,7 +62,7 @@ def predict_with_method(model, args):
 
             logging.info('Mean AUC_PR: {}, std: {}'.format(np.mean(aupr_scores), np.std(aupr_scores)))
             # save last dictionary
-            dic_predictions = {'cont_glob_index': inds_sel, 'length': all_lens[inds_sel],
+            dic_predictions = {'cont_name': all_names[inds_sel], 'length': all_lens[inds_sel],
                                'label': labels_val, 'score': np.array(score_val).reshape(-1)}
             logging.info('Dictionary created')
 
@@ -81,7 +82,7 @@ def predict_with_method(model, args):
         logging.info("measured time {}".format(duration))
         aupr = average_precision_score(all_labels[inds_sel], score_val)
         logging.info('AUC_PR: {:3f}'.format(aupr))
-        dic_predictions = {'cont_glob_index': inds_sel, 'length': all_lens[inds_sel],
+        dic_predictions = {'cont_name': all_names[inds_sel], 'length': all_lens[inds_sel],
                            'label': all_labels[inds_sel], 'score': np.array(score_val).reshape(-1)}
         logging.info('Dictionary created')
 
@@ -94,21 +95,21 @@ def predict_with_method(model, args):
 
         score_val = model.predict(data_gen, use_multiprocessing=args.n_procs > 1, workers=args.n_procs)
 
-        dic_predictions = Utils.aggregate_chunks(batches_list, all_lens, all_labels,
+        dic_predictions = Utils.aggregate_chunks(batches_list, all_lens, all_labels, all_names,
                                                  all_preds=score_val, window=window, step=window)
         logging.info('Dictionary created')
 
     elif args.method_pred == 'chunks':
         batches_list = Utils.create_batch_inds(all_lens, inds_sel, args.mem_lim)
         logging.info("Number of batches: {}".format(len(batches_list)))
-        data_gen = Models.GeneratorPredLong(data_dict, batches_list, window=args.window, step=args.window/2.,
-                                           nprocs=args.n_procs)
+        data_gen = Models.GeneratorPredLong(data_dict, batches_list, window=args.window, 
+                                            step=args.window/2.,nprocs=args.n_procs)
         # contigs filtered by indexing
         start = time.time()
         score_val = model.predict(data_gen, use_multiprocessing=args.n_procs > 1, workers=args.n_procs)
         duration = time.time() - start
         logging.info("measured time {}".format(duration))
-        dic_predictions = Utils.aggregate_chunks(batches_list, all_lens, all_labels,
+        dic_predictions = Utils.aggregate_chunks(batches_list, all_lens, all_labels, all_names,
                                           all_preds=score_val, window=args.window, step=args.window/2)
         logging.info('Dictionary created')
 

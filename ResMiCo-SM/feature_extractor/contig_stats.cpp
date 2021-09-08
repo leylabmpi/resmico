@@ -1,4 +1,6 @@
 #include "contig_stats.hpp"
+
+#include "metaquast_parser.hpp"
 #include "util/fasta_reader.hpp"
 #include "util/logger.hpp"
 #include "util/util.hpp"
@@ -66,8 +68,8 @@ void fill_seq_entropy(const std::string &seq, uint32_t window_size, std::vector<
     }
 }
 
-uint32_t Stats::num_snps() const {
-    uint32_t result = 0;
+uint16_t Stats::num_snps() const {
+    uint16_t result = 0;
     for (uint32_t i : { 0, 1, 2, 3 }) {
         if (i != IDX[ref_base]) {
             result += n_bases[i];
@@ -191,10 +193,41 @@ std::vector<Stats> pileup_bam(const std::string &reference,
 
                 stat.map_quals.push_back(al.MapQuality);
 
-                int32_t alignment_score = 255;
-                al.GetTag("AS", alignment_score);
-                stat.al_scores.push_back(std::clamp(alignment_score, 0, 255));
+                // the alignment score is inconsistently parsed as either signed or unsigned int
+                // so here we check what the parser thinks the type is
+                int8_t alignment_score = 0;
+                char tp;
+                al.GetTagType(("AS"), tp);
+                bool succ;
+                switch(tp) {
+                    case 'c':
+                        int8_t al_score;
+                        succ = al.GetTag("AS", al_score);
+                        alignment_score = al_score;
+                        break;
+                    case 'C':
+                        uint8_t al_score_u8;
+                        succ = al.GetTag("AS", al_score_u8);
+                        alignment_score = al_score_u8;
+                        break;
+                    case 'i':
+                        int16_t al_score_i16;
+                        succ = al.GetTag("AS", al_score_i16);
+                        alignment_score = al_score_i16;
+                        break;
+                    case 'I':
+                        uint16_t al_score_u16;
+                        succ = al.GetTag("AS", al_score_u16);
+                        alignment_score = al_score_u16;
+                        break;
+                }
+                if (!succ) {
+                    logger()->warn("Cannot read alignment score at position: {}", i);
+                }
+                stat.al_scores.push_back(std::clamp<int8_t>(alignment_score, -128, 127));
             }
+
+            stat.coverage++; // this also counts N's, in addition to ACGT
 
             // Alignment score
             if (base == 5
@@ -208,7 +241,7 @@ std::vector<Stats> pileup_bam(const std::string &reference,
             // make sure we have a 'N' on an alignment gap position
             assert(al.CigarData[cigar_idx].Type != 'N' || al.AlignedBases[i + offset] == 'N');
 
-            result.at(al.Position + i).n_bases[base]++;
+            stat.n_bases[base]++;
         }
     }
 
@@ -231,7 +264,7 @@ std::vector<Stats> contig_stats(const std::string &reference_name,
             Stats &stat = stats[pos];
 
             // insert sizes
-            const std::vector<int32_t> &i_sizes = stat.i_sizes;
+            const std::vector<int16_t> &i_sizes = stat.i_sizes;
             if (!i_sizes.empty()) {
                 std::tie(stat.min_i_size, stat.mean_i_size, stat.max_i_size)
                         = min_mean_max(i_sizes);
@@ -246,7 +279,7 @@ std::vector<Stats> contig_stats(const std::string &reference_name,
                 stat.std_dev_map_qual = std_dev(map_quals, stat.mean_map_qual);
             }
             // Alignment score
-            const std::vector<uint8_t> &al_scores = stat.al_scores;
+            const std::vector<int8_t> &al_scores = stat.al_scores;
             if (!al_scores.empty()) {
                 std::tie(stat.min_al_score, stat.mean_al_score, stat.max_al_score)
                         = min_mean_max(al_scores);
@@ -263,7 +296,7 @@ std::vector<Stats> contig_stats(const std::string &reference_name,
 
 std::string get_sequence(const std::string &fasta_file, const std::string &seq_name) {
     if (!std::filesystem::exists(fasta_file)) {
-        logger()->error("File {} does not exist", seq_name);
+        logger()->error("File {} does not exist", fasta_file);
         std::exit(1);
     }
     std::string reference_seq;

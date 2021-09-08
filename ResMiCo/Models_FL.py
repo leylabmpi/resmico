@@ -13,7 +13,7 @@ from tensorflow.keras.layers import Bidirectional, LSTM
 from ResMiCo import Utils
 
 
-class deepmased(object):
+class resmico(object):
     """
     Implements a convolutional network for misassembly prediction. 
     """
@@ -351,6 +351,7 @@ class GeneratorPredLong(tf.keras.utils.Sequence):
         sample_keys = np.array(list(self.data_dict.keys()))[self.batch_list[ind]]
         files_dict = itertoolz.groupby(lambda t: t[1], list(
             itertoolz.map(lambda s: (s, self.data_dict[s]), sample_keys)))
+        #attention: grouping can change order, it is important that indices are sorted
         X = Utils.load_full_contigs(files_dict)
 
         batch_size = 0

@@ -241,7 +241,7 @@ auto vformat_to(OutputIt out, CompiledFormat& cf,
       const auto& arg_id_value = value.repl.arg_id.val;
       const auto arg = value.repl.arg_id.kind == arg_id_kind::index
                            ? ctx.arg(arg_id_value.index)
-                           : ctx.arg(arg_id_value.name);
+                           : ctx.arg(arg_id_value.str_type);
 
       auto specs = value.repl.specs;
 

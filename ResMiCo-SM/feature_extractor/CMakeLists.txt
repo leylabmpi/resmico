@@ -8,7 +8,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra -Wfatal-errors -msse4 ${OpenMP_CXX_FLAGS}")
 
 find_package(OpenMP REQUIRED)
-find_package(ZLIB REQUIRED)
+# find_package(ZLIB REQUIRED)
 
 include_directories(.)
 include_directories(third_party)
@@ -38,7 +38,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   target_link_libraries(util stdc++fs)
 endif()
 
-add_library(stats contig_stats.cpp)
+add_library(stats contig_stats.cpp stats_writer.cpp metaquast_parser.cpp)
 target_link_libraries(stats spdlog::spdlog BamTools BamTools-utils util)
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   target_link_libraries(stats stdc++fs)
@@ -61,7 +61,7 @@ target_compile_options(gtest PRIVATE -w)
 file(GLOB test_files "tests/*.cpp")
 
 add_executable(tests ${test_files})
-target_link_libraries(tests stats gtest_main gtest gmock ZLIB::ZLIB)
+target_link_libraries(tests stats gtest_main gtest gmock)
 target_include_directories(tests PRIVATE "include")
 
 gtest_discover_tests(tests)
