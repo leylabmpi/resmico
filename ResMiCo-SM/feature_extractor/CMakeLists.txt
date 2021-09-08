@@ -38,7 +38,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   target_link_libraries(util stdc++fs)
 endif()
 
-add_library(stats contig_stats.cpp)
+add_library(stats contig_stats.cpp stats_writer.cpp metaquast_parser.cpp)
 target_link_libraries(stats spdlog::spdlog BamTools BamTools-utils util)
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   target_link_libraries(stats stdc++fs)

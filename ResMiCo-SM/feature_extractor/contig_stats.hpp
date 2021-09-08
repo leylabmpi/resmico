@@ -42,10 +42,13 @@ struct Stats {
     float std_dev_map_qual = NAN;
     uint8_t max_map_qual = std::numeric_limits<uint8_t>::max();
 
-    uint8_t min_al_score = std::numeric_limits<uint8_t>::max();
+    // Alignment scores measure how close (in terms of edit distance) is the aligned sequence to the
+    // reference sequence. In Bowties this values seems to be between 0 (meaning perfect match) and
+    //  ~ -10. Bamtools is not reading this value as an unsigned, so the values are from 0 to 10
+    int8_t min_al_score = std::numeric_limits<int8_t>::max();
     float mean_al_score = NAN;
     float std_dev_al_score = NAN;
-    uint8_t max_al_score = std::numeric_limits<uint8_t>::max();
+    int8_t max_al_score = std::numeric_limits<int8_t>::max();
 
     uint16_t n_proper_match = 0;
     uint16_t n_proper_snp = 0;
@@ -58,7 +61,7 @@ struct Stats {
 
     std::vector<int16_t> i_sizes;
     std::vector<uint8_t> map_quals;
-    std::vector<uint8_t> al_scores; // alignment scores as computed by BowTie2
+    std::vector<int8_t> al_scores; // alignment scores as computed by BowTie2
 
     float gc_percent;
     float entropy;
