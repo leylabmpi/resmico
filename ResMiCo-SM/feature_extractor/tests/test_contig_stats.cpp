@@ -103,7 +103,7 @@ TEST(FillEntropyGC, HalfAndHalf) {
 
 TEST(PileupBam, OneRead) {
     std::string reference(500, 'A');
-    std::string reference_name = "1";
+    std::string reference_name = "Contig1";
     std::vector<Stats> stats = pileup_bam(reference, reference_name, "data/test1.bam");
     ASSERT_EQ(500, stats.size());
     for (uint32_t i = 0; i < 4; ++i) {
@@ -143,7 +143,7 @@ TEST(PileupBam, OneRead) {
 
 TEST(PileupBam, TwoReads) {
     std::string reference(500, 'A');
-    std::string reference_name = "1";
+    std::string reference_name = "Contig2";
     std::vector<Stats> stats = pileup_bam(reference, reference_name, "data/test2.bam");
     ASSERT_EQ(500, stats.size());
     for (uint32_t i = 0; i < 4; ++i) {
@@ -187,64 +187,65 @@ TEST(PileupBam, TwoReads) {
 }
 
 TEST(ContigStats, TwoReads) {
-    std::string reference_name = "1";
-    for (std::string fasta : { "data/test.fa", "data/test2.fa.gz" }) {
-        std::string reference_seq = get_sequence(fasta, reference_name);
-        std::vector<Stats> stats
-                = contig_stats(reference_name, reference_seq, "data/test2.bam", 4, false);
-        ASSERT_EQ(500, stats.size());
-        for (uint32_t i = 0; i < 5; ++i) {
-            ASSERT_EQ('A', stats[i].ref_base);
-            ASSERT_EQ(i == 0 ? 2 : 1, stats[i].n_proper_match);
-            ASSERT_EQ(i == 0 ? 0 : 1, stats[i].n_proper_snp);
-            ASSERT_EQ(0, stats[i].n_discord);
-            ASSERT_EQ(0, stats[i].n_sec);
-            ASSERT_EQ(0, stats[i].n_sup);
-            ASSERT_EQ(0, stats[i].n_orphan);
-            ASSERT_EQ(0, stats[i].n_diff_strand);
-            if (i == 0) {
-                ASSERT_THAT(stats[i].n_bases, ElementsAre(2, 0, 0, 0));
-                ASSERT_EQ(stats[i].min_al_score, -28);
-                ASSERT_EQ(stats[i].max_al_score, 0);
-                ASSERT_EQ(stats[i].mean_al_score, -14);
-            } else {
-                ASSERT_THAT(stats[i].n_bases, ElementsAre(1, 0, 1, 0));
-                ASSERT_EQ(stats[i].min_al_score, 0);
-                ASSERT_EQ(stats[i].max_al_score, 0);
-                ASSERT_EQ(stats[i].mean_al_score, 0);
-            }
-            ASSERT_EQ(stats[i].gc_percent, 0);
-            ASSERT_EQ(stats[i].entropy, 0);
-            ASSERT_EQ(stats[i].num_snps(), i == 0 ? 0 : 1);
-            ASSERT_EQ(stats[i].coverage, 2);
-            ASSERT_EQ(stats[i].min_map_qual, 6);
-            ASSERT_EQ(stats[i].max_map_qual, i == 0 ? 7 : 6);
-            ASSERT_EQ(i == 0 ? 6.5 : 6, stats[i].mean_map_qual);
-        }
-        for (uint32_t i = 420; i < 424; ++i) {
-            ASSERT_EQ('A', stats[i].ref_base);
-            ASSERT_EQ(2, stats[i].n_proper_snp);
-            ASSERT_EQ(0, stats[i].n_proper_match);
-            ASSERT_EQ(0, stats[i].n_discord);
-            ASSERT_EQ(0, stats[i].n_sec);
-            ASSERT_EQ(0, stats[i].n_sup);
-            ASSERT_EQ(0, stats[i].n_orphan);
-            ASSERT_EQ(0, stats[i].n_diff_strand);
-            ASSERT_THAT(stats[i].n_bases, ElementsAre(0, 1, 0, 1));
-            // because GC percent is computed in contig_stats
-            ASSERT_EQ(stats[i].gc_percent, 0);
-            ASSERT_EQ(stats[i].entropy, 0);
-            ASSERT_EQ(stats[i].num_snps(), 2);
-            ASSERT_EQ(stats[i].coverage, 2);
-            ASSERT_EQ(stats[i].min_map_qual, std::numeric_limits<uint8_t>::max());
-            ASSERT_EQ(stats[i].max_map_qual, std::numeric_limits<uint8_t>::max());
-            ASSERT_TRUE(std::isnan(stats[i].mean_map_qual));
+    std::string contig_name =  "Contig2";
+    std::string fasta_file =  "data/test2.fa.gz";
+    std::string bam_file =  "data/test2.bam";
 
-            // no alignment scores, because no matches (all positions are SNPs)
-            ASSERT_EQ(stats[i].min_al_score, 127);
-            ASSERT_TRUE(std::isnan(stats[i].mean_al_score));
-            ASSERT_EQ(stats[i].max_al_score, 127);
+    std::string reference_seq = get_sequence(fasta_file, contig_name);
+    std::vector<Stats> stats
+            = contig_stats(contig_name, reference_seq, bam_file, 4, false);
+    ASSERT_EQ(500, stats.size());
+    for (uint32_t i = 0; i < 5; ++i) {
+        ASSERT_EQ('A', stats[i].ref_base);
+        ASSERT_EQ(i == 0 ? 2 : 1, stats[i].n_proper_match);
+        ASSERT_EQ(i == 0 ? 0 : 1, stats[i].n_proper_snp);
+        ASSERT_EQ(0, stats[i].n_discord);
+        ASSERT_EQ(0, stats[i].n_sec);
+        ASSERT_EQ(0, stats[i].n_sup);
+        ASSERT_EQ(0, stats[i].n_orphan);
+        ASSERT_EQ(0, stats[i].n_diff_strand);
+        if (i == 0) {
+            ASSERT_THAT(stats[i].n_bases, ElementsAre(2, 0, 0, 0));
+            ASSERT_EQ(stats[i].min_al_score, -28);
+            ASSERT_EQ(stats[i].max_al_score, 0);
+            ASSERT_EQ(stats[i].mean_al_score, -14);
+        } else {
+            ASSERT_THAT(stats[i].n_bases, ElementsAre(1, 0, 1, 0));
+            ASSERT_EQ(stats[i].min_al_score, 0);
+            ASSERT_EQ(stats[i].max_al_score, 0);
+            ASSERT_EQ(stats[i].mean_al_score, 0);
         }
+        ASSERT_EQ(stats[i].gc_percent, 0);
+        ASSERT_EQ(stats[i].entropy, 0);
+        ASSERT_EQ(stats[i].num_snps(), i == 0 ? 0 : 1);
+        ASSERT_EQ(stats[i].coverage, 2);
+        ASSERT_EQ(stats[i].min_map_qual, 6);
+        ASSERT_EQ(stats[i].max_map_qual, i == 0 ? 7 : 6);
+        ASSERT_EQ(i == 0 ? 6.5 : 6, stats[i].mean_map_qual);
+    }
+    for (uint32_t i = 420; i < 424; ++i) {
+        ASSERT_EQ('A', stats[i].ref_base);
+        ASSERT_EQ(2, stats[i].n_proper_snp);
+        ASSERT_EQ(0, stats[i].n_proper_match);
+        ASSERT_EQ(0, stats[i].n_discord);
+        ASSERT_EQ(0, stats[i].n_sec);
+        ASSERT_EQ(0, stats[i].n_sup);
+        ASSERT_EQ(0, stats[i].n_orphan);
+        ASSERT_EQ(0, stats[i].n_diff_strand);
+        ASSERT_THAT(stats[i].n_bases, ElementsAre(0, 1, 0, 1));
+        // because GC percent is computed in contig_stats
+        ASSERT_EQ(stats[i].gc_percent, 0);
+        ASSERT_EQ(stats[i].entropy, 0);
+        ASSERT_EQ(stats[i].num_snps(), 2);
+        ASSERT_EQ(stats[i].coverage, 2);
+        ASSERT_EQ(stats[i].min_map_qual, std::numeric_limits<uint8_t>::max());
+        ASSERT_EQ(stats[i].max_map_qual, std::numeric_limits<uint8_t>::max());
+        ASSERT_TRUE(std::isnan(stats[i].mean_map_qual));
+
+        // no alignment scores, because no matches (all positions are SNPs)
+        ASSERT_EQ(stats[i].min_al_score, 127);
+        ASSERT_TRUE(std::isnan(stats[i].mean_al_score));
+        ASSERT_EQ(stats[i].max_al_score, 127);
     }
 }
 
