@@ -89,7 +89,7 @@ TEST(WriteStats, TwoReads) {
         ASSERT_EQ(i >= 420 && i < 425 ? 10'000 : (i > 0 && i < 5 ? 5000 : 0),
                   n_proper_snp)
                 << "at position: " << i; // 5000 is 0.5
-        ASSERT_EQ(i >= 420 && i < 425 || i < 5 ? 2 : 0, coverage) << "at position: " << i;
+        ASSERT_EQ((i >= 420 && i < 425) || i < 5 ? 2 : 0, coverage) << "at position: " << i;
 
         uint16_t num_discordant;
         in_streams["num_discordant"]->read(reinterpret_cast<char *>(&num_discordant), 2);

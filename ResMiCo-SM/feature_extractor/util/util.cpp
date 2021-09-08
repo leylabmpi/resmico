@@ -1,5 +1,7 @@
 #include "util.hpp"
 
+#include <algorithm>
+
 bool starts_with(std::string const &value, std::string const &prefix) {
     if (prefix.size() > value.size()) {
         return false;
