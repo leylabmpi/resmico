@@ -4,6 +4,7 @@
 #include "metaquast_parser.hpp"
 #include "util/gzstream.hpp"
 
+#include <filesystem>
 #include <iostream>
 #include <random>
 #include <unordered_map>
