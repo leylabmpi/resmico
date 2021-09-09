@@ -9,31 +9,6 @@
 #include <string>
 #include <vector>
 
-std::vector<std::string> bin_headers = { "ref_base",
-                                         "num_query_A",
-                                         "num_query_C",
-                                         "num_query_G",
-                                         "num_query_T",
-                                         "num_SNPs",
-                                         "coverage",
-                                         "num_discordant",
-                                         "min_insert_size_Match",
-                                         "mean_insert_size_Match",
-                                         "stdev_insert_size_Match",
-                                         "max_insert_size_Match",
-                                         "min_mapq_Match",
-                                         "mean_mapq_Match",
-                                         "stdev_mapq_Match",
-                                         "max_mapq_Match",
-                                         "min_al_score_Match",
-                                         "mean_al_score_Match",
-                                         "stdev_al_score_Match",
-                                         "max_al_score_Match",
-                                         "num_proper_SNP",
-                                         "seq_window_perc_gc",
-                                         "misassembly_by_pos" };
-
-
 std::vector<std::string> headers = { "assembler",
                                      "contig",
                                      "position",
@@ -80,146 +55,304 @@ std::string stri(T v) {
     return std::to_string(v);
 }
 
-inline void write_value(uint16_t v, uint16_t normalize_by, ogzstream &out) {
+inline uint16_t normalize(uint16_t v, uint16_t normalize_by) {
     static uint16_t MAX_16 = std::numeric_limits<uint16_t>::max();
     assert(v <= normalize_by || v == MAX_16);
     if (normalize_by == 0) {
         normalize_by = 1;
     }
-    uint16_t to_write = v == MAX_16 ? MAX_16 : static_cast<uint16_t>((v * 10000.) / normalize_by);
-    out.write(reinterpret_cast<const char *>(&to_write), 2);
+    return v == MAX_16 ? MAX_16 : static_cast<uint16_t>((v * 10000.) / normalize_by);
 }
 
-inline void write_float_value(float v, ogzstream &out) {
-    assert(std::isnan(v) || v <= std::numeric_limits<int16_t>::max());
-    int16_t to_write
-            = std::isnan(v) ? std::numeric_limits<int16_t>::max() : static_cast<int16_t>(v * 100);
-    out.write(reinterpret_cast<const char *>(&to_write), 2);
-}
+void ContigStats::resize(uint32_t size) {
+    coverage.resize(size);
+    num_snps.resize(size);
+    num_discordant.resize(size);
 
-std::unordered_map<std::string, std::unique_ptr<ogzstream>>
-get_streams(const std::string &out_prefix) {
-    std::unordered_map<std::string, std::unique_ptr<ogzstream>> binary_streams;
-    for (const std::string &header : bin_headers) {
-        auto fname = std::filesystem::path(out_prefix).replace_extension(header + ".gz");
-        binary_streams[header] = std::make_unique<ogzstream>(fname.string().c_str());
+    min_insert_size.resize(size);
+    max_insert_size.resize(size);
+    mean_insert_size.resize(size);
+    std_dev_insert_size.resize(size);
+
+    min_map_qual.resize(size);
+    max_map_qual.resize(size);
+    mean_map_qual.resize(size);
+    std_dev_map_qual.resize(size);
+
+    min_al_score.resize(size);
+    max_al_score.resize(size);
+    mean_al_score.resize(size);
+    std_dev_al_score.resize(size);
+
+    num_proper_snp.resize(size);
+    gc_percent.resize(size);
+
+    misassembly_by_pos.resize(size);
+
+    for (uint32_t i : { 0, 1, 2, 3 }) {
+        n_bases[i].resize(size);
     }
-    return binary_streams;
 }
 
-/** Pretty print of the results */
-void write_stats(QueueItem &&item,
-                 const std::string &assembler,
-                 const std::vector<MisassemblyInfo> &mis,
-                 ogzstream *o,
-                 std::ofstream *toc,
-                 std::unordered_map<std::string, std::unique_ptr<ogzstream>> *bin_streams,
-                 uint32_t *count_mean,
-                 uint32_t *count_std_dev,
-                 std::vector<double> *sums,
-                 std::vector<double> *sums2) {
-    assert(sums->size() == 12 && sums2->size() == 12);
+void write_data(const std::string &reference,
+                const std::string &binary_stats_file,
+                ContigStats &cs,
+                uint32_t start,
+                uint32_t end) {
+    assert(start < end && end <= reference.size());
+    uint32_t len = end - start;
+    assert(len <= cs.size());
+    ogzstream bin_stream(binary_stats_file.c_str());
+    bin_stream.write(reinterpret_cast<char *>(&len), sizeof(len));
+    bin_stream.write(reinterpret_cast<const char *>(reference.data() + start), len);
 
-    ogzstream &out = *o;
-    auto &streams = *bin_streams;
+    bin_stream.write(reinterpret_cast<char *>(cs.coverage.data() + start),
+                     len * sizeof(cs.coverage[0]));
+    for (uint32_t i : { 0, 1, 2, 3 }) {
+        bin_stream.write(reinterpret_cast<char *>(cs.n_bases[i].data() + start),
+                         len * sizeof(cs.n_bases[0][0]));
+    }
+    bin_stream.write(reinterpret_cast<char *>(cs.num_snps.data() + start),
+                     len * sizeof(cs.num_snps[0]));
+    bin_stream.write(reinterpret_cast<char *>(cs.num_discordant.data() + start),
+                     len * sizeof(cs.num_discordant[0]));
+
+    bin_stream.write(reinterpret_cast<char *>(cs.min_insert_size.data() + start),
+                     len * sizeof(cs.min_insert_size[0]));
+    bin_stream.write(reinterpret_cast<char *>(cs.mean_insert_size.data() + start),
+                     len * sizeof(cs.mean_insert_size[0]));
+    bin_stream.write(reinterpret_cast<char *>(cs.std_dev_insert_size.data() + start),
+                     len * sizeof(cs.std_dev_insert_size[0]));
+    bin_stream.write(reinterpret_cast<char *>(cs.max_insert_size.data() + start),
+                     len * sizeof(cs.max_insert_size[0]));
+
+    bin_stream.write(reinterpret_cast<char *>(cs.min_map_qual.data() + start),
+                     len * sizeof(cs.min_map_qual[0]));
+    bin_stream.write(reinterpret_cast<char *>(cs.mean_map_qual.data() + start),
+                     len * sizeof(cs.mean_map_qual[0]));
+    bin_stream.write(reinterpret_cast<char *>(cs.std_dev_map_qual.data() + start),
+                     len * sizeof(cs.std_dev_map_qual[0]));
+    bin_stream.write(reinterpret_cast<char *>(cs.max_map_qual.data() + start),
+                     len * sizeof(cs.max_map_qual[0]));
+
+    bin_stream.write(reinterpret_cast<char *>(cs.min_al_score.data() + start),
+                     len * sizeof(cs.min_al_score[0]));
+    bin_stream.write(reinterpret_cast<char *>(cs.mean_al_score.data() + start),
+                     len * sizeof(cs.mean_al_score[0]));
+    bin_stream.write(reinterpret_cast<char *>(cs.std_dev_al_score.data() + start),
+                     len * sizeof(cs.std_dev_al_score[0]));
+    bin_stream.write(reinterpret_cast<char *>(cs.max_al_score.data() + start),
+                     len * sizeof(cs.max_al_score[0]));
+
+    bin_stream.write(reinterpret_cast<char *>(cs.num_proper_snp.data() + start),
+                     len * sizeof(cs.num_proper_snp[0]));
+    bin_stream.write(reinterpret_cast<char *>(cs.gc_percent.data() + start),
+                     len * sizeof(cs.gc_percent[0]));
+
+    bin_stream.write(reinterpret_cast<const char *>(cs.misassembly_by_pos.data() + start), len);
+    bin_stream.close();
+}
+
+void write_data(const std::string &reference,
+                const std::string &binary_stats_file,
+                ContigStats &cs) {
+    write_data(reference, binary_stats_file, cs, 0, reference.size());
+}
+
+StatsWriter::StatsWriter(const std::filesystem::path &out_dir, uint32_t chunk_size)
+    : out_dir(out_dir), chunk_size(chunk_size) {
+    std::error_code ec1, ec2;
+    std::filesystem::create_directories(out_dir / BIN_DIR, ec1);
+    std::filesystem::create_directories(out_dir / BIN_DIR_CHUNK, ec2);
+    if (ec1 || ec2) {
+        logger()->error("Could not create {} and {}, bailing out", out_dir / BIN_DIR,
+                        out_dir / BIN_DIR_CHUNK);
+        std::exit(1);
+    }
+
+    // open the output stream (directory is now created)
+    tsv_stream.open((out_dir / "features.tsv.gz").c_str());
+    toc.open(out_dir / "toc");
+
+    sums.resize(12, 0);
+    sums2.resize(12, 0);
+    tsv_stream.precision(3);
+
+    // write tsv header
+    tsv_stream << join_vec(headers, '\t');
+
+    // write toc header
+    toc << "Assembler" << '\t' << "Contig" << '\t' << "Size" << '\t' << "MisassemblCnt"
+        << std::endl;
+
+    std::random_device r;
+    random_engine = std::default_random_engine(r());
+}
+
+void StatsWriter::write_stats(QueueItem &&item,
+                              const std::string &assembler,
+                              const std::vector<MisassemblyInfo> &mis) {
+    if (item.reference.empty()) {
+        return;
+    }
+
     logger()->info("Writing features for contig {}...", item.reference_name);
-    out.precision(3);
-    *toc << assembler << '\t' << item.reference_name << '\t' << item.stats.size() << '\t'
-         << mis.size() << std::endl;
+    toc << assembler << '\t' << item.reference_name << '\t' << item.stats.size() << '\t'
+        << mis.size() << std::endl;
+
+    ContigStats &cs = contig_stats;
+    cs.resize(item.reference.size());
 
     // get the misassembly information for each position
-    const std::vector<uint8_t> mi_per_pos = expand(item.reference.size(), mis);
-    streams["misassembly_by_pos"]->write(reinterpret_cast<const char *>(mi_per_pos.data()),
-                                         mi_per_pos.size());
+    cs.misassembly_by_pos = expand(item.reference.size(), mis);
 
     for (uint32_t pos = 0; pos < item.stats.size(); ++pos) {
         const Stats &s = item.stats[pos];
 
-        uint16_t v = s.coverage;
-        streams["coverage"]->write(reinterpret_cast<char *>(&v), 2);
-        write_value(s.n_bases[0], s.coverage, *streams["num_query_A"]);
-        write_value(s.n_bases[1], s.coverage, *streams["num_query_C"]);
-        write_value(s.n_bases[2], s.coverage, *streams["num_query_G"]);
-        write_value(s.n_bases[3], s.coverage, *streams["num_query_T"]);
-        write_value(s.num_snps(), s.coverage, *streams["num_SNPs"]);
-        write_value(s.n_discord, s.coverage, *streams["num_discordant"]);
+        cs.coverage[pos] = s.coverage;
+        for (uint32_t i : { 0, 1, 2, 3 }) {
+            cs.n_bases[i][pos] = normalize(s.n_bases[i], s.coverage);
+        }
+        cs.num_snps[pos] = normalize(s.num_snps(), s.coverage);
+        cs.num_discordant[pos] = normalize(s.n_discord, s.coverage);
 
-        streams["min_insert_size_Match"]->write(reinterpret_cast<const char *>(&s.min_i_size), 2);
-        write_float_value(s.mean_i_size, *streams["mean_insert_size_Match"]);
-        write_float_value(s.std_dev_i_size, *streams["stdev_insert_size_Match"]);
-        streams["max_insert_size_Match"]->write(reinterpret_cast<const char *>(&s.max_i_size), 2);
+        cs.min_insert_size[pos] = s.min_i_size;
+        cs.max_insert_size[pos] = s.max_i_size;
+        cs.mean_insert_size[pos] = s.mean_i_size;
+        cs.std_dev_insert_size[pos] = s.std_dev_i_size;
 
-        streams["min_mapq_Match"]->put(s.min_map_qual);
-        write_float_value(s.mean_map_qual, *streams["mean_mapq_Match"]);
-        write_float_value(s.std_dev_map_qual, *streams["stdev_mapq_Match"]);
-        streams["max_mapq_Match"]->put(s.max_map_qual);
+        cs.min_map_qual[pos] = s.min_map_qual;
+        cs.max_map_qual[pos] = s.max_map_qual;
+        cs.mean_map_qual[pos] = s.mean_map_qual;
+        cs.std_dev_map_qual[pos] = s.std_dev_map_qual;
 
-        streams["min_al_score_Match"]->put(s.min_al_score);
-        write_float_value(s.mean_al_score, *streams["mean_al_score_Match"]);
-        write_float_value(s.std_dev_al_score, *streams["stdev_al_score_Match"]);
-        streams["max_al_score_Match"]->put(s.max_al_score);
+        cs.min_al_score[pos] = s.min_al_score;
+        cs.max_al_score[pos] = s.max_al_score;
+        cs.mean_al_score[pos] = s.mean_al_score;
+        cs.std_dev_al_score[pos] = s.std_dev_al_score;
 
-        write_value(s.n_proper_snp, s.coverage, *streams["num_proper_SNP"]);
-        write_float_value(s.gc_percent * 100, *streams["seq_window_perc_gc"]);
-        streams["ref_base"]->put(item.reference[pos]);
+        cs.num_proper_snp[pos] = normalize(s.n_proper_snp, s.coverage);
+        cs.gc_percent[pos] = s.gc_percent * 100;
 
         if (!std::isnan(s.mean_i_size)) { // coverage > 0
-            (*count_mean)++;
-            sums->at(0) += s.min_i_size;
-            sums2->at(0) += s.min_i_size * s.min_i_size;
-            sums->at(1) += s.mean_i_size;
-            sums2->at(1) += s.mean_i_size * s.mean_i_size;
-            sums->at(3) += s.max_i_size;
-            sums2->at(3) += s.max_i_size * s.max_i_size;
+            count_mean++;
+            sums[0] += s.min_i_size;
+            sums2[0] += s.min_i_size * s.min_i_size;
+            sums[1] += s.mean_i_size;
+            sums2[1] += s.mean_i_size * s.mean_i_size;
+            sums[3] += s.max_i_size;
+            sums2[3] += s.max_i_size * s.max_i_size;
 
-            sums->at(4) += s.min_map_qual;
-            sums2->at(4) += s.min_map_qual * s.min_map_qual;
-            sums->at(5) += s.mean_map_qual;
-            sums2->at(5) += s.mean_map_qual * s.mean_map_qual;
-            sums->at(7) += s.max_map_qual;
-            sums2->at(7) += s.max_map_qual * s.max_map_qual;
+            sums[4] += s.min_map_qual;
+            sums2[4] += s.min_map_qual * s.min_map_qual;
+            sums[5] += s.mean_map_qual;
+            sums2[5] += s.mean_map_qual * s.mean_map_qual;
+            sums[7] += s.max_map_qual;
+            sums2[7] += s.max_map_qual * s.max_map_qual;
 
-            sums->at(8) += s.min_al_score;
-            sums2->at(8) += s.min_al_score * s.min_al_score;
-            sums->at(9) += s.mean_al_score;
-            sums2->at(9) += s.mean_al_score * s.mean_al_score;
-            sums->at(11) += s.max_al_score;
-            sums2->at(11) += s.max_al_score * s.max_al_score;
+            sums[8] += s.min_al_score;
+            sums2[8] += s.min_al_score * s.min_al_score;
+            sums[9] += s.mean_al_score;
+            sums2[9] += s.mean_al_score * s.mean_al_score;
+            sums[11] += s.max_al_score;
+            sums2[11] += s.max_al_score * s.max_al_score;
 
             if (!std::isnan(s.std_dev_i_size)) {
                 assert(!std::isnan(s.std_dev_al_score && !std::isnan(s.std_dev_map_qual)));
-                (*count_std_dev)++;
-                sums->at(2) += s.std_dev_i_size;
-                sums2->at(2) += s.std_dev_i_size * s.std_dev_i_size;
+                count_std_dev++;
+                sums[2] += s.std_dev_i_size;
+                sums2[2] += s.std_dev_i_size * s.std_dev_i_size;
 
-                sums->at(6) += s.std_dev_map_qual;
-                sums2->at(6) += s.std_dev_map_qual * s.std_dev_map_qual;
+                sums[6] += s.std_dev_map_qual;
+                sums2[6] += s.std_dev_map_qual * s.std_dev_map_qual;
 
-                sums->at(10) += s.std_dev_al_score;
-                sums2->at(10) += s.std_dev_al_score * s.std_dev_al_score;
+                sums[10] += s.std_dev_al_score;
+                sums2[10] += s.std_dev_al_score * s.std_dev_al_score;
             }
         }
 
-        out << assembler << '\t' << item.reference_name << '\t' << pos << '\t';
+        tsv_stream << assembler << '\t' << item.reference_name << '\t' << pos << '\t';
 
         assert(s.ref_base == 0 || s.ref_base == item.reference[pos]);
-        out << item.reference[pos] << '\t' << s.n_bases[0] << '\t' << s.n_bases[1] << '\t'
-            << s.n_bases[2] << '\t' << s.n_bases[3] << '\t' << s.num_snps() << '\t' << s.coverage
-            << '\t' << s.n_discord << '\t';
+        tsv_stream << item.reference[pos] << '\t' << s.n_bases[0] << '\t' << s.n_bases[1] << '\t'
+                   << s.n_bases[2] << '\t' << s.n_bases[3] << '\t' << s.num_snps() << '\t'
+                   << s.coverage << '\t' << s.n_discord << '\t';
         if (std::isnan(s.mean_i_size)) { // zero coverage, no i_size, no mapping quality
-            out << "NA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\t";
+            tsv_stream << "NA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\tNA\t";
         } else {
-            out << stri(s.min_i_size) << '\t' << round2(s.mean_i_size) << '\t'
-                << round2(s.std_dev_i_size) << '\t' << stri(s.max_i_size) << '\t';
-            out << (int)s.min_map_qual << '\t' << round2(s.mean_map_qual) << '\t'
-                << round2(s.std_dev_map_qual) << '\t' << (int)s.max_map_qual << '\t';
-            out << (int)s.min_al_score << '\t' << round2(s.mean_al_score) << '\t'
-                << round2(s.std_dev_al_score) << '\t' << (int)s.max_al_score << '\t';
+            tsv_stream << stri(s.min_i_size) << '\t' << round2(s.mean_i_size) << '\t'
+                       << round2(s.std_dev_i_size) << '\t' << stri(s.max_i_size) << '\t';
+            tsv_stream << (int)s.min_map_qual << '\t' << round2(s.mean_map_qual) << '\t'
+                       << round2(s.std_dev_map_qual) << '\t' << (int)s.max_map_qual << '\t';
+            tsv_stream << (int)s.min_al_score << '\t' << round2(s.mean_al_score) << '\t'
+                       << round2(s.std_dev_al_score) << '\t' << (int)s.max_al_score << '\t';
         }
-        out << s.n_proper_match << '\t' << s.n_orphan << '\t' << s.n_discord_match << '\t';
+        tsv_stream << s.n_proper_match << '\t' << s.n_orphan << '\t' << s.n_discord_match << '\t';
 
-        out << s.n_proper_snp << '\t' << s.entropy << '\t' << s.gc_percent << '\t';
-        out << (mis.empty() ? 0 : 1) << '\t' << type_to_string(mi_per_pos[pos]) << '\n';
+        tsv_stream << s.n_proper_snp << '\t' << s.entropy << '\t' << s.gc_percent << '\t';
+        tsv_stream << (mis.empty() ? 0 : 1) << '\t' << type_to_string(cs.misassembly_by_pos[pos])
+                   << '\n';
     }
+
+    std::string binary_stats_file = out_dir / BIN_DIR / (item.reference_name + ".gz");
+    write_data(item.reference, binary_stats_file, cs);
+    // select a chunk of length
+    uint32_t start, stop;
+    if (mis.empty()) {
+        if (item.reference.size() <= chunk_size) {
+            start = 0;
+            stop = item.reference.size();
+        } else {
+            std::uniform_int_distribution<uint32_t> rnd_start(0,
+                                                              item.reference.size() - chunk_size);
+            start = rnd_start(random_engine);
+            stop = start + chunk_size;
+        }
+        std::string fname = out_dir / BIN_DIR_CHUNK / (item.reference_name + ".ok.gz");
+        write_data(item.reference, fname, cs, start, stop);
+    } else {
+        // create one stats file for each misassembly breakpoint
+        for (uint32_t i = 0; i < mis.size(); ++i) {
+            uint32_t mid = (mis[i].start + mis[i].break_end) / 2;
+            if (mid <= chunk_size / 2 || (item.reference.size() - mid) <= chunk_size / 2) {
+                logger()->info("Dismissed breaking point {}/{} for contig {}. Too close to edge.",
+                               mis[i].break_start, mis[i].break_end, item.reference_name);
+                continue;
+            }
+            std::string fname = out_dir / BIN_DIR_CHUNK
+                    / (item.reference_name + ".mis" + std::to_string(i) + ".gz");
+            write_data(item.reference, fname, cs, mid - chunk_size / 2, mid + chunk_size / 2);
+        }
+    }
+
+    assert(cs.misassembly_by_pos.size() == item.reference.size());
     logger()->info("Writing features for contig {} done.", item.reference_name);
+}
+
+void StatsWriter::write_summary() {
+    std::ofstream stats(out_dir / "stats");
+    stats << "{\n\t\"MeanCount\":" << count_mean << "," << std::endl;
+    stats << "\t\"StdDevCount\":" << count_std_dev << "," << std::endl;
+
+    stats << "\t\"InsertSum\": { \n";
+    stats << "\t\t\"Min\": " << sums[0] << ",\n\t\t\"Mean\": " << sums[1]
+          << ",\n\t\t\"StdDev\": " << sums[2] << ",\n\t\t\"Max\":" << sums[3] << "\n\t},\n";
+    stats << "\t\"InsertSum2\": { \n";
+    stats << "\t\t\"Min\": " << sums2[0] << ",\n\t\t\"Mean\": " << sums2[1]
+          << ",\n\t\t\"StdDev\": " << sums2[2] << ",\n\t\t\"Max\":" << sums2[3] << "\n\t},\n";
+
+    stats << "\t\"MappingQualitySum\": { \n";
+    stats << "\t\t\"Min\": " << sums[4] << ",\n\t\t\"Mean\": " << sums[5]
+          << ",\n\t\t\"StdDev\": " << sums[6] << ",\n\t\t\"Max\":" << sums[7] << "\n\t},\n";
+    stats << "\t\"MappingQualitySum2\": { \n";
+    stats << "\t\t\"Min\": " << sums2[4] << ",\n\t\t\"Mean\": " << sums2[5]
+          << ",\n\t\t\"StdDev\": " << sums2[6] << ",\n\t\t\"Max\":" << sums2[7] << "\n\t},\n";
+
+    stats << "\t\"AlignmentScoreSum\": { \n";
+    stats << "\t\t\"Min\": " << sums[8] << ",\n\t\t\"Mean\": " << sums[9]
+          << ",\n\t\t\"StdDev\": " << sums[10] << ",\n\t\t\"Max\":" << sums[11] << "\n\t},\n";
+    stats << "\t\"AlignmentScoreSum2\": { \n";
+    stats << "\t\t\"Min\": " << sums2[8] << ",\n\t\t\"Mean\": " << sums2[9]
+          << ",\n\t\t\"StdDev\": " << sums2[10] << ",\n\t\t\"Max\":" << sums2[11] << "\n\t}\n";
+    stats << "}" << std::endl;
 }

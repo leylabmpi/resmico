@@ -31,6 +31,8 @@ DEFINE_uint32(
         32,
         "Maximum size of the queue for stats waiting to be written to disk, before blocking.");
 
+DEFINE_uint32(chunk_size, 500, "Contig length used when training on small bad/good chunks");
+
 
 int main(int argc, char *argv[]) {
     gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -69,9 +71,22 @@ int main(int argc, char *argv[]) {
     }
 
     if (FLAGS_o.empty()) {
-        logger()->error(
-                "Please specify an output file via --o output_file (writing to the console is "
-                "SLOW)");
+        logger()->error("Please specify an output directory via --o output_directory.");
+        std::exit(1);
+    }
+
+    if (!std::filesystem::exists(FLAGS_o)) {
+        std::error_code ec;
+        logger()->info("Creating dirctory: {}", FLAGS_o);
+        std::filesystem::create_directories(FLAGS_o);
+        if (ec) {
+            logger()->error("Could not create output directory '{}'. Bailing out.", FLAGS_o);
+            std::exit(1);
+        }
+    }
+
+    if (!std::filesystem::is_directory(FLAGS_o)) {
+        logger()->error("--o must be a directory, not a file {}", FLAGS_o);
         std::exit(1);
     }
 
@@ -81,15 +96,6 @@ int main(int argc, char *argv[]) {
     logger()->info("Parsing mis-assembly info...");
     std::unordered_map<std::string, std::vector<MisassemblyInfo>> mi_info
             = parse_misassembly_info(FLAGS_misassembly_file);
-
-    std::unordered_map<std::string, std::unique_ptr<ogzstream>> binary_streams
-            = get_streams(FLAGS_o);
-
-    // the "Table of Contents" stream
-    std::ofstream toc(std::filesystem::path(FLAGS_o).replace_extension("toc").c_str());
-
-    ogzstream out(FLAGS_o.c_str());
-    out << join_vec(headers, '\t');
 
     // Getting contig list
     if (!ends_with(FLAGS_bam_file, ".bam")) {
@@ -115,16 +121,9 @@ int main(int argc, char *argv[]) {
     std::vector<std::future<void>> futures;
     std::mutex mutex;
 
-    // the sum, sum of squares and non-NAN counts for each of the 12 float fields
-    uint32_t count_mean = 0, count_std_dev = 0;
-    std::vector<double> sums(12, 0);
-    std::vector<double> sums2(12, 0);
-
     util::WaitQueue<QueueItem> wq(32);
 
-    // write toc header
-    toc << "Assembler" << '\t' << "Contig" << '\t' << "Size" << '\t' << "MisassemblCnt"
-         << std::endl;
+    StatsWriter stats_writer(FLAGS_o, FLAGS_chunk_size);
 
     std::thread t([&] {
         for (;;) {
@@ -133,8 +132,7 @@ int main(int argc, char *argv[]) {
                 break;
             }
             std::vector<MisassemblyInfo> mis = mi_info[stats.reference_name];
-            write_stats(std::move(stats), FLAGS_assembler, mis, &out, &toc, &binary_streams,
-                        &count_mean, &count_std_dev, &sums, &sums2);
+            stats_writer.write_stats(std::move(stats), FLAGS_assembler, mis);
         }
     });
 
@@ -149,13 +147,6 @@ int main(int argc, char *argv[]) {
     logger()->info("Waiting for pending data to be written to disk...");
     wq.shutdown();
     t.join();
-    std::ofstream stats(std::filesystem::path(FLAGS_o).replace_extension("_stats"));
-    stats << count_mean << std::endl << count_std_dev << std::endl;
-    for (uint32_t i = 0; i < sums.size(); ++i) {
-        stats << sums[i] << '\t' << sums2[i] << std::endl;
-    }
-    for (const auto &stream : binary_streams) {
-        binary_streams[stream.first]->close();
-    }
+    stats_writer.write_summary();
     logger()->info("All done.");
 }
