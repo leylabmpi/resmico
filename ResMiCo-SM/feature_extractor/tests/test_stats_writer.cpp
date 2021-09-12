@@ -389,35 +389,35 @@ TEST(WriteStats, TwoReadsStats) {
     std::ifstream js_stats("/tmp/stats/stats");
     nlohmann::json j;
     js_stats >> j;
-    ASSERT_EQ(j["MeanCount"], mean_count);
-    ASSERT_EQ(j["StdDevCount"], std_dev_count);
+    ASSERT_EQ(j["mean_cnt"], mean_count);
+    ASSERT_EQ(j["stdev_cnt"], std_dev_count);
 
-    ASSERT_EQ(j["InsertSum"]["Min"], min_insert_sum);
-    ASSERT_EQ(j["InsertSum2"]["Min"], min_insert_sum2);
-    ASSERT_EQ(j["InsertSum"]["Max"], max_insert_sum);
-    ASSERT_EQ(j["InsertSum2"]["Max"], max_insert_sum2);
-    ASSERT_EQ(j["InsertSum"]["Mean"], mean_insert_sum);
-    ASSERT_EQ(j["InsertSum2"]["Mean"], mean_insert_sum2);
-    ASSERT_EQ(j["InsertSum"]["StdDev"], std_dev_insert_sum);
-    ASSERT_EQ(j["InsertSum2"]["StdDev"], std_dev_insert_sum2);
+    ASSERT_EQ(j["insert_size"]["sum"]["min"], min_insert_sum);
+    ASSERT_EQ(j["insert_size"]["sum2"]["min"], min_insert_sum2);
+    ASSERT_EQ(j["insert_size"]["sum"]["max"], max_insert_sum);
+    ASSERT_EQ(j["insert_size"]["sum2"]["max"], max_insert_sum2);
+    ASSERT_EQ(j["insert_size"]["sum"]["mean"], mean_insert_sum);
+    ASSERT_EQ(j["insert_size"]["sum2"]["mean"], mean_insert_sum2);
+    ASSERT_EQ(j["insert_size"]["sum"]["stdev"], std_dev_insert_sum);
+    ASSERT_EQ(j["insert_size"]["sum2"]["stdev"], std_dev_insert_sum2);
 
-    ASSERT_EQ(j["MappingQualitySum"]["Min"], min_map_qual_sum);
-    ASSERT_EQ(j["MappingQualitySum2"]["Min"], min_map_qual_sum2);
-    ASSERT_EQ(j["MappingQualitySum"]["Max"], max_map_qual_sum);
-    ASSERT_EQ(j["MappingQualitySum2"]["Max"], max_map_qual_sum2);
-    ASSERT_NEAR(j["MappingQualitySum"]["Mean"], mean_map_qual_sum, 1e-5);
-    ASSERT_NEAR(j["MappingQualitySum2"]["Mean"], mean_map_qual_sum2, 1e-5);
-    ASSERT_NEAR(j["MappingQualitySum"]["StdDev"], std_dev_map_qual_sum, 1e-5);
-    ASSERT_NEAR(j["MappingQualitySum2"]["StdDev"], std_dev_map_qual_sum2, 1e-5);
+    ASSERT_EQ(j["mapq"]["sum"]["min"], min_map_qual_sum);
+    ASSERT_EQ(j["mapq"]["sum2"]["min"], min_map_qual_sum2);
+    ASSERT_EQ(j["mapq"]["sum"]["max"], max_map_qual_sum);
+    ASSERT_EQ(j["mapq"]["sum2"]["max"], max_map_qual_sum2);
+    ASSERT_NEAR(j["mapq"]["sum"]["mean"], mean_map_qual_sum, 1e-5);
+    ASSERT_NEAR(j["mapq"]["sum2"]["mean"], mean_map_qual_sum2, 1e-5);
+    ASSERT_NEAR(j["mapq"]["sum"]["stdev"], std_dev_map_qual_sum, 1e-5);
+    ASSERT_NEAR(j["mapq"]["sum2"]["stdev"], std_dev_map_qual_sum2, 1e-5);
 
-    ASSERT_EQ(j["AlignmentScoreSum"]["Min"], min_al_score_sum);
-    ASSERT_EQ(j["AlignmentScoreSum2"]["Min"], min_al_score_sum2);
-    ASSERT_EQ(j["AlignmentScoreSum"]["Max"], max_al_score_sum);
-    ASSERT_EQ(j["AlignmentScoreSum2"]["Max"], max_al_score_sum2);
-    ASSERT_NEAR(j["AlignmentScoreSum"]["Mean"], mean_al_score_sum, 1e-5);
-    ASSERT_NEAR(j["AlignmentScoreSum2"]["Mean"], mean_al_score_sum2, 1e-5);
-    ASSERT_NEAR(j["AlignmentScoreSum"]["StdDev"], std_dev_al_score_sum, 1e-5);
-    ASSERT_NEAR(j["AlignmentScoreSum2"]["StdDev"], std_dev_al_score_sum2, 1e-5);
+    ASSERT_EQ(j["al_score"]["sum"]["min"], min_al_score_sum);
+    ASSERT_EQ(j["al_score"]["sum2"]["min"], min_al_score_sum2);
+    ASSERT_EQ(j["al_score"]["sum"]["max"], max_al_score_sum);
+    ASSERT_EQ(j["al_score"]["sum2"]["max"], max_al_score_sum2);
+    ASSERT_NEAR(j["al_score"]["sum"]["mean"], mean_al_score_sum, 1e-5);
+    ASSERT_NEAR(j["al_score"]["sum2"]["mean"], mean_al_score_sum2, 1e-5);
+    ASSERT_NEAR(j["al_score"]["sum"]["stdev"], std_dev_al_score_sum, 1e-5);
+    ASSERT_NEAR(j["al_score"]["sum2"]["stdev"], std_dev_al_score_sum2, 1e-5);
 }
 
 // Make sure that the chunks stats (data around breaking points are correct

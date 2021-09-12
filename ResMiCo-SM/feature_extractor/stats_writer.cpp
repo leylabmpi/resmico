@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <filesystem>
+#include <json/json.hpp>
 #include <limits>
 #include <string>
 #include <vector>
@@ -57,7 +58,7 @@ std::string stri(T v) {
 
 inline uint16_t normalize(uint16_t v, uint16_t normalize_by) {
     static uint16_t MAX_16 = std::numeric_limits<uint16_t>::max();
-    assert(v <= normalize_by || v == MAX_16);
+    assert(v <= normalize_by);
     if (normalize_by == 0) {
         normalize_by = 1;
     }
@@ -330,29 +331,26 @@ void StatsWriter::write_stats(QueueItem &&item,
 }
 
 void StatsWriter::write_summary() {
+    nlohmann::json j;
+
+    j["mean_cnt"] = count_mean;
+    j["stdev_cnt"] = count_std_dev;
+
+    j["insert_size"]["sum"]
+            = { { "min", sums[0] }, { "mean", sums[1] }, { "stdev", sums[2] }, { "max", sums[3] } };
+    j["insert_size"]["sum2"]
+            = { { "min", sums2[0] }, { "mean", sums2[1] }, { "stdev", sums2[2] }, { "max", sums2[3] } };
+
+    j["mapq"]["sum"]
+            = { { "min", sums[4] }, { "mean", sums[5] }, { "stdev", sums[6] }, { "max", sums[7] } };
+    j["mapq"]["sum2"]
+            = { { "min", sums2[4] }, { "mean", sums2[5] }, { "stdev", sums2[6] }, { "max", sums2[7] } };
+
+    j["al_score"]["sum"]
+            = { { "min", sums[8] }, { "mean", sums[9] }, { "stdev", sums[10] }, { "max", sums[11] } };
+    j["al_score"]["sum2"]
+            = { { "min", sums2[8] }, { "mean", sums2[9] }, { "stdev", sums2[10] }, { "max", sums2[11] } };
+
     std::ofstream stats(out_dir / "stats");
-    stats << "{\n\t\"MeanCount\":" << count_mean << "," << std::endl;
-    stats << "\t\"StdDevCount\":" << count_std_dev << "," << std::endl;
-
-    stats << "\t\"InsertSum\": { \n";
-    stats << "\t\t\"Min\": " << sums[0] << ",\n\t\t\"Mean\": " << sums[1]
-          << ",\n\t\t\"StdDev\": " << sums[2] << ",\n\t\t\"Max\":" << sums[3] << "\n\t},\n";
-    stats << "\t\"InsertSum2\": { \n";
-    stats << "\t\t\"Min\": " << sums2[0] << ",\n\t\t\"Mean\": " << sums2[1]
-          << ",\n\t\t\"StdDev\": " << sums2[2] << ",\n\t\t\"Max\":" << sums2[3] << "\n\t},\n";
-
-    stats << "\t\"MappingQualitySum\": { \n";
-    stats << "\t\t\"Min\": " << sums[4] << ",\n\t\t\"Mean\": " << sums[5]
-          << ",\n\t\t\"StdDev\": " << sums[6] << ",\n\t\t\"Max\":" << sums[7] << "\n\t},\n";
-    stats << "\t\"MappingQualitySum2\": { \n";
-    stats << "\t\t\"Min\": " << sums2[4] << ",\n\t\t\"Mean\": " << sums2[5]
-          << ",\n\t\t\"StdDev\": " << sums2[6] << ",\n\t\t\"Max\":" << sums2[7] << "\n\t},\n";
-
-    stats << "\t\"AlignmentScoreSum\": { \n";
-    stats << "\t\t\"Min\": " << sums[8] << ",\n\t\t\"Mean\": " << sums[9]
-          << ",\n\t\t\"StdDev\": " << sums[10] << ",\n\t\t\"Max\":" << sums[11] << "\n\t},\n";
-    stats << "\t\"AlignmentScoreSum2\": { \n";
-    stats << "\t\t\"Min\": " << sums2[8] << ",\n\t\t\"Mean\": " << sums2[9]
-          << ",\n\t\t\"StdDev\": " << sums2[10] << ",\n\t\t\"Max\":" << sums2[11] << "\n\t}\n";
-    stats << "}" << std::endl;
+    stats << j.dump(2);
 }
