@@ -32,7 +32,10 @@ DEFINE_uint32(
         "Maximum size of the queue for stats waiting to be written to disk, before blocking.");
 
 DEFINE_uint32(chunk_size, 500, "Contig length used when training on small bad/good chunks");
-
+DEFINE_uint32(breakpoint_max_offset,
+              200,
+              "Maximum offset (to left or right) around the breaking point used when creating "
+              "a chunk");
 
 int main(int argc, char *argv[]) {
     gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -123,7 +126,7 @@ int main(int argc, char *argv[]) {
 
     util::WaitQueue<QueueItem> wq(32);
 
-    StatsWriter stats_writer(FLAGS_o, FLAGS_chunk_size);
+    StatsWriter stats_writer(FLAGS_o, FLAGS_chunk_size, FLAGS_breakpoint_max_offset);
 
     std::thread t([&] {
         for (;;) {

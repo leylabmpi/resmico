@@ -160,8 +160,13 @@ void write_data(const std::string &reference,
     write_data(reference, binary_stats_file, cs, 0, reference.size());
 }
 
-StatsWriter::StatsWriter(const std::filesystem::path &out_dir, uint32_t chunk_size)
-    : out_dir(out_dir), chunk_size(chunk_size) {
+StatsWriter::StatsWriter(const std::filesystem::path &out_dir,
+                         uint32_t chunk_size,
+                         uint32_t breakpoint_offset)
+    : out_dir(out_dir),
+      chunk_size(chunk_size),
+      breakpoint_offset(breakpoint_offset),
+      random_engine(std::mt19937(12345)) {
     std::error_code ec1, ec2;
     std::filesystem::create_directories(out_dir / BIN_DIR, ec1);
     std::filesystem::create_directories(out_dir / BIN_DIR_CHUNK, ec2);
@@ -185,9 +190,6 @@ StatsWriter::StatsWriter(const std::filesystem::path &out_dir, uint32_t chunk_si
     // write toc header
     toc << "Assembler" << '\t' << "Contig" << '\t' << "Size" << '\t' << "MisassemblCnt"
         << std::endl;
-
-    std::random_device r;
-    random_engine = std::default_random_engine(r());
 }
 
 void StatsWriter::write_stats(QueueItem &&item,
@@ -202,10 +204,11 @@ void StatsWriter::write_stats(QueueItem &&item,
         << mis.size() << std::endl;
 
     ContigStats &cs = contig_stats;
-    cs.resize(item.reference.size());
+    const uint32_t contig_len = item.reference.size();
+    cs.resize(contig_len);
 
     // get the misassembly information for each position
-    cs.misassembly_by_pos = expand(item.reference.size(), mis);
+    cs.misassembly_by_pos = expand(contig_len, mis);
 
     for (uint32_t pos = 0; pos < item.stats.size(); ++pos) {
         const Stats &s = item.stats[pos];
@@ -297,36 +300,51 @@ void StatsWriter::write_stats(QueueItem &&item,
 
     std::string binary_stats_file = out_dir / BIN_DIR / (item.reference_name + ".gz");
     write_data(item.reference, binary_stats_file, cs);
-    // select a chunk of length
+
+    // ----- start selecting a chunk and writing its stats to disk ----
+    offsets.clear();
     uint32_t start, stop;
     if (mis.empty()) {
-        if (item.reference.size() <= chunk_size) {
+        // select a chunk of length chunk_size randomly from the string
+        if (contig_len <= chunk_size) {
             start = 0;
-            stop = item.reference.size();
+            stop = contig_len;
         } else {
-            std::uniform_int_distribution<uint32_t> rnd_start(0,
-                                                              item.reference.size() - chunk_size);
+            std::uniform_int_distribution<uint32_t> rnd_start(0, contig_len - chunk_size);
             start = rnd_start(random_engine);
             stop = start + chunk_size;
         }
         std::string fname = out_dir / BIN_DIR_CHUNK / (item.reference_name + ".ok.gz");
         write_data(item.reference, fname, cs, start, stop);
     } else {
-        // create one stats file for each misassembly breakpoint
+        // select a chunk of size chunk_size around the breaking point
+        std::uniform_int_distribution<int32_t> offset_gen(-breakpoint_offset, breakpoint_offset);
+        // create one stats file for each mis-assembly breakpoint
         for (uint32_t i = 0; i < mis.size(); ++i) {
-            uint32_t mid = (mis[i].start + mis[i].break_end) / 2;
-            if (mid <= chunk_size / 2 || (item.reference.size() - mid) <= chunk_size / 2) {
+            uint32_t mid = (mis[i].break_start + mis[i].break_end) / 2;
+            if (mis[i].break_end < chunk_size / 2
+                || mis[i].break_start + chunk_size / 2 > contig_len) {
                 logger()->info("Dismissed breaking point {}/{} for contig {}. Too close to edge.",
                                mis[i].break_start, mis[i].break_end, item.reference_name);
                 continue;
             }
+            int32_t offset = offset_gen(random_engine);
+            std::cout << "Offset: " << offset << std::endl;
+            offsets.push_back(offset);
+            start = chunk_size / 2 < mid + offset ? mid + offset - chunk_size / 2 : chunk_size / 2;
+            stop = start + chunk_size;
+            // move the chunk to left if it exceeds contig bounds
+            if (stop > contig_len) {
+                start = contig_len - chunk_size;
+                stop = contig_len;
+            }
             std::string fname = out_dir / BIN_DIR_CHUNK
                     / (item.reference_name + ".mis" + std::to_string(i) + ".gz");
-            write_data(item.reference, fname, cs, mid - chunk_size / 2, mid + chunk_size / 2);
+            write_data(item.reference, fname, cs, start, stop);
         }
     }
 
-    assert(cs.misassembly_by_pos.size() == item.reference.size());
+    assert(cs.misassembly_by_pos.size() == contig_len);
     logger()->info("Writing features for contig {} done.", item.reference_name);
 }
 
@@ -338,18 +356,22 @@ void StatsWriter::write_summary() {
 
     j["insert_size"]["sum"]
             = { { "min", sums[0] }, { "mean", sums[1] }, { "stdev", sums[2] }, { "max", sums[3] } };
-    j["insert_size"]["sum2"]
-            = { { "min", sums2[0] }, { "mean", sums2[1] }, { "stdev", sums2[2] }, { "max", sums2[3] } };
+    j["insert_size"]["sum2"] = {
+        { "min", sums2[0] }, { "mean", sums2[1] }, { "stdev", sums2[2] }, { "max", sums2[3] }
+    };
 
     j["mapq"]["sum"]
             = { { "min", sums[4] }, { "mean", sums[5] }, { "stdev", sums[6] }, { "max", sums[7] } };
-    j["mapq"]["sum2"]
-            = { { "min", sums2[4] }, { "mean", sums2[5] }, { "stdev", sums2[6] }, { "max", sums2[7] } };
+    j["mapq"]["sum2"] = {
+        { "min", sums2[4] }, { "mean", sums2[5] }, { "stdev", sums2[6] }, { "max", sums2[7] }
+    };
 
-    j["al_score"]["sum"]
-            = { { "min", sums[8] }, { "mean", sums[9] }, { "stdev", sums[10] }, { "max", sums[11] } };
-    j["al_score"]["sum2"]
-            = { { "min", sums2[8] }, { "mean", sums2[9] }, { "stdev", sums2[10] }, { "max", sums2[11] } };
+    j["al_score"]["sum"] = {
+        { "min", sums[8] }, { "mean", sums[9] }, { "stdev", sums[10] }, { "max", sums[11] }
+    };
+    j["al_score"]["sum2"] = {
+        { "min", sums2[8] }, { "mean", sums2[9] }, { "stdev", sums2[10] }, { "max", sums2[11] }
+    };
 
     std::ofstream stats(out_dir / "stats");
     stats << j.dump(2);
