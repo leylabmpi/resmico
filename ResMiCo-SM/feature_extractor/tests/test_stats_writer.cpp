@@ -552,6 +552,15 @@ TEST(WriteStats, TwoReadsChunkStatsWithOffset) {
     for (uint32_t i = 0; i < 5; ++i) {
         expected_coverage[i] = 2;
     }
+    std::array<std::vector<uint16_t>, 4> expected_bases;
+    for (uint32_t i : { 0, 1, 2, 3 }) {
+        expected_bases[i].resize(breakpoint_pos + breakpoint_offset + chunk_size / 2 + 1, 0);
+    }
+    expected_bases[0][0] = 10'000;
+    for (uint32_t j = 1; j < 5; ++j) {
+        expected_bases[0][j] = 5'000;
+        expected_bases[2][j] = 5'000;
+    }
 
     std::string contig_names[] = { "Contig2", "Contig1" };
     std::string fasta_files[] = { "data/test2.fa.gz", "data/test.fa" };
@@ -606,9 +615,12 @@ TEST(WriteStats, TwoReadsChunkStatsWithOffset) {
         for (uint32_t i = 0; i < len; ++i) {
             ASSERT_EQ('A', contig[i]) << "Position: " << i;
             assert(i + breakpoint_pos + offset > chunk_size / 2);
-            ASSERT_EQ(expected_coverage[i + breakpoint_pos + offset - chunk_size / 2], coverage[i]);
-            // uint16_t base_counts[] = { n_bases[0][i], n_bases[1][i], n_bases[2][i], n_bases[3][i]
-            // }; ASSERT_THAT(base_counts, ElementsAre(0, 0, 0, 0));
+            uint32_t contig_idx = i + breakpoint_pos + offset - chunk_size / 2;
+            ASSERT_EQ(expected_coverage[contig_idx], coverage[i]);
+            uint16_t base_counts[] = { n_bases[0][i], n_bases[1][i], n_bases[2][i], n_bases[3][i] };
+            ASSERT_THAT(base_counts,
+                        ElementsAre(expected_bases[0][contig_idx], expected_bases[1][contig_idx],
+                                    expected_bases[2][contig_idx], expected_bases[3][contig_idx]));
         }
     }
 }
