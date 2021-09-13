@@ -61,7 +61,16 @@ struct QueueItem {
 
 class StatsWriter {
   public:
-    StatsWriter(const std::filesystem::path &out_dir, uint32_t chunk_size);
+    /**
+     * @param out_dir directory where output files (features.tsv.gz, stats, toc, contig_stats*
+     * contig_chunk_stats* will be written
+     * @param chunk_size size of contig chunks created around breakpoints
+     * @param breakpoint_offset maximum (random) offset around the breakpoint for the middle of the
+     * chunk
+     */
+    StatsWriter(const std::filesystem::path &out_dir,
+                uint32_t chunk_size,
+                uint32_t breakpoint_offset);
 
     ~StatsWriter() {
         tsv_stream.close();
@@ -81,7 +90,9 @@ class StatsWriter {
                      const std::vector<MisassemblyInfo> &mis);
 
     void write_summary();
-
+  public:
+    // exposing some information for testing
+    std::vector<int32_t> offsets;
   private:
     const std::string BIN_DIR = "contig_stats";
     const std::string BIN_DIR_CHUNK = "contig_chunk_stats";
@@ -97,6 +108,12 @@ class StatsWriter {
      */
     uint32_t chunk_size;
 
+    /**
+     * Number of bases around the actual breakpoint where the center of the misassembled contig
+     * stats will be
+     */
+    int32_t breakpoint_offset;
+
     /** the stream where the tab separated textual data is written (soon deprecated) */
     ogzstream tsv_stream;
 
@@ -104,7 +121,7 @@ class StatsWriter {
     each contig that was written using #write_stats.*/
     std::ofstream toc;
 
-    std::default_random_engine random_engine;
+    std::mt19937 random_engine;
 
     /** Number of positions where a mean value could be computed (coverage > 0) */
     uint32_t count_mean = 0;

@@ -41,7 +41,7 @@ std::vector<std::string> bin_headers = { "ref_base",
 TEST(WriteStats, Empty) {
     QueueItem item;
 
-    StatsWriter stats_writer("/tmp/stats", 500);
+    StatsWriter stats_writer("/tmp/stats", 500, 1);
     stats_writer.write_stats(std::move(item), "metaQuast", {});
 }
 
@@ -49,7 +49,7 @@ TEST(WriteStats, TwoReads) {
     std::unordered_map<std::string, std::vector<MisassemblyInfo>> mi_info
             = parse_misassembly_info("data/test.mis_contigs.info");
 
-    StatsWriter stats_writer("/tmp/stats/", 5);
+    StatsWriter stats_writer("/tmp/stats/", 5, 1);
 
     std::string contig_names[] = { "Contig2", "Contig1" };
     std::string fasta_files[] = { "data/test2.fa.gz", "data/test.fa" };
@@ -167,7 +167,7 @@ TEST(WriteStats, TwoReads) {
         ASSERT_EQ(max_map_qual[i], i == 0 ? 7 : i < 5 ? 6 : std::numeric_limits<uint8_t>::max());
         ASSERT_TRUE((i >= 5 && std::isnan(mean_map_qual[i]))
                     || mean_map_qual[i] == (i == 0 ? 6.5 : 6));
-        ASSERT_EQ(misassembly_by_pos[i], i < 9 || i >= 30 ? 0 : 1) << "Position " << i;
+        ASSERT_EQ(misassembly_by_pos[i], i >= 20 ? 0 : 1) << "Position " << i;
     }
 
     // check the table of contents file, and make sure that each contig has length 500, the first
@@ -192,7 +192,7 @@ TEST(WriteStats, TwoReadsStats) {
     std::unordered_map<std::string, std::vector<MisassemblyInfo>> mi_info
             = parse_misassembly_info("data/test.mis_contigs.info");
 
-    StatsWriter stats_writer("/tmp/stats/", 5);
+    StatsWriter stats_writer("/tmp/stats/", 5, 1);
 
     std::string contig_names[] = { "Contig1", "Contig2" };
     std::string fasta_files[] = { "data/test.fa", "data/test2.fa.gz" };
@@ -420,12 +420,13 @@ TEST(WriteStats, TwoReadsStats) {
     ASSERT_NEAR(j["al_score"]["sum2"]["stdev"], std_dev_al_score_sum2, 1e-5);
 }
 
-// Make sure that the chunks stats (data around breaking points are correct
+// Make sure that the chunks stats (data around breaking points) are correct
 TEST(WriteStats, TwoReadsChunkStats) {
     std::unordered_map<std::string, std::vector<MisassemblyInfo>> mi_info
             = parse_misassembly_info("data/test.mis_contigs.info");
 
-    StatsWriter stats_writer("/tmp/stats/", 5);
+    // chunk_size=5, breakpoint_offset=0 (so it's deterministic)
+    StatsWriter stats_writer("/tmp/stats/", 5, 0);
 
     std::string contig_names[] = { "Contig2", "Contig1" };
     std::string fasta_files[] = { "data/test2.fa.gz", "data/test.fa" };
@@ -449,7 +450,7 @@ TEST(WriteStats, TwoReadsChunkStats) {
 
     igzstream stats2("/tmp/stats/contig_chunk_stats/Contig2.mis0.gz");
     stats2.read(reinterpret_cast<char *>(&len), 4);
-    ASSERT_EQ(4, len); // because we round down 5/2
+    ASSERT_EQ(5, len);
 
     std::string contig(len, 'N');
     std::vector<uint16_t> coverage(len);
@@ -531,6 +532,83 @@ TEST(WriteStats, TwoReadsChunkStats) {
         ASSERT_EQ(std::numeric_limits<uint8_t>::max(), max_map_qual[i]);
         ASSERT_TRUE(std::isnan(mean_map_qual[i]));
         ASSERT_EQ(1, misassembly_by_pos[i]);
+    }
+}
+
+// Make sure that the chunks stats (data around breaking points are correct
+TEST(WriteStats, TwoReadsChunkStatsWithOffset) {
+    std::unordered_map<std::string, std::vector<MisassemblyInfo>> mi_info
+            = parse_misassembly_info("data/test.mis_contigs.info");
+    const uint32_t breakpoint_pos = mi_info["Contig2"][0].break_start;
+    ASSERT_EQ(10, breakpoint_pos);
+    ASSERT_EQ(10, mi_info["Contig2"][0].break_end);
+
+    constexpr uint32_t chunk_size = 5;
+    constexpr uint32_t breakpoint_offset = 5;
+    StatsWriter stats_writer("/tmp/stats/", chunk_size, breakpoint_offset);
+
+    std::vector<uint32_t> expected_coverage(breakpoint_pos + breakpoint_offset + chunk_size / 2, 0);
+    for (uint32_t i = 0; i < 5; ++i) {
+        expected_coverage[i] = 2;
+    }
+
+    std::string contig_names[] = { "Contig2", "Contig1" };
+    std::string fasta_files[] = { "data/test2.fa.gz", "data/test.fa" };
+    std::string bam_files[] = { "data/test2.bam", "data/test1.bam" };
+    int32_t offset;
+    for (uint32_t rep = 0; rep < 10; ++rep) {
+        for (uint32_t i : { 0, 1 }) {
+            std::string reference_seq = get_sequence(fasta_files[i], contig_names[i]);
+            std::vector<Stats> stats
+                    = contig_stats(contig_names[i], reference_seq, bam_files[i], 4, false);
+            QueueItem item = { std::move(stats), contig_names[i], reference_seq };
+            stats_writer.write_stats(std::move(item), "metaSpades", mi_info[contig_names[i]]);
+            if (i == 0) {
+                offset = stats_writer.offsets[0];
+                ASSERT_EQ(1, stats_writer.offsets.size());
+                ASSERT_TRUE(offset >= -5 && offset <= 5);
+            } else {
+                ASSERT_EQ(0, stats_writer.offsets.size());
+            }
+        }
+        stats_writer.write_summary();
+
+        std::string out_files[] = { "/tmp/stats/contig_chunk_stats/Contig1.ok.gz",
+                                    "/tmp/stats/contig_chunk_stats/Contig2.mis0.gz" };
+        for (const std::string &fname : out_files) {
+            ASSERT_TRUE(std::filesystem::exists(fname));
+        }
+
+
+        uint32_t len;
+
+        igzstream stats2("/tmp/stats/contig_chunk_stats/Contig2.mis0.gz");
+        stats2.read(reinterpret_cast<char *>(&len), 4);
+        ASSERT_EQ(5, len);
+
+        std::string contig(len, 'N');
+        std::vector<uint16_t> coverage(len);
+        std::array<std::vector<uint16_t>, 4> n_bases;
+        for (uint32_t i : { 0, 1, 2, 3 }) {
+            n_bases[i].resize(len);
+        }
+        std::vector<uint16_t> num_snps(len);
+
+        stats2.read(reinterpret_cast<char *>(contig.data()), len);
+        stats2.read(reinterpret_cast<char *>(coverage.data()), len * sizeof(coverage[0]));
+        for (uint32_t i : { 0, 1, 2, 3 }) {
+            stats2.read(reinterpret_cast<char *>(n_bases[i].data()), len * sizeof(n_bases[i][0]));
+        }
+        stats2.read(reinterpret_cast<char *>(num_snps.data()), len * sizeof(num_snps[0]));
+
+
+        for (uint32_t i = 0; i < len; ++i) {
+            ASSERT_EQ('A', contig[i]) << "Position: " << i;
+            assert(i + breakpoint_pos + offset > chunk_size / 2);
+            ASSERT_EQ(expected_coverage[i + breakpoint_pos + offset - chunk_size / 2], coverage[i]);
+            // uint16_t base_counts[] = { n_bases[0][i], n_bases[1][i], n_bases[2][i], n_bases[3][i]
+            // }; ASSERT_THAT(base_counts, ElementsAre(0, 0, 0, 0));
+        }
     }
 }
 } // namespace
