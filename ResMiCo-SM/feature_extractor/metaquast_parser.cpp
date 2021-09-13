@@ -156,7 +156,7 @@ parse_misassembly_info(const std::string &report_file) {
 std::vector<uint8_t> expand(uint32_t contig_length, const std::vector<MisassemblyInfo> &mis) {
     std::vector<uint8_t> result(contig_length);
     for (const MisassemblyInfo &mi : mis) {
-        assert(mi.start <= contig_length && mi.end <= contig_length);
+        assert(mi.start > 0 && mi.start <= contig_length && mi.end <= contig_length);
         // positions in metaQuast are 1-based
         std::for_each(result.begin() + mi.start - 1, result.begin() + mi.end,
                       [&mi](uint8_t &v) { v |= (mi.type + 1); });

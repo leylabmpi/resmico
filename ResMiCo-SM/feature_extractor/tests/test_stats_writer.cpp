@@ -547,7 +547,8 @@ TEST(WriteStats, TwoReadsChunkStatsWithOffset) {
     constexpr uint32_t breakpoint_offset = 5;
     StatsWriter stats_writer("/tmp/stats/", chunk_size, breakpoint_offset);
 
-    std::vector<uint32_t> expected_coverage(breakpoint_pos + breakpoint_offset + chunk_size / 2, 0);
+    std::vector<uint32_t> expected_coverage(breakpoint_pos + breakpoint_offset + chunk_size / 2 + 1,
+                                            0);
     for (uint32_t i = 0; i < 5; ++i) {
         expected_coverage[i] = 2;
     }
