@@ -555,7 +555,7 @@ TEST(WriteStats, TwoReadsChunkStatsWithOffset) {
     std::string contig_names[] = { "Contig2", "Contig1" };
     std::string fasta_files[] = { "data/test2.fa.gz", "data/test.fa" };
     std::string bam_files[] = { "data/test2.bam", "data/test1.bam" };
-    int32_t offset;
+    int32_t offset = 0;
     for (uint32_t rep = 0; rep < 10; ++rep) {
         for (uint32_t i : { 0, 1 }) {
             std::string reference_seq = get_sequence(fasta_files[i], contig_names[i]);
