@@ -41,6 +41,9 @@ struct ContigStats {
     std::vector<float> mean_al_score;
     std::vector<float> std_dev_al_score;
 
+    std::vector<uint16_t> num_proper_match;
+    std::vector<uint16_t> num_orphans_match;
+
     std::vector<uint16_t> num_proper_snp;
     std::vector<float> gc_percent;
 

@@ -173,7 +173,7 @@ std::vector<Stats> pileup_bam(const std::string &reference,
                         stat.n_diff_strand++;
                 } else if (!al.IsMateMapped()) {
                     if (!is_snp)
-                        stat.n_orphan++;
+                        stat.n_orphan_match++;
                 }
             }
             // insert size

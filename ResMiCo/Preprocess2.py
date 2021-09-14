@@ -56,88 +56,6 @@ def get_feature_info(fname, features, features_types):
     return feature_info, keys.index('coverage')
 
 
-def replace_with_nan(arr, v):
-    """Replaces all elements in arr that are equal to v with np.nan"""
-    arr[arr == v] = np.nan
-
-
-def read_contig_data(fname, features):
-    """
-    Read a binary gzipped file containing the features for a single contig, as written by bam2feat. Features that don't
-    exist are silently ignored.
-    Parameters:
-         - fname: the file to read
-         - features list of feature names to return (e.g. ['coverage', 'num_discordant', 'min_mapq_Match'])
-    Returns:
-         - a map from feature name to feature data
-    """
-    logging.info(f'Reading {fname}')
-    data = {}
-    with gzip.open(fname, mode='rb') as f:
-        contig_size = struct.unpack('I', f.read(4))[0]
-        data['contig'] = f.read(contig_size).decode('utf-8')
-        data['coverage'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16)
-        # everything is converted to float32, because frombuffer creates an immutable array, so the int values need to
-        # be made mutable (in order to convert from fixed point back to float) and the float values need to be copied
-        # (in order to make them writeable for normalization)
-        data['num_query_A'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32) / 10000
-        data['num_query_C'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32) / 10000
-        data['num_query_G'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32) / 10000
-        data['num_query_T'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32) / 10000
-        data['num_SNPs'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32) / 10000
-        data['num_discordant'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32) / 10000
-
-        data['min_insert_size_Match'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32)
-        data['mean_insert_size_Match'] = np.frombuffer(f.read(4 * contig_size), dtype=np.float32).astype(np.float32)
-        data['stdev_insert_size_Match'] = np.frombuffer(f.read(4 * contig_size), dtype=np.float32).astype(np.float32)
-        data['max_insert_size_Match'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32)
-        replace_with_nan(data['min_insert_size_Match'], 65535)
-        replace_with_nan(data['max_insert_size_Match'], 65535)
-
-        data['min_mapq_Match'] = np.frombuffer(f.read(contig_size), dtype=np.uint8).astype(np.float32)
-        data['mean_mapq_Match'] = np.frombuffer(f.read(4 * contig_size), dtype=np.float32).astype(np.float32)
-        data['stdev_mapq_Match'] = np.frombuffer(f.read(4 * contig_size), dtype=np.float32).astype(np.float32)
-        data['max_mapq_Match'] = np.frombuffer(f.read(contig_size), dtype=np.uint8).astype(np.float32)
-        replace_with_nan(data['min_mapq_Match'], 255)
-        replace_with_nan(data['max_mapq_Match'], 255)
-
-        data['min_al_score_Match'] = np.frombuffer(f.read(contig_size), dtype=np.int8).astype(np.float32)
-        data['mean_al_score_Match'] = np.frombuffer(f.read(4 * contig_size), dtype=np.float32).astype(np.float32)
-        data['stdev_al_score_Match'] = np.frombuffer(f.read(4 * contig_size), dtype=np.float32).astype(np.float32)
-        data['max_al_score_Match'] = np.frombuffer(f.read(contig_size), dtype=np.int8).astype(np.float32)
-        replace_with_nan(data['min_al_score_Match'], 127)
-        replace_with_nan(data['max_al_score_Match'], 127)
-
-        data['num_proper_SNP'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32) / 10000
-        data['seq_window_perc_gc'] = np.frombuffer(f.read(4 * contig_size), dtype=np.float32).astype(np.float32)
-        data['Extensive_misassembly_by_pos'] = np.frombuffer(f.read(contig_size), dtype=np.uint8).astype(np.float32)
-    # keep desired features only
-    result = {f: data[f] for f in features}
-    return result
-
-
-def normalize_contig_data(features, mean_stdev):
-    """
-    Normalizes the float features present in features using the precomputed means and standard deviations
-    in #mean_stdev
-    Parameters:
-        - features: a map from feature name (e.g. 'coverage') to a numpy array containing the feature
-        - mean_stdev: a map from feature name to the mean and standard deviation precomputed for that
-          feature across *all* contigs, stored as a tuple
-    """
-    for fname in float_feature_names:
-        if fname not in features:
-            continue
-        if fname not in mean_stdev:
-            logging.warning('Could not find mean/standard deviation for feature: {fname}. Skipping normalization')
-            continue
-        features[fname] -= mean_stdev[fname][0]
-        if features[fname].dtype == np.float32:  # we can do the division in place
-            features[fname] /= mean_stdev[fname][1]
-        else:  # need to create a new floating point numpy array
-            features[fname] = features[fname] / mean_stdev[fname][1]
-
-
 def read_file(fname, feature_info, coverage_pos):
     """
     Reads a zipped tsv file containing tab separated features and places the result for the desired features into
@@ -248,64 +166,171 @@ def read_file_np(fname, feature_info, coverage_pos):
     return result
 
 
-def preprocess(process_count, input_dir, features, feature_types):
-    logging.info('Looking for feature files...')
+def replace_with_nan(arr, v):
+    """Replaces all elements in arr that are equal to v with np.nan"""
+    arr[arr == v] = np.nan
+
+
+def read_contig_data(feature_file_name, feature_names):
+    """
+    Read a binary gzipped file containing the features for a single contig, as written by bam2feat. Features that don't
+    exist are silently ignored.
+    Parameters:
+         - feature_file_name: the file to read
+         - feature_names list of feature names to return (e.g. ['coverage', 'num_discordant', 'min_mapq_Match'])
+    Returns:
+         - a map from feature name to feature data
+    """
+    logging.info(f'Reading {feature_file_name}')
+    data = {}
+    with gzip.open(feature_file_name, mode='rb') as f:
+        contig_size = struct.unpack('I', f.read(4))[0]
+        data['ref_base'] = f.read(contig_size).decode('utf-8')
+        data['coverage'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16)
+        # everything is converted to float32, because frombuffer creates an immutable array, so the int values need to
+        # be made mutable (in order to convert from fixed point back to float) and the float values need to be copied
+        # (in order to make them writeable for normalization)
+        data['num_query_A'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32) / 10000
+        data['num_query_C'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32) / 10000
+        data['num_query_G'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32) / 10000
+        data['num_query_T'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32) / 10000
+        data['num_SNPs'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32) / 10000
+        data['num_discordant'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32) / 10000
+
+        data['min_insert_size_Match'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32)
+        data['mean_insert_size_Match'] = np.frombuffer(f.read(4 * contig_size), dtype=np.float32).astype(np.float32)
+        data['stdev_insert_size_Match'] = np.frombuffer(f.read(4 * contig_size), dtype=np.float32).astype(np.float32)
+        data['max_insert_size_Match'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32)
+        replace_with_nan(data['min_insert_size_Match'], 65535)
+        replace_with_nan(data['max_insert_size_Match'], 65535)
+
+        data['min_mapq_Match'] = np.frombuffer(f.read(contig_size), dtype=np.uint8).astype(np.float32)
+        data['mean_mapq_Match'] = np.frombuffer(f.read(4 * contig_size), dtype=np.float32).astype(np.float32)
+        data['stdev_mapq_Match'] = np.frombuffer(f.read(4 * contig_size), dtype=np.float32).astype(np.float32)
+        data['max_mapq_Match'] = np.frombuffer(f.read(contig_size), dtype=np.uint8).astype(np.float32)
+        replace_with_nan(data['min_mapq_Match'], 255)
+        replace_with_nan(data['max_mapq_Match'], 255)
+
+        data['min_al_score_Match'] = np.frombuffer(f.read(contig_size), dtype=np.int8).astype(np.float32)
+        data['mean_al_score_Match'] = np.frombuffer(f.read(4 * contig_size), dtype=np.float32).astype(np.float32)
+        data['stdev_al_score_Match'] = np.frombuffer(f.read(4 * contig_size), dtype=np.float32).astype(np.float32)
+        data['max_al_score_Match'] = np.frombuffer(f.read(contig_size), dtype=np.int8).astype(np.float32)
+        replace_with_nan(data['min_al_score_Match'], 127)
+        replace_with_nan(data['max_al_score_Match'], 127)
+
+        data['num_proper_Match'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32) / 10000
+        data['num_orphans_Match'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32) / 10000
+        data['num_proper_SNP'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32) / 10000
+        data['seq_window_perc_gc'] = np.frombuffer(f.read(4 * contig_size), dtype=np.float32).astype(np.float32)
+        data['Extensive_misassembly_by_pos'] = np.frombuffer(f.read(contig_size), dtype=np.uint8).astype(np.float32)
+    # keep desired features only
+    result = {f: data[f] for f in feature_names}
+    return result
+
+
+def normalize_contig_data(features, means, stdevs):
+    return features
+    """
+    Normalizes the float features present in features using the precomputed means and standard deviations
+    in #mean_stdev
+    Parameters:
+        - features: a map from feature name (e.g. 'coverage') to a numpy array containing the feature
+        - mean_stdev: a map from feature name to the mean and standard deviation precomputed for that
+          feature across *all* contigs, stored as a tuple
+    """
+    for feature_name in float_feature_names:
+        if feature_name not in features:
+            continue
+        if feature_name not in means or feature_name not in stdevs:
+            logging.warning('Could not find mean/standard deviation for feature: {fname}. Skipping normalization')
+            continue
+        features[feature_name] -= means[feature_name]
+        if features[feature_name].dtype == np.float32:  # we can do the division in place
+            features[feature_name] /= stdevs[feature_name]
+        else:  # need to create a new floating point numpy array
+            features[feature_name] = features[feature_name] / stdevs[feature_name]
+
+
+def compute_global_mean_stdev(input_dir):
+    logging.info('Computing global means and standard deviations. Looking for stats/toc files...')
     file_list = [str(f) for f in list(Path(input_dir).rglob("*/stats"))]
-    logging.info(f'Processing {len(file_list)} stats files found in {input_dir} ...');
+    logging.info(f'Processing {len(file_list)} stats/toc files found in {input_dir} ...');
     if not file_list:
         logging.info('Noting to do.')
         exit(0)
 
     mean_count = 0
-    std_dev_count = 0
-    metrics = ['InsertSum', 'InsertSum2', 'MappingQualitySum', 'MappingQualitySum2', 'AlignmentScoreSum',
-               'AlignmentScoreSum2']
+    stddev_count = 0
     metrics = ['insert_size', 'mapq', 'al_score']  # insert size, mapping quality, alignment quality
     metric_types = ['min', 'mean', 'stdev', 'max']
+
+    means = {}
+    stdevs = {}
+    for metric in metrics:
+        for mtype in metric_types:
+            feature_name = f'{mtype}_{metric}_Match'
+            means[feature_name] = 0
+            stdevs[feature_name] = 0
+
+    # TODO: check of parallelization is needed and helps
     for fname in file_list:
         with open(fname) as f:
             stats = json.load(f)
+            mean_count += stats['mean_cnt']
+            stddev_count += stats['stdev_cnt']
+            for metric in metrics:
+                for mtype in metric_types:
+                    feature_name = f'{mtype}_{metric}_Match'
+                    means[feature_name] += stats[metric]['sum'][mtype]
+                    stdevs[feature_name] += stats[metric]['sum2'][mtype]
 
-    result = {}
+    for metric in metrics:
+        for mtype in metric_types:
+            feature_name = f'{mtype}_{metric}_Match'
+            # the count of non-nan position is different (lower) for the stdev_* features (because computing
+            # the standard deviation requires at least coverage 2, while for max/mean/min coverage=1 is sufficient)
+            cnt = stddev_count if mtype == 'stdev' else mean_count
+            var = cnt * stdevs[feature_name] - means[feature_name] ** 2
+            if -0.1 < var < 0:  # fix small rounding errors that may lead to negative values
+                var = 0
+            stdevs[feature_name] = math.sqrt(var) / (cnt ** 2)
+            means[feature_name] /= cnt
+    logging.info('Computed global means and stdevs.')
+    contigs = {}
+    contig_count = 0
+    for fname in file_list:
+        toc_file = fname[:-len('stats')] + 'toc'
+        contig_info = []
+        with open(toc_file) as f:
+            rd = csv.reader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
+            next(rd)  # skip CSV header
+            for row in rd:
+                contig_info.append((row[1], row[3], row[2]))
+                print(row)
+        contig_prefix = fname[:-len('stats')] + 'contig_stats/' + row[1]
+        contigs[contig_prefix] = contigs
+        contig_count += len(contig_info)
+
+    logging.info(f'Found {contig_count} contigs')
+
+    print(contigs)
+
+    return contigs, means, stdevs
+
+
+def read_and_normalize(file_name, features, means, stdevs):
+    features = read_contig_data(file_name, features)
+    normalize_contig_data(features, means, stdevs)
+    return file_name, features
+
+
+def read_contigs(contig_files, process_count, means, stdevs, feature_names):
     pool = Pool(process_count)
-    feature_info, coverage_pos = get_feature_info(file_list[0], features, feature_types)
-    params = zip(file_list, itertools.repeat(feature_info), itertools.repeat(coverage_pos))
-    for file_data in pool.starmap(read_file, params):
-        result[(file_data[0], file_data[1])] = file_data
-        process = psutil.Process(os.getpid())
-        logging.info(f'Memory used: {process.memory_info().rss // 1e6}MB')
-
-    means = [0.0] * len(feature_info)
-    std_devs = [0.0] * len(feature_info)
-    counts = [0] * len(feature_info)
-
-    # compute first the sums and the sums of squares for each float (normalizable) feature in *all* files
-    for (assembler, contig), contig_data in result.items():
-        for i, (pos, tp) in enumerate(feature_info):
-            if tp == 'f':
-                counts[i] += len(contig_data[i][0]) - np.count_nonzero(np.isnan(contig_data[i][0]))
-                means[i] += contig_data[i][1]
-                std_devs[i] += contig_data[i][2]
-
-    # compute the mean and std deviation for each feature
-    for i, (pos, tp) in enumerate(feature_info):
-        if tp == 'f':
-            cnt = counts[i]  # number of non-nan positions
-            if cnt != 0:
-                sum = means[i]
-                sum2 = std_devs[i]
-                means[i] /= cnt
-                std_devs[i] = math.sqrt((cnt * sum2 - sum ** 2) / (cnt ** 2))
-            else:
-                means[i] = 0
-                std_devs[i] = 0
-
-    # normalize each float feature using the computed mean and stddev
-    for (assembler, contig), contig_data in result.items():
-        for i, (pos, tp) in enumerate(feature_info):
-            if tp == 'f':
-                contig_data[i] = (contig_data[i][0] - means[i]) / std_devs[i]
-
+    params = zip(contig_files, itertools.repeat(feature_names), itertools.repeat(means),
+                 itertools.repeat(stdevs))
+    result = {}
+    for file_name, contig_data in pool.starmap(read_and_normalize, params):
+        result[file_name] = contig_data
     return result
 
 
@@ -316,35 +341,36 @@ if __name__ == '__main__':
     parser.add_argument('--i', help='Input directory. All .tsv.gz files will be read recursively.', default='./')
     parser.add_argument('--p', help='Number of processes to use for parallelization', default=1, type=int)
     parser.add_argument('--features', help='List of features to pre-process',
-                        default=['assembler',
-                                 'contig',
-                                 'num_query_A',
-                                 'num_query_C',
-                                 'num_query_G',
-                                 'num_query_T',
-                                 'coverage',
-                                 'num_proper_Match',
-                                 'num_orphans_Match',
-                                 'max_insert_size_Match',
-                                 'mean_insert_size_Match',
-                                 'min_insert_size_Match',
-                                 'stdev_insert_size_Match',
-                                 'mean_mapq_Match',
-                                 'min_mapq_Match',
-                                 'stdev_mapq_Match',
-                                 'seq_window_perc_gc',
-                                 'num_proper_SNP'
-                                 ])
-    parser.add_argument('--feature_types',
-                        help='Type of each feature in features. s=static,i=int (normalized by coverage),'
-                             'f=float (normalized to mean 0 and stddev 1',
-                        default=['s', 's', 'i', 'i', 'i', 'i', 'f', 'i', 'i', 'f', 'f', 'f', 'f', 'f', 'f', 'f', 'f',
-                                 'i'])
+                        default=[
+                            'ref_base',
+                            'num_query_A',
+                            'num_query_C',
+                            'num_query_G',
+                            'num_query_T',
+                            'coverage',
+                            'num_proper_Match',
+                            'num_orphans_Match',
+                            'max_insert_size_Match',
+                            'mean_insert_size_Match',
+                            'min_insert_size_Match',
+                            'stdev_insert_size_Match',
+                            'mean_mapq_Match',
+                            'min_mapq_Match',
+                            'stdev_mapq_Match',
+                            'seq_window_perc_gc',
+                            'num_proper_SNP',
+                            'Extensive_misassembly_by_pos',
+                        ])
+
     args = parser.parse_args()
-    assert 'coverage' in args.features, '"overage" must be in --features, because it\'s used for normalization'
     logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG)
 
-    all_data = preprocess(args.p, args.i, args.features, args.feature_types)
+    contigs, means, stdevs = compute_global_mean_stdev(args.i)
+
+    logging.info('Looking for feature files...')
+    file_list = [str(f) for f in list(Path(args.i).rglob("*/contig_stats/*.gz"))]
+    logging.info(f'Processing {len(file_list)} contigs in {args.i} ...')
+    contigs_data = read_contigs(file_list, args.p, means, stdevs, args.features)
 
 if __name__ == '__main__':
     pass

@@ -51,20 +51,21 @@ struct Stats {
     int8_t max_al_score = std::numeric_limits<int8_t>::max();
 
     uint16_t n_proper_match = 0;
+    uint16_t n_orphan_match = 0;
+    uint16_t n_discord_match = 0;
     uint16_t n_proper_snp = 0;
+
+    float entropy;
+    float gc_percent;
+
+    // these 3 are unusued; remove?
     uint16_t n_diff_strand = 0;
-    uint16_t n_orphan = 0;
     uint16_t n_sup = 0;
     uint16_t n_sec = 0;
-    uint16_t n_discord_match = 0;
-
 
     std::vector<int16_t> i_sizes;
     std::vector<uint8_t> map_quals;
     std::vector<int8_t> al_scores; // alignment scores as computed by BowTie2
-
-    float gc_percent;
-    float entropy;
 };
 
 /**

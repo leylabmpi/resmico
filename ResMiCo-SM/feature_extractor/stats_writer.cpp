@@ -85,6 +85,8 @@ void ContigStats::resize(uint32_t size) {
     mean_al_score.resize(size);
     std_dev_al_score.resize(size);
 
+    num_proper_match.resize(size);
+    num_orphans_match.resize(size);
     num_proper_snp.resize(size);
     gc_percent.resize(size);
 
@@ -145,6 +147,10 @@ void write_data(const std::string &reference,
     bin_stream.write(reinterpret_cast<char *>(cs.max_al_score.data() + start),
                      len * sizeof(cs.max_al_score[0]));
 
+    bin_stream.write(reinterpret_cast<char *>(cs.num_proper_match.data() + start),
+                     len * sizeof(cs.num_proper_match[0]));
+    bin_stream.write(reinterpret_cast<char *>(cs.num_orphans_match.data() + start),
+                     len * sizeof(cs.num_orphans_match[0]));
     bin_stream.write(reinterpret_cast<char *>(cs.num_proper_snp.data() + start),
                      len * sizeof(cs.num_proper_snp[0]));
     bin_stream.write(reinterpret_cast<char *>(cs.gc_percent.data() + start),
@@ -235,6 +241,8 @@ void StatsWriter::write_stats(QueueItem &&item,
         cs.mean_al_score[pos] = s.mean_al_score;
         cs.std_dev_al_score[pos] = s.std_dev_al_score;
 
+        cs.num_proper_match[pos] = normalize(s.n_proper_match, s.coverage);
+        cs.num_orphans_match[pos] = normalize(s.n_orphan_match, s.coverage);
         cs.num_proper_snp[pos] = normalize(s.n_proper_snp, s.coverage);
         cs.gc_percent[pos] = s.gc_percent * 100;
 
@@ -291,7 +299,7 @@ void StatsWriter::write_stats(QueueItem &&item,
             tsv_stream << (int)s.min_al_score << '\t' << round2(s.mean_al_score) << '\t'
                        << round2(s.std_dev_al_score) << '\t' << (int)s.max_al_score << '\t';
         }
-        tsv_stream << s.n_proper_match << '\t' << s.n_orphan << '\t' << s.n_discord_match << '\t';
+        tsv_stream << s.n_proper_match << '\t' << s.n_orphan_match << '\t' << s.n_discord_match << '\t';
 
         tsv_stream << s.n_proper_snp << '\t' << s.entropy << '\t' << s.gc_percent << '\t';
         tsv_stream << (mis.empty() ? 0 : 1) << '\t' << type_to_string(cs.misassembly_by_pos[pos])

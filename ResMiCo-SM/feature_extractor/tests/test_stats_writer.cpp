@@ -104,6 +104,8 @@ TEST(WriteStats, TwoReads) {
     std::vector<float> mean_al_score(len);
     std::vector<float> std_dev_al_score(len);
 
+    std::vector<uint16_t> num_proper_match(len);
+    std::vector<uint16_t> num_orphans_match(len);
     std::vector<uint16_t> num_proper_snp(len);
     std::vector<float> gc_percent(len);
 
@@ -136,6 +138,10 @@ TEST(WriteStats, TwoReads) {
                 len * sizeof(std_dev_al_score[0]));
     stats2.read(reinterpret_cast<char *>(max_al_score.data()), len * sizeof(max_al_score[0]));
 
+    stats2.read(reinterpret_cast<char *>(num_proper_match.data()),
+                len * sizeof(num_proper_match[0]));
+    stats2.read(reinterpret_cast<char *>(num_orphans_match.data()),
+                len * sizeof(num_orphans_match[0]));
     stats2.read(reinterpret_cast<char *>(num_proper_snp.data()), len * sizeof(num_proper_snp[0]));
     stats2.read(reinterpret_cast<char *>(gc_percent.data()), len * sizeof(gc_percent[0]));
     stats2.read(reinterpret_cast<char *>(misassembly_by_pos.data()),
@@ -146,7 +152,9 @@ TEST(WriteStats, TwoReads) {
         ASSERT_EQ(i >= 420 && i < 425 ? 10'000 : (i > 0 && i < 5 ? 5000 : 0),
                   num_proper_snp[i])
                 << "at position: " << i; // 5000 is 0.5
-        ASSERT_EQ((i >= 420 && i < 425) || i < 5 ? 2 : 0, coverage[i]) << "at position: " << i;
+        ASSERT_EQ((i >= 420 && i < 425) || i < 5 ? 2 : 0, coverage[i]);
+        ASSERT_EQ(i > 0 && i < 5 ? 5'000 : (i == 0 ? 10'000 : 0), num_proper_match[i]);
+        ASSERT_EQ(0, num_orphans_match[i]);
 
         ASSERT_EQ(num_discordant[i], 0);
 
@@ -477,6 +485,8 @@ TEST(WriteStats, TwoReadsChunkStats) {
     std::vector<float> mean_al_score(len);
     std::vector<float> std_dev_al_score(len);
 
+    std::vector<uint16_t> num_proper_match(len);
+    std::vector<uint16_t> num_orphans_match(len);
     std::vector<uint16_t> num_proper_snp(len);
     std::vector<float> gc_percent(len);
 
@@ -509,6 +519,10 @@ TEST(WriteStats, TwoReadsChunkStats) {
                 len * sizeof(std_dev_al_score[0]));
     stats2.read(reinterpret_cast<char *>(max_al_score.data()), len * sizeof(max_al_score[0]));
 
+    stats2.read(reinterpret_cast<char *>(num_proper_match.data()),
+                len * sizeof(num_proper_match[0]));
+    stats2.read(reinterpret_cast<char *>(num_orphans_match.data()),
+                len * sizeof(num_orphans_match[0]));
     stats2.read(reinterpret_cast<char *>(num_proper_snp.data()), len * sizeof(num_proper_snp[0]));
     stats2.read(reinterpret_cast<char *>(gc_percent.data()), len * sizeof(gc_percent[0]));
     stats2.read(reinterpret_cast<char *>(misassembly_by_pos.data()),
@@ -518,6 +532,8 @@ TEST(WriteStats, TwoReadsChunkStats) {
         ASSERT_EQ('A', contig[i]) << "Position: " << i;
         ASSERT_EQ(0, num_proper_snp[i]);
         ASSERT_EQ(0, coverage[i]);
+        ASSERT_EQ(0, num_proper_match[i]);
+        ASSERT_EQ(0, num_orphans_match[i]);
         ASSERT_EQ(num_discordant[i], 0);
 
         uint16_t base_counts[] = { n_bases[0][i], n_bases[1][i], n_bases[2][i], n_bases[3][i] };
