@@ -307,13 +307,11 @@ def compute_global_mean_stdev(input_dir):
             for row in rd:
                 contig_info.append((row[1], row[3], row[2]))
                 print(row)
-        contig_prefix = fname[:-len('stats')] + 'contig_stats/' + row[1]
+        contig_prefix = fname[:-len('stats')] + f'contig_stats/{row[1]}.gz'
         contigs[contig_prefix] = contigs
         contig_count += len(contig_info)
 
     logging.info(f'Found {contig_count} contigs')
-
-    print(contigs)
 
     return contigs, means, stdevs
 
@@ -326,7 +324,7 @@ def read_and_normalize(file_name, features, means, stdevs):
 
 def read_contigs(contig_files, process_count, means, stdevs, feature_names):
     pool = Pool(process_count)
-    params = zip(contig_files, itertools.repeat(feature_names), itertools.repeat(means),
+    params = zip(contig_files.keys(), itertools.repeat(feature_names), itertools.repeat(means),
                  itertools.repeat(stdevs))
     result = {}
     for file_name, contig_data in pool.starmap(read_and_normalize, params):
@@ -367,10 +365,7 @@ if __name__ == '__main__':
 
     contigs, means, stdevs = compute_global_mean_stdev(args.i)
 
-    logging.info('Looking for feature files...')
-    file_list = [str(f) for f in list(Path(args.i).rglob("*/contig_stats/*.gz"))]
-    logging.info(f'Processing {len(file_list)} contigs in {args.i} ...')
-    contigs_data = read_contigs(file_list, args.p, means, stdevs, args.features)
+    contigs_data = read_contigs(contigs, args.p, means, stdevs, args.features)
 
 if __name__ == '__main__':
     pass
