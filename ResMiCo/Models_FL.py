@@ -1,22 +1,26 @@
 import logging
-from toolz import itertoolz
+import random
 import time
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.models import Model, Sequential
+from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, BatchNormalization
-from tensorflow.keras.layers import GlobalMaxPooling1D, GlobalAveragePooling1D, concatenate, AveragePooling1D, MaxPooling1D, Flatten
-from tensorflow.keras.layers import Conv1D, Conv2D, Dropout, Dense
+from tensorflow.keras.layers import GlobalMaxPooling1D, GlobalAveragePooling1D, concatenate, AveragePooling1D, \
+    MaxPooling1D, Flatten
+from tensorflow.keras.layers import Conv1D, Dropout, Dense
 from tensorflow.keras.layers import Bidirectional, LSTM
+from toolz import itertoolz
 
 from ResMiCo import Utils
+from ResMiCo import ContigReader
 
 
 class resmico(object):
     """
     Implements a convolutional network for misassembly prediction. 
     """
+
     def __init__(self, config):
         self.max_len = config.max_len
         self.filters = config.filters
@@ -39,23 +43,23 @@ class resmico(object):
         else:
             inlayer = Input(shape=(None, self.n_feat), name='input')
 
-        if self.net_type=='cnn_globpool':
+        if self.net_type == 'cnn_globpool':
             x = Conv1D(self.filters, kernel_size=(10),
-                                input_shape=(None, self.n_feat),
-                                activation='relu', padding='valid', name='1st_conv')(inlayer)
-           # x = BatchNormalization(axis=-1)(x)
-           #  x = Dropout(rate=self.dropout)(x)
+                       input_shape=(None, self.n_feat),
+                       activation='relu', padding='valid', name='1st_conv')(inlayer)
+            # x = BatchNormalization(axis=-1)(x)
+            #  x = Dropout(rate=self.dropout)(x)
 
-            for i in range(1, self.n_conv-1):
+            for i in range(1, self.n_conv - 1):
                 x = Conv1D(2 ** i * self.filters, kernel_size=(5),
-                                    strides=1, dilation_rate=2,
-                                    activation='relu')(x)
+                           strides=1, dilation_rate=2,
+                           activation='relu')(x)
                 # x = BatchNormalization(axis=-1)(x)
                 x = Dropout(rate=self.dropout)(x)
 
             x = Conv1D(2 ** self.n_conv * self.filters, kernel_size=(3),
-                        strides=1, dilation_rate=2,
-                        activation='relu')(x)
+                       strides=1, dilation_rate=2,
+                       activation='relu')(x)
             # x = BatchNormalization(axis=-1)(x)
             x = Dropout(rate=self.dropout)(x)
 
@@ -63,13 +67,13 @@ class resmico(object):
             avgP = GlobalAveragePooling1D()(x)
             x = concatenate([maxP, avgP])
 
-        elif self.net_type=='lstm':
+        elif self.net_type == 'lstm':
             x = Bidirectional(LSTM(20, return_sequences=True), merge_mode="concat")(inlayer)
-            x = Bidirectional(LSTM(40, return_sequences=True, dropout = 0.0), merge_mode="ave")(x)
+            x = Bidirectional(LSTM(40, return_sequences=True, dropout=0.0), merge_mode="ave")(x)
             x = Bidirectional(LSTM(60, return_sequences=True, dropout=0.0), merge_mode="ave")(x)
             x = Bidirectional(LSTM(80, return_sequences=False, dropout=0.0), merge_mode="concat")(x)
 
-        elif self.net_type=='cnn_lstm':
+        elif self.net_type == 'cnn_lstm':
             x = Conv1D(self.filters, kernel_size=(10),
                        input_shape=(None, self.n_feat),
                        activation='relu', padding='valid', name='1st_conv')(inlayer)
@@ -84,13 +88,13 @@ class resmico(object):
             x = Dropout(rate=self.dropout)(x)
             x = Bidirectional(LSTM(40, return_sequences=False, dropout=0.0), merge_mode="concat")(x)
 
-        elif self.net_type=='cnn_resnet':
+        elif self.net_type == 'cnn_resnet':
             x = BatchNormalization()(inlayer)
             x = Conv1D(self.filters, kernel_size=10,
-                                input_shape=(None, self.n_feat),
-                                padding='valid', name='1st_conv')(x)
+                       input_shape=(None, self.n_feat),
+                       padding='valid', name='1st_conv')(x)
             x = Utils.relu_bn(x)
-            num_filters=self.filters
+            num_filters = self.filters
             if self.num_blocks == 3:
                 num_blocks_list = [2, 5, 2]
             if self.num_blocks == 4:
@@ -113,10 +117,10 @@ class resmico(object):
         elif self.net_type == 'fixlen_cnn_resnet':
             x = BatchNormalization()(inlayer)
             x = Conv1D(self.filters, kernel_size=10,
-                                input_shape=(self.max_len, self.n_feat),
-                                padding='valid', name='1st_conv')(x)
+                       input_shape=(self.max_len, self.n_feat),
+                       padding='valid', name='1st_conv')(x)
             x = Utils.relu_bn(x)
-            num_filters=self.filters
+            num_filters = self.filters
             if self.num_blocks == 3:
                 num_blocks_list = [2, 5, 2]
             if self.num_blocks == 4:
@@ -137,7 +141,6 @@ class resmico(object):
             x = concatenate([maxP, avgP])
             x = Flatten()(x)
 
-
         for _ in range(self.n_fc):
             x = Dense(self.n_hid, activation='relu')(x)
             x = Dropout(rate=self.dropout)(x)
@@ -149,7 +152,6 @@ class resmico(object):
         self.net.compile(loss='binary_crossentropy',
                          optimizer=optimizer,
                          metrics=[Utils.class_recall_0, Utils.class_recall_1])
-
 
         # self.reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
         #                        monitor='val_loss', factor=0.8,
@@ -167,7 +169,7 @@ class resmico(object):
 
 class Generator(tf.keras.utils.Sequence):
     def __init__(self, x, y, max_len, batch_size,
-                 shuffle=True): 
+                 shuffle=True):
         self.max_len = max_len
         self.batch_size = batch_size
         self.x = x
@@ -183,26 +185,25 @@ class Generator(tf.keras.utils.Sequence):
         """
         Reshuffle when epoch ends 
         """
-        if self.shuffle: 
+        if self.shuffle:
             np.random.shuffle(self.indices)
-
 
     def generate(self, indices_tmp):
         """
         Generate new mini-batch
         """
-        max_contig_len = max(list(map(len,[self.x[ind] for ind in indices_tmp])))
+        max_contig_len = max(list(map(len, [self.x[ind] for ind in indices_tmp])))
         mb_max_len = min(max_contig_len, self.max_len)
-      
+
         x_mb = np.zeros((len(indices_tmp), mb_max_len, self.n_feat))
 
         for i, idx in enumerate(indices_tmp):
-            if self.x[idx].shape[0]<=mb_max_len:
+            if self.x[idx].shape[0] <= mb_max_len:
                 x_mb[i, 0:self.x[idx].shape[0]] = self.x[idx]
             else:
-                #cut chunk
-                start_pos = np.random.randint(self.x[idx].shape[0]-mb_max_len+1)
-                x_mb[i, :] = self.x[idx][start_pos:start_pos+mb_max_len,:] 
+                # cut chunk
+                start_pos = np.random.randint(self.x[idx].shape[0] - mb_max_len + 1)
+                x_mb[i, :] = self.x[idx][start_pos:start_pos + mb_max_len, :]
 
         y_mb = [self.y[i] for i in indices_tmp]
         return x_mb, y_mb
@@ -216,11 +217,81 @@ class Generator(tf.keras.utils.Sequence):
         """
         if self.batch_size * (index + 1) < len(self.indices):
             indices_tmp = \
-              self.indices[self.batch_size * index : self.batch_size * (index + 1)]
+                self.indices[self.batch_size * index: self.batch_size * (index + 1)]
         else:
             indices_tmp = \
-              self.indices[self.batch_size * index : ]           
+                self.indices[self.batch_size * index:]
         x_mb, y_mb = self.generate(indices_tmp)
+        return x_mb, y_mb
+
+
+class BinaryData(tf.keras.utils.Sequence):
+    def __init__(self, batch_size, input_dir, feature_names, process_count, max_len):
+        """
+        Arguments:
+            batch_size: training batch size
+            input_dir: directory where the feature files are located
+            feature_names: the names of the features to read and use for training
+            process_count: number of processes to use when processing data in parallel (e.g. reading contig data)
+            max_len: maximum acceptble length for a contig. Longer contigs are clipped at a random position
+        """
+        reader = ContigReader.ContigReader(input_dir, feature_names, process_count)
+        self.max_len = max_len
+        self.batch_size = batch_size
+        # shuffle the contigs for training
+        self.indices = np.arange(len(reader))
+        np.random.shuffle(self.indices)
+        self.feature_names = feature_names
+
+    def on_epoch_end(self):
+        """
+        Re-shuffle the training data on each epoch
+        """
+        np.random.shuffle(self.indices)
+
+    def generate(self, indices):
+        """
+        Generate a new mini-batch by selecting the items with the given indices from #self.contigs
+        """
+        sample_keys = np.array(list(self.data_dict.keys()))[indices]
+        # files to process
+        fnames = [self.contigs[i].filename for i in indices]
+        y = [self.contigs[i].misassembly if self.contigs[i].misassembly == 0 else 1 for i in indices]
+
+        features_data = self.reader.read_contigs(fnames)
+
+        max_contig_len = max([self.contigs[i].size for i in indices])
+        max_len = min(max_contig_len, self.max_len)
+        # Create the numpy array storing the features for the contigs in #indices
+        x = np.zeros(len(indices), max_len, len(features_data))
+
+        for i, contig_features in enumerate(features_data):
+            to_merge = [None] * len(self.feature_names)
+            contig_len = len(features_data[0][self.feature_names[0]])
+            start_idx = 0
+            end_idx = contig_len
+            if contig_len > self.max_len:
+                start_idx = random.randint(contig_len - self.max_len)
+                end_idx = start_idx + self.max_len
+            for j, feature_name in self.feature_names:
+                to_merge[j] = features_data[i][feature_name][start_idx:end_idx]
+            x[i] = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
+
+        return x, np.array(y)
+
+    def __len__(self):
+        return int(np.ceil(len(self.indices) / self.batch_size))
+
+    def __getitem__(self, index):
+        """
+        Return the next mini-batch of size #batch_size
+        """
+        indices = self.indices[self.batch_size * index:  self.batch_size * (index + 1)]
+
+        # logging.info("generate batch {}".format(index))
+        x_mb, y_mb = self.generate(indices)
+        if index % 50 == 0:  # Show progress
+            logging.info('New min-batch at index: {index}')
         return x_mb, y_mb
 
 
@@ -264,7 +335,7 @@ class GeneratorBigD(tf.keras.utils.Sequence):
         self.count_epoch += 1
 
         if self.shuffle_data:
-            if self.count_epoch%1==0: #todo: this IF was implemented to update negative class every n epochs
+            if self.count_epoch % 1 == 0:  # todo: this IF was implemented to update negative class every n epochs
                 logging.info('self.count_epoch: {}'.format(self.count_epoch))
                 logging.info("downsample over-represented class by  {}".format(self.fraq_neg))
                 np.random.shuffle(self.inds_neg)
@@ -272,11 +343,11 @@ class GeneratorBigD(tf.keras.utils.Sequence):
 
             logging.info("shuffle")
             np.random.shuffle(self.indices)
-            #we do not shuffle and do not downsample for test and validation data
+            # we do not shuffle and do not downsample for test and validation data
 
         # logging.info("len(self.indices) {}".format(len(self.indices)))
         # logging.info("self.indices[:10] {}".format(self.indices[:10]))
-            
+
     def generate(self, indices_tmp):
         """
         Generate new mini-batch
@@ -284,12 +355,13 @@ class GeneratorBigD(tf.keras.utils.Sequence):
 
         sample_keys = np.array(list(self.data_dict.keys()))[indices_tmp]
         # files to process
-        files_dict = itertoolz.groupby(lambda t: t[1], list(itertoolz.map(lambda s: (s, self.data_dict[s]), sample_keys)))
+        files_dict = itertoolz.groupby(lambda t: t[1],
+                                       list(itertoolz.map(lambda s: (s, self.data_dict[s]), sample_keys)))
         # for every file, associate a random number, which can be used to construct random number to sample a range
 
         file_seeds = np.random.randint(0, 1000000, len(files_dict.items()))
-        
-        file_items = [(k, v, s) for (k ,v), s in zip(files_dict.items(), file_seeds)]
+
+        file_items = [(k, v, s) for (k, v), s in zip(files_dict.items(), file_seeds)]
 
         # start_load = time.time()
         X, y = Utils.file_reading(file_items, self.max_len)
@@ -297,8 +369,8 @@ class GeneratorBigD(tf.keras.utils.Sequence):
         # duration_load = time.time() - start_load
         # logging.info("time to read one batch {} {}".format(len(indices_tmp), duration_load))
 
-        max_contig_len = max(list(map(len,[x_i for x_i in X])))
-        mb_max_len =  min(max_contig_len, self.max_len) #todo: fixed length NN self.max_len
+        max_contig_len = max(list(map(len, [x_i for x_i in X])))
+        mb_max_len = min(max_contig_len, self.max_len)  # todo: fixed length NN self.max_len
         n_feat = X[0].shape[1]
         x_mb = np.zeros((len(indices_tmp), mb_max_len, n_feat))
 
@@ -308,7 +380,6 @@ class GeneratorBigD(tf.keras.utils.Sequence):
         y_mb = y
         return np.array(x_mb), np.array(y_mb)
 
-            
     def __len__(self):
         return int(np.ceil(self.size / self.batch_size))
 
@@ -319,14 +390,14 @@ class GeneratorBigD(tf.keras.utils.Sequence):
         start_time = time.time()
         if self.batch_size * (index + 1) < len(self.indices):
             indices_tmp = \
-              self.indices[self.batch_size * index : self.batch_size * (index + 1)]
+                self.indices[self.batch_size * index: self.batch_size * (index + 1)]
         else:
             indices_tmp = \
-              self.indices[self.batch_size * index : ]
+                self.indices[self.batch_size * index:]
 
         # logging.info("generate batch {}".format(index))
         x_mb, y_mb = self.generate(indices_tmp)
-        if index%50==0: #to see some progress
+        if index % 50 == 0:  # to see some progress
             logging.info("new batch {}".format(index))
             # print("--- {:.1f} seconds ---".format(time.time() - start_time))
         # if index == 111:
@@ -337,7 +408,8 @@ class GeneratorBigD(tf.keras.utils.Sequence):
 
 
 class GeneratorPredLong(tf.keras.utils.Sequence):
-    def __init__(self, data_dict, batch_list, window, step, nprocs): # data_dict contains all data, because indexes are global
+    def __init__(self, data_dict, batch_list, window, step,
+                 nprocs):  # data_dict contains all data, because indexes are global
         self.data_dict = data_dict
         self.batch_list = batch_list
         self.window = window
@@ -351,14 +423,14 @@ class GeneratorPredLong(tf.keras.utils.Sequence):
         sample_keys = np.array(list(self.data_dict.keys()))[self.batch_list[ind]]
         files_dict = itertoolz.groupby(lambda t: t[1], list(
             itertoolz.map(lambda s: (s, self.data_dict[s]), sample_keys)))
-        #attention: grouping can change order, it is important that indices are sorted
+        # attention: grouping can change order, it is important that indices are sorted
         X = Utils.load_full_contigs(files_dict)
 
         batch_size = 0
         for cont_ind in self.batch_list[ind]:
-            batch_size += 1+Utils.n_moves_window(self.all_lens[cont_ind], self.window, self.step)
+            batch_size += 1 + Utils.n_moves_window(self.all_lens[cont_ind], self.window, self.step)
 
-        x_mb = Utils.gen_sliding_mb(X, batch_size,  self.window, self.step)
+        x_mb = Utils.gen_sliding_mb(X, batch_size, self.window, self.step)
         return x_mb
 
     def __len__(self):
@@ -366,7 +438,7 @@ class GeneratorPredLong(tf.keras.utils.Sequence):
 
     def __getitem__(self, index):
         x_mb = self.generate(index)
-        if index%50==0: #to see some progress
+        if index % 50 == 0:  # to see some progress
             logging.info("new batch {}".format(index))
         return x_mb
 
@@ -399,13 +471,14 @@ class GeneratorFullLen(tf.keras.utils.Sequence):
 
     def __getitem__(self, index):
         x_mb = self.generate(index)
-        if index%50==0: #to see some progress
+        if index % 50 == 0:  # to see some progress
             logging.info("new batch {}".format(index))
         return x_mb
 
 
 class Generator_v1(tf.keras.utils.Sequence):
-    def __init__(self, data_dict, batch_list, window, step, nprocs): # data_dict contains all data, because indexes are global
+    def __init__(self, data_dict, batch_list, window, step,
+                 nprocs):  # data_dict contains all data, because indexes are global
         self.data_dict = data_dict
         self.batch_list = batch_list
         self.window = window
@@ -423,9 +496,9 @@ class Generator_v1(tf.keras.utils.Sequence):
 
         batch_size = 0
         for cont_ind in self.batch_list[ind]:
-            batch_size += 1+Utils.n_moves_window(self.all_lens[cont_ind], self.window, self.step)
+            batch_size += 1 + Utils.n_moves_window(self.all_lens[cont_ind], self.window, self.step)
 
-        x_mb = Utils.gen_sliding_mb(X, batch_size,  self.window, self.step)
+        x_mb = Utils.gen_sliding_mb(X, batch_size, self.window, self.step)
         x_mb = np.expand_dims(x_mb, -1)
         return x_mb
 
@@ -434,6 +507,6 @@ class Generator_v1(tf.keras.utils.Sequence):
 
     def __getitem__(self, index):
         x_mb = self.generate(index)
-        if index%50==0: #to see some progress
+        if index % 50 == 0:  # to see some progress
             logging.info("new batch {}".format(index))
         return x_mb

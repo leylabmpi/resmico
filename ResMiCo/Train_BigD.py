@@ -96,9 +96,7 @@ def main(args):
     elif not TRAINFULL:
         # main working area
         if args.val_ind_f:
-            logging.info('Split data: for validation {} used, \
-                         for training everything else'.format(
-                                                args.val_ind_f))
+            logging.info(f'Split data: using {args.val_ind_f} for validation, for training everything else')
             all_data_dict = Utils.build_sample_index(Path(args.feature_files_path), args.n_procs, longdir=True)
             logging.info('Data dictionary created. number of samples: {}'.format(len(all_data_dict)))
             inds_val = list(pd.read_csv(args.val_ind_f)['val_ind'])
@@ -107,7 +105,7 @@ def main(args):
             all_labels = Utils.read_all_labels(all_data_dict)
             if FILTERLONG:
                 inds_long = np.arange(len(all_lens))[np.array(all_lens) > args.max_len]
-                logging.info('Long contigs: {}'.format(len(inds_long)))
+                logging.info(f'Found {len(inds_long)} long contigs.')
                 inds_val = list(set(inds_val) - set(inds_long))
                 inds_val.sort()
                 inds_train = list(set(inds_train) - set(inds_long))
@@ -120,14 +118,14 @@ def main(args):
             
         else:
             logging.info('Split data: reps 1-9 for training, 10 for validation')
-            train_data_dict = Utils.build_sample_index(Path(args.feature_files_path), args.n_procs, filter10=True)
+            train_data_dict = Utils.build_sample_index(Path(args.feature_files_path), args.n_procs, filter10=True, longdir=True)
             logging.info('Train data dictionary created. number of samples: {}'.format(len(train_data_dict)))
-            val_data_dict = Utils.build_sample_index(Path(args.feature_files_path), args.n_procs, rep10=True)
+            val_data_dict = Utils.build_sample_index(Path(args.feature_files_path), args.n_procs, filter10=True) # TODO: set back: rep10=True)
             logging.info('Validation data dictionary created. number of samples: {}'.format(len(val_data_dict)))
 
             if FILTERLONG:
                 #train
-                logging.info('max_len for train: {}'.format(args.max_len))
+                logging.info(f'Maximum contig length for training is: {args.max_len}')
                 all_lens = Utils.read_all_lens(train_data_dict)
                 #TODO: try to keep a bit longer contigs, to learn that chunck does not always start in the beginning
                 inds_short = np.arange(len(all_lens))[np.array(all_lens) <= args.max_len] # + 1000

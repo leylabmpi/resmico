@@ -8,7 +8,7 @@ import numpy
 # dependencies
 install_reqs = [
     'numpy>=1.17.0',
-    'scipy>=1.3.1'
+    'scipy>=1.3.1', 'tensorflow', 'toolz'
 ]
 
 # getting version from __main__.py
@@ -21,7 +21,7 @@ with open(os.path.join('ResMiCo', '__main__.py')) as inF:
             __version__ = x.split(' ')[2].rstrip().strip("'")
             
 ## install main application
-desc = 'Increasing the quality of metagenome-assembledgenomes with deep learning'
+desc = 'Increasing the quality of metagenome-assembled genomes with deep learning'
 setup(
     name = 'ResMiCo',
     version = __version__,
