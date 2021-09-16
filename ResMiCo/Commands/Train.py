@@ -3,6 +3,7 @@ import logging
 import sys
 # from ResMiCo import Train
 from ResMiCo import Train_BigD
+from ResMiCo import TrainBinData
 
 
 # functions
@@ -99,6 +100,32 @@ def parse_args(curr_args=None, subparsers=None):
                         help='Portion of samples to keep in overrepresented class (default: %(default)s)')
     parser.add_argument('--n-feat', default=28, type=int,
                         help='Number of features per position (default: %(default)s)')
+    parser.add_argument('--features', help='Features to use for training', default=[
+        'ref_base_A',
+        'ref_base_C',
+        'ref_base_G',
+        'ref_base_T',
+        'num_query_A',
+        'num_query_C',
+        'num_query_G',
+        'num_query_T',
+        'coverage',
+        'num_proper_Match',
+        'num_orphans_Match',
+        'max_insert_size_Match',
+        'mean_insert_size_Match',
+        'min_insert_size_Match',
+        'stdev_insert_size_Match',
+        'mean_mapq_Match',
+        'min_mapq_Match',
+        'stdev_mapq_Match',
+        'seq_window_perc_gc',
+        'num_proper_SNP',
+        #'Extensive_misassembly_by_pos',
+    ])
+    parser.add_argument('--binary-data', dest='binary_data', action='store_true',
+                        help='If present, train on binary data rather than (deprecated) h5 '
+                             'files transformed from zipped tsv feature files')
     # running test args
     if curr_args:
         args = parser.parse_args(curr_args)
@@ -113,7 +140,10 @@ def main(args=None):
     if args is None:
         args = parse_args(sys.argv[1:])
     # Main interface
-    Train_BigD.main(args)
+    if args.binary_data:
+        TrainBinData.main(args)
+    else:
+        Train_BigD.main(args)
 
 
 # main

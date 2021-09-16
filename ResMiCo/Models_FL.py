@@ -226,21 +226,20 @@ class Generator(tf.keras.utils.Sequence):
 
 
 class BinaryData(tf.keras.utils.Sequence):
-    def __init__(self, batch_size, input_dir, feature_names, process_count, max_len):
+    def __init__(self, reader, indices, batch_size, feature_names, max_len):
         """
         Arguments:
+            reader: ContigReader instance with all the contig metadata
+            indices: positions of the contigs in #reader that will be used
             batch_size: training batch size
             input_dir: directory where the feature files are located
             feature_names: the names of the features to read and use for training
-            process_count: number of processes to use when processing data in parallel (e.g. reading contig data)
             max_len: maximum acceptble length for a contig. Longer contigs are clipped at a random position
         """
-        reader = ContigReader.ContigReader(input_dir, feature_names, process_count)
+        self.reader = reader
+        self.indices = indices
         self.max_len = max_len
         self.batch_size = batch_size
-        # shuffle the contigs for training
-        self.indices = np.arange(len(reader))
-        np.random.shuffle(self.indices)
         self.feature_names = feature_names
 
     def on_epoch_end(self):
@@ -253,29 +252,30 @@ class BinaryData(tf.keras.utils.Sequence):
         """
         Generate a new mini-batch by selecting the items with the given indices from #self.contigs
         """
-        sample_keys = np.array(list(self.data_dict.keys()))[indices]
         # files to process
-        fnames = [self.contigs[i].filename for i in indices]
-        y = [self.contigs[i].misassembly if self.contigs[i].misassembly == 0 else 1 for i in indices]
+        fnames = [self.reader.contigs[i].filename for i in indices]
+        y = [self.reader.contigs[i].misassembly if self.reader.contigs[i].misassembly == 0 else 1 for i in indices]
 
         features_data = self.reader.read_contigs(fnames)
 
-        max_contig_len = max([self.contigs[i].size for i in indices])
+        max_contig_len = max([self.reader.contigs[i].size for i in indices])
         max_len = min(max_contig_len, self.max_len)
         # Create the numpy array storing the features for the contigs in #indices
-        x = np.zeros(len(indices), max_len, len(features_data))
+        x = np.zeros((len(indices), max_len, len(features_data[0])))
 
         for i, contig_features in enumerate(features_data):
             to_merge = [None] * len(self.feature_names)
-            contig_len = len(features_data[0][self.feature_names[0]])
+            contig_len = len(contig_features[self.feature_names[0]])
             start_idx = 0
             end_idx = contig_len
             if contig_len > self.max_len:
-                start_idx = random.randint(contig_len - self.max_len)
+                start_idx = np.random.randint(contig_len - self.max_len + 1)
                 end_idx = start_idx + self.max_len
-            for j, feature_name in self.feature_names:
-                to_merge[j] = features_data[i][feature_name][start_idx:end_idx]
-            x[i] = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
+                contig_len = self.max_len
+            for j, feature_name in enumerate(self.feature_names):
+                to_merge[j] = contig_features[feature_name][start_idx:end_idx]
+            stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
+            x[i][:contig_len,:] = stacked_features
 
         return x, np.array(y)
 
@@ -291,8 +291,103 @@ class BinaryData(tf.keras.utils.Sequence):
         # logging.info("generate batch {}".format(index))
         x_mb, y_mb = self.generate(indices)
         if index % 50 == 0:  # Show progress
-            logging.info('New min-batch at index: {index}')
+            logging.info(f'New mini-batch at index: {index}')
         return x_mb, y_mb
+
+
+class BinaryDataEval(tf.keras.utils.Sequence):
+    def __init__(self, reader, indices, feature_names, window, step, total_contig_length):
+        """
+        Arguments:
+            window - the maximum contig length; if a contig is longer than #window, it will be chopped
+                into smaller pieces at #step intervals
+            step - amount by which the sliding window is moved forward through a contig that is longer than #window
+            nprocs - number of processes used to load the contig data
+            total_contig_length - maximum total length of the contigs in a mini-batch
+        """
+        self.window = window
+        self.step = step
+        self.reader = reader
+        self.indices = indices
+        self.feature_names = feature_names
+        self.total_contig_length = total_contig_length
+        self.batch_list = self._create_batch_list(reader.contigs, indices)
+        # maps the contig chunk to the actual contig index (long contigs are broken into several shorter ones)
+        self.idx_map = []
+        # flattened ground truth for each eval contig
+        self.y = [0 if self.reader.contigs[i].misassembly == 0 else 1 for b in self.batch_list for i in b]
+
+    def _create_batch_list(self, contig_data, indices):
+        """ Divide the validation indices into mini-batches of maximum (contig) size #self.total_contig_length """
+        current_indices = []
+        current_length = 0
+        result = []
+        for idx in indices:
+            if current_length + contig_data[idx].size > self.total_contig_length:
+                result.append(current_indices)
+                current_indices = []
+                current_length = 0
+            current_length += contig_data[idx].size
+            current_indices.append(idx)
+        result.append(current_indices)
+        return result
+
+    def generate(self, index):
+        # files to process
+        indices = self.batch_list[index]
+        fnames = [self.contigs[i].filename for i in indices]
+
+        features_data = self.reader.read_contigs(fnames)
+        assert len(features_data) == len(self.feature_names)
+
+        max_contig_len = max([self.contigs[i].size for i in indices])
+        max_len = min(max_contig_len, self.window)
+
+        x = []
+
+        # traverse all contig features, break down into multiple contigs if too long, and create a numpy 3D array
+        # of shape (contig_count, max_len, num_features) to be used for evaluation
+        for i, contig_features in enumerate(features_data):
+            to_merge = [None] * len(self.feature_names)
+            contig_len = len(features_data[0][self.feature_names[0]])
+            start_idx = 0
+            while start_idx < contig_len:
+                np_features = np.zeros(max_len, len(features_data))
+
+                end_idx = start_idx + self.window
+                for j, feature_name in self.feature_names:
+                    to_merge[j] = contig_features[feature_name][start_idx:end_idx]
+                start_idx += self.step
+                stacked_features = np.stack(to_merge, axis=-1);
+                np_features[:stacked_features.shape[0], :stacked_features.shape[1]] = stacked_features
+                x.append(np_features)  # each feature becomes a column in x[i]
+                self.idx_map.append(indices[i])
+
+        return np.array(x)
+
+    def group(self, y):
+        """
+        Groups results for contigs chunked into multiple windows (because they were too long)
+        by selecting the maximum value for each window
+        """
+        assert len(y) == len(self.idx_map)
+        result = np.zeros(len(self.reader.contigs))
+        idx = 0
+        for i in range(len(result)):
+            result[i] = y[idx]
+            while idx < len(y) - 1 and self.idx_map[idx] == self.idx_map[idx+1]:
+                result[i] = min(result[i], y[idx+1])
+                idx += 1
+        return result
+
+    def __len__(self):
+        return len(self.batch_list)
+
+    def __getitem__(self, index):
+        """ Return the mini-batch at index #index """
+        if index % 50 == 0:  # to see some progress
+            logging.info(f'Evaluating: {index}/{len(self.indices)}')
+        return self.generate(index)
 
 
 class GeneratorBigD(tf.keras.utils.Sequence):

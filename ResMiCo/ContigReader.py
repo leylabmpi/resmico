@@ -27,6 +27,7 @@ feature_names = ['ref_base', 'coverage', 'num_query_A', 'num_query_C', 'num_quer
                 + float_feature_names \
                 + ['num_proper_SNP', 'seq_window_perc_gc', 'Extensive_misassembly_by_pos']
 
+
 def _replace_with_nan(arr, v):
     """Replaces all elements in arr that are equal to v with np.nan"""
     arr[arr == v] = np.nan
@@ -46,7 +47,12 @@ def _read_contig_data(feature_file_name, feature_names):
     data = {}
     with gzip.open(feature_file_name, mode='rb') as f:
         contig_size = struct.unpack('I', f.read(4))[0]
-        data['ref_base'] = f.read(contig_size).decode('utf-8')
+        ref_base = np.frombuffer(f.read(contig_size), dtype=np.uint8)
+        # create the one-hot encoding for the reference base
+        data['ref_base_A'] = np.where(ref_base == 65, 1, 0)
+        data['ref_base_C'] = np.where(ref_base == 67, 1, 0)
+        data['ref_base_G'] = np.where(ref_base == 71, 1, 0)
+        data['ref_base_T'] = np.where(ref_base == 84, 1, 0)
         data['coverage'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16)
         # everything is converted to float32, because frombuffer creates an immutable array, so the int values need to
         # be made mutable (in order to convert from fixed point back to float) and the float values need to be copied
@@ -106,10 +112,10 @@ class ContigReader:
         # feature across *all* contigs, stored as a tuple
         self.means = {}
         self.stdevs = {}
-        self._compute_global_mean_stdev(input_dir)
-
         # a list of ContigInfo objects with metadata about all contigs found in the given directory
         self.contigs = []
+
+        self._compute_global_mean_stdev(input_dir)
 
         # names of the features we are using for training
         self.feature_names = feature_names
@@ -127,13 +133,13 @@ class ContigReader:
         """
         pool = Pool(self.process_count)
         result = []
-        for file_name, contig_data in pool.map(self._read_and_normalize, contig_files):
+        for contig_data in pool.map(self._read_and_normalize, contig_files):
             result.append(contig_data)
         return result
 
     def _compute_global_mean_stdev(self, input_dir):
         logging.info('Computing global means and standard deviations. Looking for stats/toc files...')
-        file_list = [str(f) for f in list(Path(input_dir).rglob("*/stats"))]
+        file_list = [str(f) for f in list(Path(input_dir).rglob("**/stats"))]
         logging.info(f'Processing {len(file_list)} stats/toc files found in {input_dir} ...');
         if not file_list:
             logging.info('Noting to do.')
@@ -150,7 +156,7 @@ class ContigReader:
                 self.means[feature_name] = 0
                 self.stdevs[feature_name] = 0
 
-        # TODO: check of parallelization is needed and helps
+        # TODO: check if parallelization is needed and helps
         for fname in file_list:
             with open(fname) as f:
                 stats = json.load(f)
@@ -173,7 +179,18 @@ class ContigReader:
                     var = 0
                 self.stdevs[feature_name] = math.sqrt(var) / (cnt ** 2)
                 self.means[feature_name] /= cnt
-        logging.info('Computed global means and stdevs.')
+        logging.info('Computed global means and stdevs:')
+        # print the computed values
+        header = ''
+        values = ''
+        for metric in metrics:
+            for mtype in metric_types:
+                feature_name = f'{mtype}_{metric}_Match'
+                header += f'{mtype}_{metric}_Match\t\t\t'
+                values += f'{self.means[feature_name]:.2f}/{self.stdevs[feature_name]}\t\t\t'
+
+        print('_' * 300 + '\n', header, '\n', values, '\n', '_' * 300)
+
         contig_count = 0
         for fname in file_list:
             toc_file = fname[:-len('stats')] + 'toc'
@@ -189,21 +206,19 @@ class ContigReader:
             logging.info(f'Found {contig_count} contigs')
 
     def _read_and_normalize(self, file_name):
-        features = _read_contig_data(file_name, self.features)
-        self._normalize_contig_data()
-        return file_name, features
-
-    def _normalize_contig_data(self, features):
         """
-        Normalizes the float features present in features using the precomputed means and standard deviations
+        Reads and normalizes the float features present in features using the precomputed means and standard deviations
         in #mean_stdev
         Parameters:
-            - features: a map from feature name (e.g. 'coverage') to a numpy array containing the feature
+            file_name: the file name to read and normalize
         """
+
+        # features is a map from feature name (e.g. 'coverage') to a numpy array containing the feature
+        features = _read_contig_data(file_name, self.feature_names)
         for feature_name in float_feature_names:
             if feature_name not in features:
                 continue
-            if feature_name not in means or feature_name not in stdevs:
+            if feature_name not in self.means or feature_name not in self.stdevs:
                 logging.warning('Could not find mean/standard deviation for feature: {fname}. Skipping normalization')
                 continue
             features[feature_name] -= self.means[feature_name]
@@ -211,6 +226,7 @@ class ContigReader:
                 features[feature_name] /= self.stdevs[feature_name]
             else:  # need to create a new floating point numpy array
                 features[feature_name] = features[feature_name] / self.stdevs[feature_name]
+        return features
 
 
 if __name__ == '__main__':
