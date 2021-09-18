@@ -7,6 +7,11 @@
 #include <fstream>
 #include <vector>
 
+/**
+ * Maximum distance between the end of first and start of second interval in a translocation before
+ * considering two separate breakpoints.
+ */
+static constexpr uint32_t MAX_BREAK_DIST = 50;
 
 /**
  * Get the lengths of all mis-assembled contigs. The contig lengths are needed to map positions
@@ -53,10 +58,17 @@ get_overlap(uint32_t &start1, uint32_t &end1, uint32_t &start2, uint32_t &end2) 
 std::vector<MisassemblyInfo> parse_line(const std::string &line) {
     // parse the metaQUAST info out of line
     uint32_t btw_pos = line.find(" between ");
-    uint32_t type_start = std::string("Extensive misassembly ( ").size();
-    uint32_t type_stop = line.find(' ', type_start);
-    if (line[type_stop - 1] == ',') {
-        type_stop--;
+    const std::string prefix = "Extensive misassembly (";
+    uint32_t type_start = prefix.size();
+    if (line[type_start] == ' ') {
+        type_start++;
+    }
+    size_t type_stop = line.find(',', type_start);
+    if (type_stop == std::string::npos) {
+        type_stop = line.find(')');
+        if (line[type_stop - 1] == ' ') {
+            type_stop--;
+        }
     }
     MisassemblyInfo mi;
     mi.set_type(line.substr(type_start, type_stop - type_start));
@@ -81,9 +93,9 @@ std::vector<MisassemblyInfo> parse_line(const std::string &line) {
         std::swap(start1, start2);
         std::swap(end1, end2);
     }
-    if (start2 <= end1) { // intervals overlap
-        mi.break_start = start2;
-        mi.break_end = end1;
+    if (start2 <= end1 || start2 - end1 < MAX_BREAK_DIST) { // intervals overlap
+        mi.break_start = std::min(start2, end1);
+        mi.break_end = std::max(start2, end1);
         if (mi.type != MisassemblyInfo::INVERSION) {
             mi.start = start1;
             mi.end = end2;

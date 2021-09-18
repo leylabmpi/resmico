@@ -39,7 +39,7 @@ TEST(ParseLine, Inversion2ndReverseNoOverlap) {
     ASSERT_EQ(498, mi.start);
     ASSERT_EQ(551, mi.end);
 
-    ASSERT_EQ(498, mi.break_start);
+    ASSERT_EQ(467, mi.break_start);
     ASSERT_EQ(498, mi.break_end);
 
     ASSERT_EQ(MisassemblyInfo::INVERSION, mi.type);
@@ -47,7 +47,7 @@ TEST(ParseLine, Inversion2ndReverseNoOverlap) {
 
 TEST(ParseLine, InversionFirstReverseNoOverlap) {
     std::vector<MisassemblyInfo> mis
-            = parse_line("Extensive misassembly ( inversion ) between 12494 8289 and 12500 15339");
+            = parse_line("Extensive misassembly ( inversion ) between 12494 8289 and 12550 15339");
     ASSERT_EQ(1, mis.size());
     MisassemblyInfo mi = mis[0];
     ASSERT_EQ(8289, mi.start);
@@ -155,6 +155,59 @@ TEST(ParseMisassemblyInfo, File) {
     for (uint32_t i = 0; i < 4; ++i) {
         ASSERT_EQ(expected_types[i], mis3[i].type);
     }
+}
+
+/**
+ * MetaQUAST changed the output format at some point. This tests that the other output format is
+ * also correctly parsed.
+ */
+TEST(ParseMisassemblyInfo, FileDifferentFormat) {
+    std::unordered_map<std::string, std::vector<MisassemblyInfo>> mi_info
+            = parse_misassembly_info("data/metaQUAST.mis_contigs2.info");
+    ASSERT_EQ(3, mi_info.size());
+
+    auto contig1 = mi_info.find("NODE_3_length_359076_cov_40.230120");
+    ASSERT_EQ("NODE_3_length_359076_cov_40.230120", contig1->first);
+    std::vector<MisassemblyInfo> mis = contig1->second;
+    ASSERT_EQ(1, mis.size());
+
+    MisassemblyInfo mi = mis[0];
+    ASSERT_EQ(1, mi.start);
+    ASSERT_EQ(359076, mi.end);
+
+    ASSERT_EQ(166932, mi.break_start);
+    ASSERT_EQ(166933, mi.break_end);
+
+    ASSERT_EQ(MisassemblyInfo::RELOCATION, mi.type);
+
+    auto contig2 = mi_info.find("NODE_1461_length_3859_cov_3.129075");
+    ASSERT_EQ("NODE_1461_length_3859_cov_3.129075", contig2->first);
+    std::vector<MisassemblyInfo> mis2 = contig2->second;
+    ASSERT_EQ(1, mis2.size());
+
+    MisassemblyInfo mi2 = mis2[0];
+    ASSERT_EQ(1, mi2.start);
+    ASSERT_EQ(3859, mi2.end);
+
+    ASSERT_EQ(3134, mi2.break_start);
+    ASSERT_EQ(3135, mi2.break_end);
+
+    ASSERT_EQ(MisassemblyInfo::TRANSLOCATION, mi2.type);
+
+
+    auto contig3 = mi_info.find("NODE_2583_length_2796_cov_2.680044");
+    ASSERT_EQ("NODE_2583_length_2796_cov_2.680044", contig3->first);
+    std::vector<MisassemblyInfo> mis3 = contig3->second;
+    ASSERT_EQ(1, mis3.size());
+
+    MisassemblyInfo mi3 = mis3[0];
+    ASSERT_EQ(1, mi3.start);
+    ASSERT_EQ(2796, mi3.end);
+
+    ASSERT_EQ(1762, mi3.break_start);
+    ASSERT_EQ(1763, mi3.break_end);
+
+    ASSERT_EQ(MisassemblyInfo::INTERSPECIES_TRANSLOCATION, mi3.type);
 }
 
 } // namespace

@@ -31,7 +31,7 @@ struct MisassemblyInfo {
             type = RELOCATION;
         } else if (str_tp == "translocation") {
             type = TRANSLOCATION;
-        } else if (str_tp == "interspecies") {
+        } else if (str_tp == "interspecies translocation") {
             type = INTERSPECIES_TRANSLOCATION;
         } else if (str_tp == "inversion") {
             type = INVERSION;
