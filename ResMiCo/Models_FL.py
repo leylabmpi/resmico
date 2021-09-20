@@ -237,7 +237,7 @@ class BinaryData(tf.keras.utils.Sequence):
             max_len: maximum acceptble length for a contig. Longer contigs are clipped at a random position
         """
         self.reader = reader
-        self.indices = indices
+        self.indices = indices[0:1000]
         self.max_len = max_len
         self.batch_size = batch_size
         self.feature_names = feature_names
@@ -253,20 +253,28 @@ class BinaryData(tf.keras.utils.Sequence):
         np.random.shuffle(self.indices)
         self.contig_count = 0
 
-    def generate(self, indices):
+    def __len__(self):
+        return int(np.ceil(len(self.indices) / self.batch_size))
+
+    def __getitem__(self, index):
         """
-        Generate a new mini-batch by selecting the items with the given indices from #self.contigs
+        Return the next mini-batch of size #batch_size
         """
+        start = timer()
+        self.log_count += 1
+        self.contig_count += self.batch_size
+        batch_indices = self.indices[self.batch_size * index:  self.batch_size * (index + 1)]
+
         # files to process
-        fnames = [self.reader.contigs[i].filename for i in indices]
-        y = [self.reader.contigs[i].misassembly if self.reader.contigs[i].misassembly == 0 else 1 for i in indices]
+        fnames = [self.reader.contigs[i].filename for i in batch_indices]
+        y = [self.reader.contigs[i].misassembly if self.reader.contigs[i].misassembly == 0 else 1 for i in batch_indices]
 
         features_data = self.reader.read_contigs(fnames)
 
-        max_contig_len = max([self.reader.contigs[i].size for i in indices])
+        max_contig_len = max([self.reader.contigs[i].size for i in batch_indices])
         max_len = min(max_contig_len, self.max_len)
-        # Create the numpy array storing the features for the contigs in #indices
-        x = np.zeros((len(indices), max_len, len(features_data[0])))
+        # Create the numpy array storing the features for the contigs in #batch_indices
+        x = np.zeros((len(batch_indices), max_len, len(features_data[0])))
 
         for i, contig_features in enumerate(features_data):
             to_merge = [None] * len(self.feature_names)
@@ -282,26 +290,11 @@ class BinaryData(tf.keras.utils.Sequence):
             stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
             x[i][:contig_len, :] = stacked_features
 
-        return x, np.array(y)
-
-    def __len__(self):
-        return int(np.ceil(len(self.indices) / self.batch_size))
-
-    def __getitem__(self, index):
-        """
-        Return the next mini-batch of size #batch_size
-        """
-        start = timer()
-        indices = self.indices[self.batch_size * index:  self.batch_size * (index + 1)]
-
-        # logging.info("generate batch {}".format(index))
-        x_mb, y_mb = self.generate(indices)
         if self.log_count % self.log_freq == 0:  # Show progress
             logging.info(f'Mini-batch #{self.log_count} (contigs {self.contig_count}/{len(self.indices)}) '
                          f'generated in {(timer() - start):5.2f}s')
-        self.log_count += 1
-        self.contig_count += self.batch_size
-        return x_mb, y_mb
+
+        return x, np.array(y)
 
 
 class BinaryDataEval(tf.keras.utils.Sequence):
@@ -350,7 +343,7 @@ class BinaryDataEval(tf.keras.utils.Sequence):
         for batch in self.idx_map:
             for chunk_count in batch:
                 total_len += chunk_count
-        assert len(y) == total_len
+        assert len(y) == total_len, f'y has length {len(y)}, idx_map total length is {total_len}'
         result = np.zeros(len(self.indices))
         i = 0
         j = 0
@@ -366,8 +359,8 @@ class BinaryDataEval(tf.keras.utils.Sequence):
 
     def __getitem__(self, batch_idx):
         """ Return the mini-batch at index #index """
-        if batch_idx % 50 == 0:  # to see some progress
-            logging.info(f'Evaluating: {batch_idx}/{len(self.indices)}')
+        # if batch_idx % 50 == 0:  # to see some progress
+        logging.info(f'Evaluating: {batch_idx}/{len(self.batch_list)}')
         # files to process
         indices = self.batch_list[batch_idx]
         fnames = [self.reader.contigs[i].filename for i in indices]
