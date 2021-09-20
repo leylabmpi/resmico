@@ -243,7 +243,7 @@ class BinaryData(tf.keras.utils.Sequence):
         self.feature_names = feature_names
         # log_count and LOG_FREQ are used to show some progress every LOG_FREQ batches
         self.log_count = 0
-        self.log_freq = 300/self.batch_size
+        self.log_freq = 300 / self.batch_size
         self.contig_count = 0
 
     def on_epoch_end(self):
@@ -319,20 +319,20 @@ class BinaryDataEval(tf.keras.utils.Sequence):
         self.reader = reader
         self.indices = indices
         self.feature_names = feature_names
-        self.total_contig_length = total_contig_length
-        self.batch_list = self._create_batch_list(reader.contigs, indices)
-        # maps the contig chunk to the actual contig index (long contigs are broken into several shorter ones)
-        self.idx_map = []
+        # creates batches of contigs such that the total length in each batch is < total_contig_length
+        self.batch_list = self._create_batch_list(reader.contigs, indices, total_contig_length)
+        # idx_map[batch_count][idx] represents the number of chunks for the contig number #idx in the batch #batch_count
+        self.idx_map = [[] for _ in range(len(self.batch_list))]
         # flattened ground truth for each eval contig
         self.y = [0 if self.reader.contigs[i].misassembly == 0 else 1 for b in self.batch_list for i in b]
 
-    def _create_batch_list(self, contig_data, indices):
+    def _create_batch_list(self, contig_data, indices, total_contig_length):
         """ Divide the validation indices into mini-batches of maximum (contig) size #self.total_contig_length """
         current_indices = []
         current_length = 0
         result = []
         for idx in indices:
-            if current_length + contig_data[idx].size > self.total_contig_length:
+            if current_length + contig_data[idx].size > total_contig_length:
                 result.append(current_indices)
                 current_indices = []
                 current_length = 0
@@ -341,13 +341,39 @@ class BinaryDataEval(tf.keras.utils.Sequence):
         result.append(current_indices)
         return result
 
-    def generate(self, index):
+    def group(self, y):
+        """
+        Groups results for contigs chunked into multiple windows (because they were too long)
+        by selecting the maximum value for each window
+        """
+        total_len = 0
+        for batch in self.idx_map:
+            for chunk_count in batch:
+                total_len += chunk_count
+        assert len(y) == total_len
+        result = np.zeros(len(self.indices))
+        i = 0
+        j = 0
+        for batch in self.idx_map:
+            for chunk_count in batch:
+                result[i] = max(y[j:j + chunk_count])
+                i += 1
+                j += chunk_count
+        return result
+
+    def __len__(self):
+        return len(self.batch_list)
+
+    def __getitem__(self, batch_idx):
+        """ Return the mini-batch at index #index """
+        if batch_idx % 50 == 0:  # to see some progress
+            logging.info(f'Evaluating: {batch_idx}/{len(self.indices)}')
         # files to process
-        indices = self.batch_list[index]
+        indices = self.batch_list[batch_idx]
         fnames = [self.reader.contigs[i].filename for i in indices]
 
         features_data = self.reader.read_contigs(fnames)
-        assert len(features_data) == len(self.feature_names)
+        assert len(features_data) == len(fnames)
 
         max_contig_len = max([self.reader.contigs[i].size for i in indices])
         max_len = min(max_contig_len, self.window)
@@ -360,43 +386,22 @@ class BinaryDataEval(tf.keras.utils.Sequence):
             to_merge = [None] * len(self.feature_names)
             contig_len = len(features_data[0][self.feature_names[0]])
             start_idx = 0
-            while start_idx < contig_len:
-                np_features = np.zeros(max_len, len(features_data))
+            count = 0
+            while start_idx + (self.window - self.step) < contig_len:
+                np_data = np.zeros((max_len, len(self.feature_names)))
 
                 end_idx = start_idx + self.window
-                for j, feature_name in self.feature_names:
+                for j, feature_name in enumerate(self.feature_names):
                     to_merge[j] = contig_features[feature_name][start_idx:end_idx]
                 start_idx += self.step
                 stacked_features = np.stack(to_merge, axis=-1);
-                np_features[:stacked_features.shape[0], :stacked_features.shape[1]] = stacked_features
-                x.append(np_features)  # each feature becomes a column in x[i]
-                self.idx_map.append(indices[i])
+                # each feature becomes a column in x[i]
+                np_data[:stacked_features.shape[0], :stacked_features.shape[1]] = stacked_features
+                x.append(np_data)
+                count += 1
+            self.idx_map[batch_idx].append(count)
 
         return np.array(x)
-
-    def group(self, y):
-        """
-        Groups results for contigs chunked into multiple windows (because they were too long)
-        by selecting the maximum value for each window
-        """
-        assert len(y) == len(self.idx_map)
-        result = np.zeros(len(self.reader.contigs))
-        idx = 0
-        for i in range(len(result)):
-            result[i] = y[idx]
-            while idx < len(y) - 1 and self.idx_map[idx] == self.idx_map[idx + 1]:
-                result[i] = min(result[i], y[idx + 1])
-                idx += 1
-        return result
-
-    def __len__(self):
-        return len(self.batch_list)
-
-    def __getitem__(self, index):
-        """ Return the mini-batch at index #index """
-        if index % 50 == 0:  # to see some progress
-            logging.info(f'Evaluating: {index}/{len(self.indices)}')
-        return self.generate(index)
 
 
 class GeneratorBigD(tf.keras.utils.Sequence):

@@ -23,8 +23,8 @@ float_feature_names = ['min_insert_size_Match',
                        'mean_al_score_Match',
                        'stdev_al_score_Match',
                        'max_al_score_Match', ]
-feature_names = ['ref_base', 'coverage', 'num_query_A', 'num_query_C', 'num_query_G', 'num_query_T', 'num_SNPs',
-                 'num_discordant'] \
+feature_names = ['ref_base_A', 'ref_base_C', 'ref_base_G', 'ref_base_T', 'coverage', 'num_query_A', 'num_query_C',
+                 'num_query_G', 'num_query_T', 'num_SNPs', 'num_discordant'] \
                 + float_feature_names \
                 + ['num_proper_SNP', 'seq_window_perc_gc', 'Extensive_misassembly_by_pos']
 
