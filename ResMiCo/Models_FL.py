@@ -1,6 +1,6 @@
 import logging
-import random
 import time
+from timeit import default_timer as timer
 
 import numpy as np
 import tensorflow as tf
@@ -241,12 +241,17 @@ class BinaryData(tf.keras.utils.Sequence):
         self.max_len = max_len
         self.batch_size = batch_size
         self.feature_names = feature_names
+        # log_count and LOG_FREQ are used to show some progress every LOG_FREQ batches
+        self.log_count = 0
+        self.LOG_FREQ = 50
+        self.contig_count = 0
 
     def on_epoch_end(self):
         """
         Re-shuffle the training data on each epoch
         """
         np.random.shuffle(self.indices)
+        self.contig_count = 0
 
     def generate(self, indices):
         """
@@ -275,7 +280,7 @@ class BinaryData(tf.keras.utils.Sequence):
             for j, feature_name in enumerate(self.feature_names):
                 to_merge[j] = contig_features[feature_name][start_idx:end_idx]
             stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
-            x[i][:contig_len,:] = stacked_features
+            x[i][:contig_len, :] = stacked_features
 
         return x, np.array(y)
 
@@ -286,12 +291,16 @@ class BinaryData(tf.keras.utils.Sequence):
         """
         Return the next mini-batch of size #batch_size
         """
+        start = timer()
         indices = self.indices[self.batch_size * index:  self.batch_size * (index + 1)]
 
         # logging.info("generate batch {}".format(index))
         x_mb, y_mb = self.generate(indices)
-        if index % 50 == 0:  # Show progress
-            logging.info(f'New mini-batch at index: {index}')
+        if self.log_count % self.LOG_FREQ == 0:  # Show progress
+            logging.info(f'Mini-batch #{self.log_count} (contigs {self.contig_count}/{len(self.indices)}) '
+                         f'generated in {(timer() - start):5.2f}s')
+        self.log_count += 1
+        self.contig_count += self.batch_size
         return x_mb, y_mb
 
 
@@ -375,8 +384,8 @@ class BinaryDataEval(tf.keras.utils.Sequence):
         idx = 0
         for i in range(len(result)):
             result[i] = y[idx]
-            while idx < len(y) - 1 and self.idx_map[idx] == self.idx_map[idx+1]:
-                result[i] = min(result[i], y[idx+1])
+            while idx < len(y) - 1 and self.idx_map[idx] == self.idx_map[idx + 1]:
+                result[i] = min(result[i], y[idx + 1])
                 idx += 1
         return result
 

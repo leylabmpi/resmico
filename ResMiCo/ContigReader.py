@@ -6,6 +6,7 @@ import logging
 import math
 from multiprocessing import Pool
 from pathlib import Path
+from timeit import default_timer as timer
 import struct
 
 import numpy as np
@@ -43,7 +44,7 @@ def _read_contig_data(feature_file_name, feature_names):
     Returns:
          - a map from feature name to feature data
     """
-    logging.info(f'Reading {feature_file_name}')
+    logging.debug(f'Reading {feature_file_name}')
     data = {}
     with gzip.open(feature_file_name, mode='rb') as f:
         contig_size = struct.unpack('I', f.read(4))[0]
@@ -131,10 +132,14 @@ class ContigReader:
         Reads the features from the given contig feature files and returns the result in a list of len(contig_files)
         array of shape (contig_len, num_features).
         """
-        pool = Pool(self.process_count)
+        start = timer()
+        # pool = Pool(self.process_count)
         result = []
-        for contig_data in pool.map(self._read_and_normalize, contig_files):
+        # TODO: try using pool.map() instead for larger datasets; for the small test set, not using a pool
+        #  is 100x faster
+        for contig_data in map(self._read_and_normalize, contig_files):
             result.append(contig_data)
+        logging.debug(f'Contigs read in {(timer() - start):5.2f}s')
         return result
 
     def _compute_global_mean_stdev(self, input_dir):
@@ -203,7 +208,7 @@ class ContigReader:
                     self.contigs.append(ContigInfo(contig_prefix + row[1] + '.gz', int(row[2]), int(row[3])))
                     contig_count += 1
 
-            logging.info(f'Found {contig_count} contigs')
+        logging.info(f'Found {contig_count} contigs')
 
     def _read_and_normalize(self, file_name):
         """

@@ -121,11 +121,13 @@ def parse_args(curr_args=None, subparsers=None):
         'stdev_mapq_Match',
         'seq_window_perc_gc',
         'num_proper_SNP',
-        #'Extensive_misassembly_by_pos',
+        # 'Extensive_misassembly_by_pos',
     ])
     parser.add_argument('--binary-data', dest='binary_data', action='store_true',
                         help='If present, train on binary data rather than (deprecated) h5 '
                              'files transformed from zipped tsv feature files')
+    parser.add_argument('--log-level', default='INFO',
+                        help='Logging level, one of [CRITICAL, FATAL, ERROR, WARNING, INFO, DEBUG]')
     # running test args
     if curr_args:
         args = parser.parse_args(curr_args)
@@ -135,10 +137,11 @@ def parse_args(curr_args=None, subparsers=None):
 
 
 def main(args=None):
-    logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG)
     # Input
     if args is None:
         args = parse_args(sys.argv[1:])
+
+    logging.basicConfig(format='%(asctime)s - %(message)s', level=logging._nameToLevel[args.log_level.upper()])
     # Main interface
     if args.binary_data:
         TrainBinData.main(args)
