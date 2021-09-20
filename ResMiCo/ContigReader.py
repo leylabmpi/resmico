@@ -231,6 +231,9 @@ class ContigReader:
                 features[feature_name] /= self.stdevs[feature_name]
             else:  # need to create a new floating point numpy array
                 features[feature_name] = features[feature_name] / self.stdevs[feature_name]
+            # replace NANs with 0 (the new mean)
+            nan_pos = np.isnan(features[feature_name])
+            features[feature_name][nan_pos] = 0
         return features
 
 

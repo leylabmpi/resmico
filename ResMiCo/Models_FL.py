@@ -237,7 +237,7 @@ class BinaryData(tf.keras.utils.Sequence):
             max_len: maximum acceptble length for a contig. Longer contigs are clipped at a random position
         """
         self.reader = reader
-        self.indices = indices[0:1000]
+        self.indices = indices
         self.max_len = max_len
         self.batch_size = batch_size
         self.feature_names = feature_names
@@ -252,6 +252,7 @@ class BinaryData(tf.keras.utils.Sequence):
         """
         np.random.shuffle(self.indices)
         self.contig_count = 0
+        self.log_count = 0
 
     def __len__(self):
         return int(np.ceil(len(self.indices) / self.batch_size))
@@ -267,7 +268,8 @@ class BinaryData(tf.keras.utils.Sequence):
 
         # files to process
         fnames = [self.reader.contigs[i].filename for i in batch_indices]
-        y = [self.reader.contigs[i].misassembly if self.reader.contigs[i].misassembly == 0 else 1 for i in batch_indices]
+        y = [self.reader.contigs[i].misassembly if self.reader.contigs[i].misassembly == 0 else 1 for i in
+             batch_indices]
 
         features_data = self.reader.read_contigs(fnames)
 
@@ -313,7 +315,7 @@ class BinaryDataEval(tf.keras.utils.Sequence):
         self.indices = indices
         self.feature_names = feature_names
         # creates batches of contigs such that the total length in each batch is < total_contig_length
-        self.batch_list = self._create_batch_list(reader.contigs, indices, total_contig_length)
+        self.batch_list = self._create_batch_list(reader.contigs, self.indices, total_contig_length)
         # idx_map[batch_count][idx] represents the number of chunks for the contig number #idx in the batch #batch_count
         self.idx_map = [[] for _ in range(len(self.batch_list))]
         # flattened ground truth for each eval contig
@@ -341,8 +343,7 @@ class BinaryDataEval(tf.keras.utils.Sequence):
         """
         total_len = 0
         for batch in self.idx_map:
-            for chunk_count in batch:
-                total_len += chunk_count
+            total_len += sum(batch)
         assert len(y) == total_len, f'y has length {len(y)}, idx_map total length is {total_len}'
         result = np.zeros(len(self.indices))
         i = 0
@@ -372,12 +373,12 @@ class BinaryDataEval(tf.keras.utils.Sequence):
         max_len = min(max_contig_len, self.window)
 
         x = []
-
+        self.idx_map[batch_idx] = []
         # traverse all contig features, break down into multiple contigs if too long, and create a numpy 3D array
         # of shape (contig_count, max_len, num_features) to be used for evaluation
         for i, contig_features in enumerate(features_data):
             to_merge = [None] * len(self.feature_names)
-            contig_len = len(features_data[0][self.feature_names[0]])
+            contig_len = len(contig_features[self.feature_names[0]])
             start_idx = 0
             count = 0
             while start_idx + (self.window - self.step) < contig_len:
@@ -393,7 +394,7 @@ class BinaryDataEval(tf.keras.utils.Sequence):
                 x.append(np_data)
                 count += 1
             self.idx_map[batch_idx].append(count)
-
+        assert (len(x) == sum(self.idx_map[batch_idx])), f'{len(x)} vs {sum(self.idx_map[batch_idx])}'
         return np.array(x)
 
 

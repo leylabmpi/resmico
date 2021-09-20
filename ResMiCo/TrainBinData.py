@@ -52,7 +52,7 @@ def main(args):
     # create data generators for training data and evaluation data
     train_data = Models.BinaryData(reader, train_idx, args.batch_size, args.features, args.max_len)
     eval_data = Models.BinaryDataEval(reader, eval_idx, args.features, args.max_len, args.max_len//2, 500000)
-    eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_idx])
+    eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_data.indices])
 
     logging.info('Training network...')
     num_epochs = 2  # todo: last run monitor more often
@@ -72,13 +72,13 @@ def main(args):
         logging.info('Starting validation')
         start = time.time()
         eval_data_flat_y = resmico.predict(eval_data)
-        eval_data_pred_y = eval_data.group(eval_data_flat_y)
+        eval_data_predicted_y = eval_data.group(eval_data_flat_y)
 
-        auc_val = average_precision_score(eval_data_y, eval_data_pred_y)
-        recall1_val = recall_score(eval_data_y, eval_data_pred_y > 0.5, pos_label=1)
-        recall0_val = recall_score(eval_data_y, eval_data_pred_y > 0.5, pos_label=0)
+        auc_val = average_precision_score(eval_data_y, eval_data_predicted_y)
+        recall1_val = recall_score(eval_data_y, eval_data_predicted_y > 0.5, pos_label=1)
+        recall0_val = recall_score(eval_data_y, eval_data_predicted_y > 0.5, pos_label=0)
         logging.info(f'Validation scores after {(epoch + 1) * num_epochs} epochs: aucPR: {auc_val} - '
-                     f'recall1: {recall1_val} - recall0: {recall0_val} - mean: {np.mean(eval_data_pred_y)}')
+                     f'recall1: {recall1_val} - recall0: {recall0_val} - mean: {np.mean(eval_data_predicted_y)}')
         duration = time.time() - start
         logging.info(f'Validation done in {duration:.0f}s')
 
