@@ -243,7 +243,7 @@ class BinaryData(tf.keras.utils.Sequence):
         self.feature_names = feature_names
         # log_count and LOG_FREQ are used to show some progress every LOG_FREQ batches
         self.log_count = 0
-        self.LOG_FREQ = 50
+        self.log_freq = 300/self.batch_size
         self.contig_count = 0
 
     def on_epoch_end(self):
@@ -296,7 +296,7 @@ class BinaryData(tf.keras.utils.Sequence):
 
         # logging.info("generate batch {}".format(index))
         x_mb, y_mb = self.generate(indices)
-        if self.log_count % self.LOG_FREQ == 0:  # Show progress
+        if self.log_count % self.log_freq == 0:  # Show progress
             logging.info(f'Mini-batch #{self.log_count} (contigs {self.contig_count}/{len(self.indices)}) '
                          f'generated in {(timer() - start):5.2f}s')
         self.log_count += 1
@@ -344,12 +344,12 @@ class BinaryDataEval(tf.keras.utils.Sequence):
     def generate(self, index):
         # files to process
         indices = self.batch_list[index]
-        fnames = [self.contigs[i].filename for i in indices]
+        fnames = [self.reader.contigs[i].filename for i in indices]
 
         features_data = self.reader.read_contigs(fnames)
         assert len(features_data) == len(self.feature_names)
 
-        max_contig_len = max([self.contigs[i].size for i in indices])
+        max_contig_len = max([self.reader.contigs[i].size for i in indices])
         max_len = min(max_contig_len, self.window)
 
         x = []

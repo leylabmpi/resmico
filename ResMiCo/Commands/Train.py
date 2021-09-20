@@ -138,6 +138,7 @@ def parse_args(curr_args=None, subparsers=None):
 
 def main(args=None):
     # Input
+    print(sys.path)
     if args is None:
         args = parse_args(sys.argv[1:])
 
