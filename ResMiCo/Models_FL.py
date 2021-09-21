@@ -340,20 +340,29 @@ class BinaryDataEval(tf.keras.utils.Sequence):
         """
         Groups results for contigs chunked into multiple windows (because they were too long)
         by selecting the maximum value for each window
+        Params:
+            - y: the results for the chunked contigs that need to be grouped. If any chunk of a contig was deemed
+                 mis-assembled, then the entire contig is marked as mis-assembled
+        Returns:
+            - the grouped y, containing one entry for each contig in #self.indices
         """
         total_len = 0
+        grouped_y_size = 0
         for batch in self.idx_map:
             total_len += sum(batch)
+            grouped_y_size += len(batch)
         assert len(y) == total_len, f'y has length {len(y)}, idx_map total length is {total_len}'
-        result = np.zeros(len(self.indices))
+        assert grouped_y_size == len(
+            self.indices), f'Index map has {grouped_y_size} elements, while indices has {len(self.indices)} elements'
+        grouped_y = np.zeros(len(self.indices))
         i = 0
         j = 0
         for batch in self.idx_map:
             for chunk_count in batch:
-                result[i] = max(y[j:j + chunk_count])
+                grouped_y[i] = max(y[j:j + chunk_count])
                 i += 1
                 j += chunk_count
-        return result
+        return grouped_y
 
     def __len__(self):
         return len(self.batch_list)
@@ -381,7 +390,7 @@ class BinaryDataEval(tf.keras.utils.Sequence):
             contig_len = len(contig_features[self.feature_names[0]])
             start_idx = 0
             count = 0
-            while start_idx + (self.window - self.step) < contig_len:
+            while start_idx == 0 or start_idx + (self.window - self.step) < contig_len:
                 np_data = np.zeros((max_len, len(self.feature_names)))
 
                 end_idx = start_idx + self.window

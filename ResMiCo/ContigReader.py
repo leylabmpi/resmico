@@ -136,7 +136,7 @@ class ContigReader:
         # pool = Pool(self.process_count)
         result = []
         # TODO: try using pool.map() instead for larger datasets; for the small test set, not using a pool
-        #  is 100x faster
+        #  is 100x faster (probably bc. mini-batch size is only 6)
         for contig_data in map(self._read_and_normalize, contig_files):
             result.append(contig_data)
         logging.debug(f'Contigs read in {(timer() - start):5.2f}s')
