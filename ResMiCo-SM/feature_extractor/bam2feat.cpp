@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
     }
     if (!std::filesystem::exists(FLAGS_misassembly_file)) {
         logger()->error("metaQUAST misassembly file does not seem to exist (or I can't see it): {}",
-                        FLAGS_fasta_file);
+                        fLS::FLAGS_misassembly_file);
         std::exit(1);
     }
 

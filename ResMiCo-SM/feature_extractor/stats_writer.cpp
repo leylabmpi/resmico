@@ -65,6 +65,14 @@ inline uint16_t normalize(uint16_t v, uint16_t normalize_by) {
     return v == MAX_16 ? MAX_16 : static_cast<uint16_t>((v * 10000.) / normalize_by);
 }
 
+void append_file(const std::string &dest, const std::string &source) {
+    std::string cat_command = "cat " + source + " >> " + dest;
+    if (std::system(cat_command.c_str())) {
+        throw std::runtime_error("Error while cat-ing files: " + cat_command);
+    }
+    std::filesystem::remove(source);
+}
+
 void ContigStats::resize(uint32_t size) {
     coverage.resize(size);
     num_snps.resize(size);
@@ -173,18 +181,22 @@ StatsWriter::StatsWriter(const std::filesystem::path &out_dir,
       chunk_size(chunk_size),
       breakpoint_offset(breakpoint_offset),
       random_engine(std::mt19937(12345)) {
-    std::error_code ec1, ec2;
-    std::filesystem::create_directories(out_dir / BIN_DIR, ec1);
-    std::filesystem::create_directories(out_dir / BIN_DIR_CHUNK, ec2);
-    if (ec1 || ec2) {
-        logger()->error("Could not create {} and {}, bailing out", out_dir / BIN_DIR,
-                        out_dir / BIN_DIR_CHUNK);
+    std::error_code ec1;
+    std::filesystem::create_directories(out_dir, ec1);
+    if (ec1) {
+        logger()->error("Could not create {}, bailing out", out_dir);
         std::exit(1);
     }
 
     // open the output stream (directory is now created)
     tsv_stream.open((out_dir / "features.tsv.gz").c_str());
     toc.open(out_dir / "toc");
+    toc_chunk.open(out_dir / "toc_chunked");
+    binary_features = out_dir / "features_binary";
+    binary_chunk_features = out_dir / "features_binary_chunked";
+    // make sure the feature files are empty (we don't inadvertently append to existing data)
+    std::filesystem::remove(binary_features);
+    std::filesystem::remove(binary_chunk_features);
 
     sums.resize(12, 0);
     sums2.resize(12, 0);
@@ -193,9 +205,10 @@ StatsWriter::StatsWriter(const std::filesystem::path &out_dir,
     // write tsv header
     tsv_stream << join_vec(headers, '\t');
 
-    // write toc header
-    toc << "Assembler" << '\t' << "Contig" << '\t' << "Size" << '\t' << "MisassemblCnt"
-        << std::endl;
+    // write toc header for binary features (entire contig)
+    toc << "Contig" << '\t' << "Size" << '\t' << "MisassemblCnt" << '\t' << "Offset" << std::endl;
+    // write toc header for binary features (contig chunk)
+    toc_chunk << "Contig" << '\t' << "Misassembly" << '\t' << "Offset" << std::endl;
 }
 
 void StatsWriter::write_stats(QueueItem &&item,
@@ -206,8 +219,6 @@ void StatsWriter::write_stats(QueueItem &&item,
     }
 
     logger()->info("Writing features for contig {}...", item.reference_name);
-    toc << assembler << '\t' << item.reference_name << '\t' << item.stats.size() << '\t'
-        << mis.size() << std::endl;
 
     ContigStats &cs = contig_stats;
     const uint32_t contig_len = item.reference.size();
@@ -299,15 +310,19 @@ void StatsWriter::write_stats(QueueItem &&item,
             tsv_stream << (int)s.min_al_score << '\t' << round2(s.mean_al_score) << '\t'
                        << round2(s.std_dev_al_score) << '\t' << (int)s.max_al_score << '\t';
         }
-        tsv_stream << s.n_proper_match << '\t' << s.n_orphan_match << '\t' << s.n_discord_match << '\t';
+        tsv_stream << s.n_proper_match << '\t' << s.n_orphan_match << '\t' << s.n_discord_match
+                   << '\t';
 
         tsv_stream << s.n_proper_snp << '\t' << s.entropy << '\t' << s.gc_percent << '\t';
         tsv_stream << (mis.empty() ? 0 : 1) << '\t' << type_to_string(cs.misassembly_by_pos[pos])
                    << '\n';
     }
 
-    std::string binary_stats_file = out_dir / BIN_DIR / (item.reference_name + ".gz");
+    std::string binary_stats_file = out_dir / (item.reference_name + ".gz");
     write_data(item.reference, binary_stats_file, cs);
+    toc << item.reference_name << '\t' << item.stats.size() << '\t' << mis.size() << '\t'
+        << std::filesystem::file_size(binary_stats_file) << std::endl;
+    append_file(binary_features, binary_stats_file);
 
     // ----- start selecting a chunk and writing its stats to disk ----
     offsets.clear();
@@ -322,8 +337,11 @@ void StatsWriter::write_stats(QueueItem &&item,
             start = rnd_start(random_engine);
             stop = start + chunk_size;
         }
-        std::string fname = out_dir / BIN_DIR_CHUNK / (item.reference_name + ".ok.gz");
+        std::string fname = out_dir / (item.reference_name + ".ok.gz");
         write_data(item.reference, fname, cs, start, stop);
+        toc_chunk << item.reference_name << "\t0\t" << std::filesystem::file_size(fname)
+                  << std::endl;
+        append_file(binary_chunk_features, fname);
     } else {
         // select a chunk of size chunk_size around the breaking point
         std::uniform_int_distribution<int32_t> offset_gen(-breakpoint_offset, breakpoint_offset);
@@ -337,7 +355,6 @@ void StatsWriter::write_stats(QueueItem &&item,
                 continue;
             }
             int32_t offset = offset_gen(random_engine);
-            std::cout << "Offset: " << offset << std::endl;
             offsets.push_back(offset);
             start = chunk_size / 2 < mid + offset ? mid + offset - chunk_size / 2 : chunk_size / 2;
             stop = start + chunk_size;
@@ -346,9 +363,12 @@ void StatsWriter::write_stats(QueueItem &&item,
                 start = contig_len - chunk_size;
                 stop = contig_len;
             }
-            std::string fname = out_dir / BIN_DIR_CHUNK
-                    / (item.reference_name + ".mis" + std::to_string(i) + ".gz");
+            std::string fname
+                    = out_dir / (item.reference_name + ".mis" + std::to_string(i) + ".gz");
             write_data(item.reference, fname, cs, start, stop);
+            toc_chunk << item.reference_name + "_" + std::to_string(i) << "\t1\t"
+                      << std::filesystem::file_size(fname) << std::endl;
+            append_file(binary_chunk_features, fname);
         }
     }
 

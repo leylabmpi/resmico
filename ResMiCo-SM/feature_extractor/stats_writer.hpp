@@ -61,12 +61,13 @@ struct QueueItem {
     std::string reference; // the actual reference contig
 };
 
-
+/**
+ * Writes statistics for all the contigs in a BAM alignment file.
+ */
 class StatsWriter {
   public:
     /**
-     * @param out_dir directory where output files (features.tsv.gz, stats, toc, contig_stats*
-     * contig_chunk_stats* will be written
+     * @param out_dir directory where output files (features.tsv.gz, stats, toc, etc. will be written
      * @param chunk_size size of contig chunks created around breakpoints
      * @param breakpoint_offset maximum (random) offset around the breakpoint for the middle of the
      * chunk
@@ -93,13 +94,12 @@ class StatsWriter {
                      const std::vector<MisassemblyInfo> &mis);
 
     void write_summary();
+
   public:
     // exposing some information for testing
     std::vector<int32_t> offsets;
-  private:
-    const std::string BIN_DIR = "contig_stats";
-    const std::string BIN_DIR_CHUNK = "contig_chunk_stats";
 
+  private:
     ContigStats contig_stats;
 
     std::filesystem::path out_dir;
@@ -123,6 +123,16 @@ class StatsWriter {
     /** "Table of contents" stream, where we write short stats (name, length, is misassembly) about
     each contig that was written using #write_stats.*/
     std::ofstream toc;
+
+    /** Table of contents for the contig chunks. If a contig has multiple breakpoints (rare) one
+     * line for each breakpoint will be written */
+    std::ofstream toc_chunk;
+
+    /** File containing the features for all the contigs in #toc */
+    std::string binary_features;
+
+    /** File containing the features for all the contig chunks in #toc */
+    std::string binary_chunk_features;
 
     std::mt19937 random_engine;
 

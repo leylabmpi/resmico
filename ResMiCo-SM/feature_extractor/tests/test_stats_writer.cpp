@@ -38,14 +38,73 @@ std::vector<std::string> bin_headers = { "ref_base",
                                          "seq_window_perc_gc",
                                          "misassembly_by_pos" };
 
-TEST(WriteStats, Empty) {
+TEST(WriteData, Empty) {
     QueueItem item;
 
     StatsWriter stats_writer("/tmp/stats", 500, 1);
     stats_writer.write_stats(std::move(item), "metaQuast", {});
 }
 
-TEST(WriteStats, TwoReads) {
+void check_toc_files() {
+    // check the table of contents file, and make sure that each contig has length 500, the first
+    // contig is labeled as misassembled, and the 2nd contig is not
+    std::ifstream toc_read("/tmp/stats/toc");
+    std::string line;
+    std::getline(toc_read, line); // skip header
+    for (uint32_t i : { 0, 1 }) {
+        std::string contig_name;
+        uint32_t length, is_missasembly, offset;
+        toc_read >> contig_name >> length >> is_missasembly >> offset;
+        ASSERT_EQ("Contig" + std::to_string(i == 0 ? 2 : 1), contig_name);
+        ASSERT_EQ(500, length);
+        ASSERT_EQ(i == 0 ? 1 : 0, is_missasembly);
+    }
+
+    // check the table of contents file, the first contig is labeled as misassembled, and the 2nd
+    // contig is not
+    std::ifstream toc_read_chunk("/tmp/stats/toc_chunked");
+    std::getline(toc_read_chunk, line); // skip header
+    for (uint32_t i : { 0, 1 }) {
+        std::string contig_name;
+        uint32_t is_missasembly, offset;
+        toc_read_chunk >> contig_name >> is_missasembly >> offset;
+        ASSERT_EQ(i == 0 ? "Contig2_0" : "Contig1", contig_name);
+        ASSERT_EQ(i == 0 ? 1 : 0, is_missasembly);
+    }
+}
+
+void separate_contig_data(const std::string &toc,
+                          const std::string &feature_file,
+                          const std::filesystem::path &out_dir,
+                          bool is_short = false) {
+    // read the toc file
+    std::ifstream toc_read(toc);
+    std::string line;
+    std::getline(toc_read, line); // skip header
+    std::vector<uint32_t> sizes;
+    while (toc_read) {
+        std::string contig_name;
+        uint32_t is_missasembly, len, size;
+        toc_read >> contig_name;
+        if (!is_short) {
+            toc_read >> len;
+        }
+        toc_read >> is_missasembly >> size;
+        sizes.push_back(size);
+    }
+
+    std::ifstream f(feature_file);
+    for (uint32_t i = 0; i < sizes.size(); ++i) {
+        char *buf = new char[sizes[i]];
+        f.read(buf, sizes[i]);
+        std::ofstream out(out_dir / ("binary_features" + std::to_string(i)));
+        out.write(buf, sizes[i]);
+        out.close();
+        delete[] buf;
+    }
+}
+
+TEST(WriteData, TwoReads) {
     std::unordered_map<std::string, std::vector<MisassemblyInfo>> mi_info
             = parse_misassembly_info("data/test.mis_contigs.info");
 
@@ -63,20 +122,22 @@ TEST(WriteStats, TwoReads) {
     }
     stats_writer.write_summary();
 
-    std::string out_files[] = { "/tmp/stats/features.tsv.gz",
-                                "/tmp/stats/toc",
-                                "/tmp/stats/stats",
-                                "/tmp/stats/contig_stats/Contig1.gz",
-                                "/tmp/stats/contig_stats/Contig2.gz",
-                                "/tmp/stats/contig_chunk_stats/Contig1.ok.gz",
-                                "/tmp/stats/contig_chunk_stats/Contig2.mis0.gz" };
+    std::string out_files[]
+            = { "/tmp/stats/features.tsv.gz", "/tmp/stats/toc",
+                "/tmp/stats/toc_chunked",     "/tmp/stats/stats",
+                "/tmp/stats/features_binary", "/tmp/stats/features_binary_chunked" };
     for (const std::string &fname : out_files) {
         ASSERT_TRUE(std::filesystem::exists(fname));
     }
 
     uint32_t len;
 
-    igzstream stats2("/tmp/stats/contig_stats/Contig2.gz");
+    separate_contig_data("/tmp/stats/toc", "/tmp/stats/features_binary", "/tmp/stats");
+
+    // separated stats for Contig2 (the first contig) created by #separate_contig_data
+    std::string stats_file = "/tmp/stats/binary_features0";
+
+    igzstream stats2(stats_file.c_str());
     stats2.read(reinterpret_cast<char *>(&len), 4);
 
     std::string contig(len, 'N');
@@ -178,25 +239,12 @@ TEST(WriteStats, TwoReads) {
         ASSERT_EQ(misassembly_by_pos[i], i >= 20 ? 0 : 1) << "Position " << i;
     }
 
-    // check the table of contents file, and make sure that each contig has length 500, the first
-    // contig is labeled as misassembled, and the 2nd contig is not
-    std::ifstream toc_read("/tmp/stats/toc");
-    std::string line;
-    std::getline(toc_read, line); // skip header
-    for (uint32_t i : { 0, 1 }) {
-        std::string assembler, contig_name;
-        uint32_t length, is_missasembly;
-        toc_read >> assembler >> contig_name >> length >> is_missasembly;
-        ASSERT_EQ("metaSpades", assembler);
-        ASSERT_EQ("Contig" + std::to_string(i == 0 ? 2 : 1), contig_name);
-        ASSERT_EQ(500, length);
-        ASSERT_EQ(i == 0 ? 1 : 0, is_missasembly);
-    }
+    check_toc_files();
 }
 
-// Make sure that the summary stats (sums, sums of squares) generated for each float metric are
-// correct
-TEST(WriteStats, TwoReadsStats) {
+// Make sure that the features and summary stats (sums, sums of squares) generated for each float
+// metric are correct
+TEST(WriteData, TwoReadsFeaturesAndStats) {
     std::unordered_map<std::string, std::vector<MisassemblyInfo>> mi_info
             = parse_misassembly_info("data/test.mis_contigs.info");
 
@@ -214,8 +262,10 @@ TEST(WriteStats, TwoReadsStats) {
     }
     stats_writer.write_summary();
 
-    std::string stats_files[]
-            = { "/tmp/stats/contig_stats/Contig1.gz", "/tmp/stats/contig_stats/Contig2.gz" };
+    separate_contig_data("/tmp/stats/toc", "/tmp/stats/features_binary", "/tmp/stats");
+
+    // the separated contig features
+    std::string stats_files[] = { "/tmp/stats/binary_features0", "/tmp/stats/binary_features1" };
 
     uint32_t mean_count = 0;
     uint32_t std_dev_count = 0;
@@ -429,7 +479,7 @@ TEST(WriteStats, TwoReadsStats) {
 }
 
 // Make sure that the chunks stats (data around breaking points) are correct
-TEST(WriteStats, TwoReadsChunkStats) {
+TEST(WriteData, TwoReadsChunkStats) {
     std::unordered_map<std::string, std::vector<MisassemblyInfo>> mi_info
             = parse_misassembly_info("data/test.mis_contigs.info");
 
@@ -448,15 +498,14 @@ TEST(WriteStats, TwoReadsChunkStats) {
     }
     stats_writer.write_summary();
 
-    std::string out_files[] = { "/tmp/stats/contig_chunk_stats/Contig1.ok.gz",
-                                "/tmp/stats/contig_chunk_stats/Contig2.mis0.gz" };
-    for (const std::string &fname : out_files) {
-        ASSERT_TRUE(std::filesystem::exists(fname));
-    }
+    // separate data for each contig from teh concatenated features file
+    separate_contig_data("/tmp/stats/toc_chunked", "/tmp/stats/features_binary_chunked",
+                         "/tmp/stats/", true);
+
 
     uint32_t len;
 
-    igzstream stats2("/tmp/stats/contig_chunk_stats/Contig2.mis0.gz");
+    igzstream stats2("/tmp/stats/binary_features0");
     stats2.read(reinterpret_cast<char *>(&len), 4);
     ASSERT_EQ(5, len);
 
@@ -552,7 +601,7 @@ TEST(WriteStats, TwoReadsChunkStats) {
 }
 
 // Make sure that the chunks stats (data around breaking points are correct
-TEST(WriteStats, TwoReadsChunkStatsWithOffset) {
+TEST(WriteData, TwoReadsChunkStatsWithOffset) {
     std::unordered_map<std::string, std::vector<MisassemblyInfo>> mi_info
             = parse_misassembly_info("data/test.mis_contigs.info");
     const uint32_t breakpoint_pos = mi_info["Contig2"][0].break_start;
@@ -561,7 +610,6 @@ TEST(WriteStats, TwoReadsChunkStatsWithOffset) {
 
     constexpr uint32_t chunk_size = 5;
     constexpr uint32_t breakpoint_offset = 5;
-    StatsWriter stats_writer("/tmp/stats/", chunk_size, breakpoint_offset);
 
     std::vector<uint32_t> expected_coverage(breakpoint_pos + breakpoint_offset + chunk_size / 2 + 1,
                                             0);
@@ -583,6 +631,7 @@ TEST(WriteStats, TwoReadsChunkStatsWithOffset) {
     std::string bam_files[] = { "data/test2.bam", "data/test1.bam" };
     int32_t offset = 0;
     for (uint32_t rep = 0; rep < 10; ++rep) {
+        StatsWriter stats_writer("/tmp/stats/", chunk_size, breakpoint_offset);
         for (uint32_t i : { 0, 1 }) {
             std::string reference_seq = get_sequence(fasta_files[i], contig_names[i]);
             std::vector<Stats> stats
@@ -599,16 +648,12 @@ TEST(WriteStats, TwoReadsChunkStatsWithOffset) {
         }
         stats_writer.write_summary();
 
-        std::string out_files[] = { "/tmp/stats/contig_chunk_stats/Contig1.ok.gz",
-                                    "/tmp/stats/contig_chunk_stats/Contig2.mis0.gz" };
-        for (const std::string &fname : out_files) {
-            ASSERT_TRUE(std::filesystem::exists(fname));
-        }
-
-
+        // separate data for each contig from teh concatenated features file
+        separate_contig_data("/tmp/stats/toc_chunked", "/tmp/stats/features_binary_chunked",
+                             "/tmp/stats/", true);
         uint32_t len;
 
-        igzstream stats2("/tmp/stats/contig_chunk_stats/Contig2.mis0.gz");
+        igzstream stats2("/tmp/stats/binary_features0");
         stats2.read(reinterpret_cast<char *>(&len), 4);
         ASSERT_EQ(5, len);
 
