@@ -50,7 +50,7 @@ def main(args):
     logging.info(f'Using {len(train_idx)} contigs for training, {len(eval_idx)} contigs for evaluation')
 
     # create data generators for training data and evaluation data
-    train_data = Models.BinaryData(reader, train_idx, args.batch_size, args.features, args.max_len)
+    train_data = Models.BinaryData(reader, train_idx, args.batch_size, args.features, args.max_len, args.fraq_neg)
     eval_data = Models.BinaryDataEval(reader, eval_idx, args.features, args.max_len, args.max_len//2, 500000)
     eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_data.indices])
 

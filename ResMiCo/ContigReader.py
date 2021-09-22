@@ -223,7 +223,7 @@ class ContigReader:
                 next(rd)  # skip CSV header: Assembler, Contig_name, MissassembleCount, ContigLen
                 for row in rd:
                     size_bytes = int(row[3])
-                    # the fields in row are: name, length, misassembly_count, size_bytes
+                    # the fields in row are: name, length (bases), misassembly_count, size_bytes
                     self.contigs.append(ContigInfo(row[0], contig_fname, int(row[1]), offset, size_bytes, int(row[2])))
                     offset += size_bytes
                     contig_count += 1

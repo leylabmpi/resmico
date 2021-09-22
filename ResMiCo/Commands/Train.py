@@ -96,7 +96,7 @@ def parse_args(curr_args=None, subparsers=None):
                         help='Seed used for numpy.random and tf (default: %(default)s)')
     parser.add_argument('--n-procs', default=1, type=int,
                         help='Number of parallel processes (default: %(default)s)')
-    parser.add_argument('--fraq_neg', default=1., type=float,
+    parser.add_argument('--fraq-neg', default=1., type=float,
                         help='Portion of samples to keep in overrepresented class (default: %(default)s)')
     parser.add_argument('--features', help='Features to use for training', default=[
         'ref_base_A',

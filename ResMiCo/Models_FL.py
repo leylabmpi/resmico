@@ -226,18 +226,19 @@ class Generator(tf.keras.utils.Sequence):
 
 
 class BinaryData(tf.keras.utils.Sequence):
-    def __init__(self, reader, indices, batch_size, feature_names, max_len):
+    def __init__(self, reader: ContigReader, indices: list[int], batch_size: int, feature_names: list[str],
+                 max_len: int, fraq_neg: float):
         """
         Arguments:
-            reader: ContigReader instance with all the contig metadata
-            indices: positions of the contigs in #reader that will be used
-            batch_size: training batch size
-            input_dir: directory where the feature files are located
-            feature_names: the names of the features to read and use for training
-            max_len: maximum acceptble length for a contig. Longer contigs are clipped at a random position
+            - reader: ContigReader instance with all the contig metadata
+            - indices: positions of the contigs in #reader that will be used
+            - batch_size: training batch size
+            - feature_names: the names of the features to read and use for training
+            - max_len: maximum acceptable length for a contig. Longer contigs are clipped at a random position
+            - fraq_neg: fraction of samples to keep in the overrepresented class (contigs with no misassembly)
         """
         self.reader = reader
-        self.indices = indices
+        self.all_indices = indices
         self.max_len = max_len
         self.batch_size = batch_size
         self.feature_names = feature_names
@@ -245,14 +246,21 @@ class BinaryData(tf.keras.utils.Sequence):
         self.log_count = 0
         self.log_freq = 300 / self.batch_size
         self.contig_count = 0
+        self.fraq_neg = fraq_neg
+        self.negative_idx = [i for i, contig in enumerate(reader.contigs) if contig.misassembly == 0]
+        self.positive_idx = [i for i, contig in enumerate(reader.contigs) if contig.misassembly > 0]
+        self.on_epoch_end()  # select negative samples and shuffle indices
 
     def on_epoch_end(self):
         """
-        Re-shuffle the training data on each epoch
+        Re-shuffle the training data on each epoch.
         """
-        np.random.shuffle(self.indices)
         self.contig_count = 0
         self.log_count = 0
+        np.random.shuffle(self.negative_idx)
+        negative_count = int(self.fraq_neg * len(self.negative_idx))
+        self.indices = self.positive_idx + self.negative_idx[:negative_count]
+        np.random.shuffle(self.indices)
 
     def __len__(self):
         return int(np.ceil(len(self.indices) / self.batch_size))
