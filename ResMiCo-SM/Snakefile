@@ -18,7 +18,8 @@ def J(*args):
 # setup
 random.seed(21212)
 ## config
-configfile: 'config.yaml'
+if len(config.keys()) == 0:
+    configfile: 'config.yaml'
 config['pipeline']['email'] = config['email']
 ## dirs 
 snake_dir = config['pipeline']['snakemake_folder']
