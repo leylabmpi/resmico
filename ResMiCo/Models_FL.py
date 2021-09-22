@@ -382,14 +382,8 @@ class BinaryDataEval(tf.keras.utils.Sequence):
         logging.info(f'Evaluating: {batch_idx}/{len(self.batch_list)}')
         # files to process
         indices = self.batch_list[batch_idx]
-<<<<<<< Updated upstream
         contig_data = [self.reader.contigs[i] for i in indices]
-||||||| merged common ancestors
-        fnames = [self.reader.contigs[i].filename for i in indices]
-=======
-        fnames = [self.reader.contigs[i].filename for i in indices]
         logging.info(f'Requesting validation batch {batch_idx}')
->>>>>>> Stashed changes
 
         features_data = self.reader.read_contigs(contig_data)
         assert len(features_data) == len(contig_data)
