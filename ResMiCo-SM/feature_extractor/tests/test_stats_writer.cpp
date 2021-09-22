@@ -66,8 +66,8 @@ void check_toc_files() {
     std::getline(toc_read_chunk, line); // skip header
     for (uint32_t i : { 0, 1 }) {
         std::string contig_name;
-        uint32_t is_missasembly, offset;
-        toc_read_chunk >> contig_name >> is_missasembly >> offset;
+        uint32_t is_missasembly, offset, length;
+        toc_read_chunk >> contig_name >> length >> is_missasembly >> offset;
         ASSERT_EQ(i == 0 ? "Contig2_0" : "Contig1", contig_name);
         ASSERT_EQ(i == 0 ? 1 : 0, is_missasembly);
     }
@@ -75,8 +75,7 @@ void check_toc_files() {
 
 void separate_contig_data(const std::string &toc,
                           const std::string &feature_file,
-                          const std::filesystem::path &out_dir,
-                          bool is_short = false) {
+                          const std::filesystem::path &out_dir) {
     // read the toc file
     std::ifstream toc_read(toc);
     std::string line;
@@ -85,11 +84,7 @@ void separate_contig_data(const std::string &toc,
     while (toc_read) {
         std::string contig_name;
         uint32_t is_missasembly, len, size;
-        toc_read >> contig_name;
-        if (!is_short) {
-            toc_read >> len;
-        }
-        toc_read >> is_missasembly >> size;
+        toc_read >> contig_name >> len >> is_missasembly >> size;
         sizes.push_back(size);
     }
 
@@ -500,7 +495,7 @@ TEST(WriteData, TwoReadsChunkStats) {
 
     // separate data for each contig from teh concatenated features file
     separate_contig_data("/tmp/stats/toc_chunked", "/tmp/stats/features_binary_chunked",
-                         "/tmp/stats/", true);
+                         "/tmp/stats/");
 
 
     uint32_t len;
@@ -650,7 +645,7 @@ TEST(WriteData, TwoReadsChunkStatsWithOffset) {
 
         // separate data for each contig from teh concatenated features file
         separate_contig_data("/tmp/stats/toc_chunked", "/tmp/stats/features_binary_chunked",
-                             "/tmp/stats/", true);
+                             "/tmp/stats/");
         uint32_t len;
 
         igzstream stats2("/tmp/stats/binary_features0");

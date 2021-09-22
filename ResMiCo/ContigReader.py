@@ -117,21 +117,27 @@ class ContigReader:
     Reads contig data from binary files written by ResMiCo-SM.
     """
 
-    def __init__(self, input_dir: str, feature_names: list[str], process_count: int):
+    def __init__(self, input_dir: str, feature_names: list[str], process_count: int, is_chunked : bool):
+        """
+        Arguments:
+            - input_dir: location on disk where the feature data is stored
+            - feature_names: feature names to use in training
+            - process_count: number of processes to use for loading data in parallel
+            - is_chunked: if True, we are loading data from contig chunks (toc_chunked rather than toc)
+        """
         # means and stdevs are a map from feature name to the mean and standard deviation precomputed for that
         # feature across *all* contigs, stored as a tuple
-        self.means = {}
-        self.stdevs = {}
-        # a list of ContigInfo objects with metadata about  int(row[4]a,ll contigs found in the given directory
-        self.contigs = []
+        self.means: dict[str, float] = {}
+        self.stdevs: dict[str, float] = {}
+        # a list of ContigInfo objects with metadata about all contigs found in #input_dir
+        self.contigs: list[ContigInfo] = []
 
-        self._compute_global_mean_stdev(input_dir)
-
-        # names of the features we are using for training
         self.feature_names = feature_names
-
-        # number of processes used for parallel loading of feature data
         self.process_count = process_count
+        self.is_chunked = is_chunked
+
+        self._load_contigs_metadata(input_dir)
+
 
     def __len__(self):
         return len(self.contigs)
@@ -151,7 +157,7 @@ class ContigReader:
         logging.debug(f'Contigs read in {(timer() - start):5.2f}s')
         return result
 
-    def _compute_global_mean_stdev(self, input_dir):
+    def _load_contigs_metadata(self, input_dir):
         logging.info('Computing global means and standard deviations. Looking for stats/toc files...')
         file_list = [str(f) for f in list(Path(input_dir).rglob("**/stats"))]
         logging.info(f'Processing {len(file_list)} stats/toc files found in {input_dir} ...');
@@ -208,8 +214,9 @@ class ContigReader:
         contig_count = 0
         for fname in file_list:
             toc_file = fname[:-len('stats')] + 'toc'
-            contig_info = []
             contig_fname = fname[:-len('stats')] + 'features_binary'
+            if self.is_chunked:
+                contig_fname += '_chunked'
             offset = 0
             with open(toc_file) as f:
                 rd = csv.reader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
