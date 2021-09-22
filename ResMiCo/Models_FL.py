@@ -25,7 +25,7 @@ class resmico(object):
         self.max_len = config.max_len
         self.filters = config.filters
         self.n_conv = config.n_conv
-        self.n_feat = config.n_feat
+        self.n_feat = len(config.features)
         # self.pool_window = config.pool_window
         self.dropout = config.dropout
         self.lr_init = config.lr_init
