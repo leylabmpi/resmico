@@ -209,7 +209,8 @@ StatsWriter::StatsWriter(const std::filesystem::path &out_dir,
     toc << "Contig" << '\t' << "LengthBases" << '\t' << "MisassemblCnt" << '\t' << "SizeBytes"
         << std::endl;
     // write toc header for binary features (contig chunk)
-    toc_chunk << "Contig" << '\t' << "Misassembly" << '\t' << "SizeBytes" << std::endl;
+    toc_chunk << "Contig" << '\t' << "LengthBases" << '\t' << "Misassembly" << '\t' << "SizeBytes"
+              << std::endl;
 }
 
 void StatsWriter::write_stats(QueueItem &&item,
@@ -340,8 +341,8 @@ void StatsWriter::write_stats(QueueItem &&item,
         }
         std::string fname = out_dir / (item.reference_name + ".ok.gz");
         write_data(item.reference, fname, cs, start, stop);
-        toc_chunk << item.reference_name << "\t0\t" << std::filesystem::file_size(fname)
-                  << std::endl;
+        toc_chunk << item.reference_name << '\t' << chunk_size << "\t0\t"
+                  << std::filesystem::file_size(fname) << std::endl;
         append_file(binary_chunk_features, fname);
     } else {
         // select a chunk of size chunk_size around the breaking point
@@ -367,8 +368,8 @@ void StatsWriter::write_stats(QueueItem &&item,
             std::string fname
                     = out_dir / (item.reference_name + ".mis" + std::to_string(i) + ".gz");
             write_data(item.reference, fname, cs, start, stop);
-            toc_chunk << item.reference_name + "_" + std::to_string(i) << "\t1\t"
-                      << std::filesystem::file_size(fname) << std::endl;
+            toc_chunk << item.reference_name + "_" + std::to_string(i) << '\t' << chunk_size
+                      << "\t1\t" << std::filesystem::file_size(fname) << std::endl;
             append_file(binary_chunk_features, fname);
         }
     }
