@@ -270,6 +270,7 @@ class BinaryData(tf.keras.utils.Sequence):
         contig_data = [self.reader.contigs[i] for i in batch_indices]
         y = [self.reader.contigs[i].misassembly if self.reader.contigs[i].misassembly == 0 else 1 for i in
              batch_indices]
+        logging.info(f'Requesting batch {index}')
 
         features_data = self.reader.read_contigs(contig_data)
 
@@ -292,7 +293,7 @@ class BinaryData(tf.keras.utils.Sequence):
             stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
             x[i][:contig_len, :] = stacked_features
 
-        if self.log_count % self.log_freq == 0:  # Show progress
+        if True: #self.log_count % self.log_freq == 0:  # Show progress
             logging.info(f'Mini-batch #{self.log_count} (contigs {self.contig_count}/{len(self.indices)}) '
                          f'generated in {(timer() - start):5.2f}s')
 
@@ -373,7 +374,14 @@ class BinaryDataEval(tf.keras.utils.Sequence):
         logging.info(f'Evaluating: {batch_idx}/{len(self.batch_list)}')
         # files to process
         indices = self.batch_list[batch_idx]
+<<<<<<< Updated upstream
         contig_data = [self.reader.contigs[i] for i in indices]
+||||||| merged common ancestors
+        fnames = [self.reader.contigs[i].filename for i in indices]
+=======
+        fnames = [self.reader.contigs[i].filename for i in indices]
+        logging.info(f'Requesting validation batch {batch_idx}')
+>>>>>>> Stashed changes
 
         features_data = self.reader.read_contigs(contig_data)
         assert len(features_data) == len(contig_data)
