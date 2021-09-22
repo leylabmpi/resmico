@@ -206,9 +206,10 @@ StatsWriter::StatsWriter(const std::filesystem::path &out_dir,
     tsv_stream << join_vec(headers, '\t');
 
     // write toc header for binary features (entire contig)
-    toc << "Contig" << '\t' << "Size" << '\t' << "MisassemblCnt" << '\t' << "Offset" << std::endl;
+    toc << "Contig" << '\t' << "LengthBases" << '\t' << "MisassemblCnt" << '\t' << "SizeBytes"
+        << std::endl;
     // write toc header for binary features (contig chunk)
-    toc_chunk << "Contig" << '\t' << "Misassembly" << '\t' << "Offset" << std::endl;
+    toc_chunk << "Contig" << '\t' << "Misassembly" << '\t' << "SizeBytes" << std::endl;
 }
 
 void StatsWriter::write_stats(QueueItem &&item,

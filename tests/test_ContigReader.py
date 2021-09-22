@@ -6,12 +6,17 @@ from ResMiCo import ContigReader
 
 class TestReadContig(unittest.TestCase):
     def test_read_from_file(self):
-        result = ContigReader.read_contig_data('./data/preprocess/Contig2.gz', ContigReader.feature_names)
-        self.assertEqual(500, len(result['ref_base']))
-        self.assertEqual(498 * 'A' + 'CC', result['ref_base'])
+        result = ContigReader._read_contig_data('./data/preprocess/features_binary', 0, ContigReader.feature_names)
+        self.assertEqual(500, len(result['ref_base_A']))
+        self.assertIsNone(
+            np.testing.assert_array_equal(np.array([1]*498  + [0,0]), result['ref_base_A']))
+        self.assertIsNone(
+            np.testing.assert_array_equal(np.array([0] * 498 + [1, 1]), result['ref_base_C']))
+        self.assertTrue(not np.any(result['ref_base_G']))
+        self.assertTrue(not np.any(result['ref_base_T']))
 
         coverage = result['coverage']
-        for pos in range(0, len(result['ref_base'])):
+        for pos in range(0, len(result['ref_base_A'])):
             self.assertEqual(2 if 420 <= pos < 425 or pos < 5 else 0, coverage[pos])
             self.assertEqual(0, result['num_discordant'][pos])
             self.assertEqual(1 if pos == 0 else 0.5 if pos < 5 else 0, result['num_query_A'][pos])
@@ -43,30 +48,36 @@ class TestReadContig(unittest.TestCase):
             self.assertEqual(1 if pos < 20 else 0, result['Extensive_misassembly_by_pos'][pos])
 
     def test_normalize_zero_mean_one_stdev(self):
-        result = ContigReader.read_contig_data('./data/preprocess/Contig2.gz', ContigReader.feature_names)
+        old_result = ContigReader._read_contig_data('./data/preprocess/features_binary', 0, ContigReader.feature_names)
 
-        mean_std_dev = {}
+        reader = ContigReader.ContigReader('./data/preprocess/', ContigReader.feature_names, 1)
         for fname in ContigReader.float_feature_names:
-            mean_std_dev[fname] = (0, 1)
+            reader.means[fname] = 0
+            reader.stdevs[fname] = 1
 
-        old_result = {fname: np.copy(result[fname]) for fname in result.keys()}
+        result = reader._read_and_normalize(reader.contigs[0])
 
-        ContigReader.normalize_contig_data(result, mean_std_dev)
         for fname in ContigReader.float_feature_names:
+            # replace NANs with 0, as that's what the normalization in ContigReader does
+            nan_pos = np.isnan(old_result[fname])
+            old_result[fname][nan_pos] = 0
             self.assertIsNone(np.testing.assert_array_equal(old_result[fname], result[fname]))
 
     def test_normalize_zero_mean_two_stdev(self):
-        result = ContigReader.read_contig_data('./data/preprocess/Contig2.gz', ContigReader.feature_names)
+        old_result = ContigReader._read_contig_data('./data/preprocess/features_binary', 0, ContigReader.feature_names)
 
-        mean_std_dev = {}
+        reader = ContigReader.ContigReader('./data/preprocess/', ContigReader.feature_names, 1)
         for fname in ContigReader.float_feature_names:
-            mean_std_dev[fname] = (0, 2)
+            reader.means[fname] = 0
+            reader.stdevs[fname] = 2
 
-        old_result = {fname: np.copy(result[fname]) for fname in result.keys()}
+        result = reader._read_and_normalize(reader.contigs[0])
 
-        ContigReader.normalize_contig_data(result, mean_std_dev)
         for fname in ContigReader.float_feature_names:
-            self.assertIsNone(np.testing.assert_array_equal(old_result[fname] / 2, result[fname]))
+            # replace NANs with 0, as that's what the normalization in ContigReader does
+            nan_pos = np.isnan(old_result[fname])
+            old_result[fname][nan_pos] = 0
+            self.assertIsNone(np.testing.assert_array_equal(old_result[fname]/2, result[fname]))
 
     if __name__ == '__main__':
         unittest.main()

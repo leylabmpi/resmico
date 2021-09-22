@@ -267,13 +267,13 @@ class BinaryData(tf.keras.utils.Sequence):
         batch_indices = self.indices[self.batch_size * index:  self.batch_size * (index + 1)]
 
         # files to process
-        fnames = [self.reader.contigs[i].filename for i in batch_indices]
+        contig_data = [self.reader.contigs[i] for i in batch_indices]
         y = [self.reader.contigs[i].misassembly if self.reader.contigs[i].misassembly == 0 else 1 for i in
              batch_indices]
 
-        features_data = self.reader.read_contigs(fnames)
+        features_data = self.reader.read_contigs(contig_data)
 
-        max_contig_len = max([self.reader.contigs[i].size for i in batch_indices])
+        max_contig_len = max([self.reader.contigs[i].length for i in batch_indices])
         max_len = min(max_contig_len, self.max_len)
         # Create the numpy array storing the features for the contigs in #batch_indices
         x = np.zeros((len(batch_indices), max_len, len(features_data[0])))
@@ -327,11 +327,11 @@ class BinaryDataEval(tf.keras.utils.Sequence):
         current_length = 0
         result = []
         for idx in indices:
-            if current_length + contig_data[idx].size > total_contig_length:
+            if current_length + contig_data[idx].length > total_contig_length:
                 result.append(current_indices)
                 current_indices = []
                 current_length = 0
-            current_length += contig_data[idx].size
+            current_length += contig_data[idx].length
             current_indices.append(idx)
         result.append(current_indices)
         return result
@@ -373,12 +373,12 @@ class BinaryDataEval(tf.keras.utils.Sequence):
         logging.info(f'Evaluating: {batch_idx}/{len(self.batch_list)}')
         # files to process
         indices = self.batch_list[batch_idx]
-        fnames = [self.reader.contigs[i].filename for i in indices]
+        contig_data = [self.reader.contigs[i] for i in indices]
 
-        features_data = self.reader.read_contigs(fnames)
-        assert len(features_data) == len(fnames)
+        features_data = self.reader.read_contigs(contig_data)
+        assert len(features_data) == len(contig_data)
 
-        max_contig_len = max([self.reader.contigs[i].size for i in indices])
+        max_contig_len = max([self.reader.contigs[i].length for i in indices])
         max_len = min(max_contig_len, self.window)
 
         x = []

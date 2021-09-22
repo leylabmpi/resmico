@@ -1,3 +1,3 @@
-Assembler	Contig	Size	MisassemblCnt
-metaSpades	Contig2	500	1
-metaSpades	Contig1	500	0
+Contig	Size	MisassemblCnt	Offset
+Contig2	500	1	246
+Contig1	500	0	183

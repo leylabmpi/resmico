@@ -34,19 +34,22 @@ def _replace_with_nan(arr, v):
     arr[arr == v] = np.nan
 
 
-def _read_contig_data(feature_file_name, feature_names):
+def _read_contig_data(feature_file_name: str, offset: int, feature_names: list[str]):
     """
     Read a binary gzipped file containing the features for a single contig, as written by bam2feat. Features that don't
     exist are silently ignored.
     Parameters:
          - feature_file_name: the file to read
+         - offset: where in the feature file the data for the contig starts
          - feature_names list of feature names to return (e.g. ['coverage', 'num_discordant', 'min_mapq_Match'])
     Returns:
          - a map from feature name to feature data
     """
     logging.debug(f'Reading {feature_file_name}')
     data = {}
-    with gzip.open(feature_file_name, mode='rb') as f:
+    input_file = open(feature_file_name, mode='rb')
+    input_file.seek(offset)
+    with gzip.open(input_file) as f:
         contig_size = struct.unpack('I', f.read(4))[0]
         ref_base = np.frombuffer(f.read(contig_size), dtype=np.uint8)
         # create the one-hot encoding for the reference base
@@ -97,9 +100,15 @@ def _read_contig_data(feature_file_name, feature_names):
 
 
 class ContigInfo:
-    def __init__(self, filename, size: int, misassembly: int):
-        self.filename = filename
-        self.size = size
+    """
+    Contains metadata about a single contig.
+    """
+    def __init__(self, name: str, file: str, length: int, offset: int, size_bytes: int, misassembly: int):
+        self.name = name
+        self.file = file
+        self.length = length
+        self.offset = offset
+        self.size_bytes = size_bytes
         self.misassembly = misassembly
 
 
@@ -108,12 +117,12 @@ class ContigReader:
     Reads contig data from binary files written by ResMiCo-SM.
     """
 
-    def __init__(self, input_dir, feature_names, process_count):
+    def __init__(self, input_dir: str, feature_names: list[str], process_count: int):
         # means and stdevs are a map from feature name to the mean and standard deviation precomputed for that
         # feature across *all* contigs, stored as a tuple
         self.means = {}
         self.stdevs = {}
-        # a list of ContigInfo objects with metadata about all contigs found in the given directory
+        # a list of ContigInfo objects with metadata about  int(row[4]a,ll contigs found in the given directory
         self.contigs = []
 
         self._compute_global_mean_stdev(input_dir)
@@ -127,17 +136,17 @@ class ContigReader:
     def __len__(self):
         return len(self.contigs)
 
-    def read_contigs(self, contig_files):
+    def read_contigs(self, contig_infos: list[ContigInfo]):
         """
         Reads the features from the given contig feature files and returns the result in a list of len(contig_files)
-        array of shape (contig_len, num_features).
+        arrays of shape (contig_len, num_features).
         """
         start = timer()
         # pool = Pool(self.process_count)
         result = []
-        # TODO: try using pool.map() instead for larger datasets; for the small test set, not using a pool
+        # TODO: try using pool.map() instead for larger batch-sizes; for the small test set, not using a pool
         #  is 100x faster (probably bc. mini-batch size is only 6)
-        for contig_data in map(self._read_and_normalize, contig_files):
+        for contig_data in map(self._read_and_normalize, contig_infos):
             result.append(contig_data)
         logging.debug(f'Contigs read in {(timer() - start):5.2f}s')
         return result
@@ -200,26 +209,30 @@ class ContigReader:
         for fname in file_list:
             toc_file = fname[:-len('stats')] + 'toc'
             contig_info = []
-            contig_prefix = fname[:-len('stats')] + 'contig_stats/'
+            contig_fname = fname[:-len('stats')] + 'features_binary'
+            offset = 0
             with open(toc_file) as f:
                 rd = csv.reader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
                 next(rd)  # skip CSV header: Assembler, Contig_name, MissassembleCount, ContigLen
                 for row in rd:
-                    self.contigs.append(ContigInfo(contig_prefix + row[1] + '.gz', int(row[2]), int(row[3])))
+                    size_bytes = int(row[3])
+                    # the fields in row are: name, length, misassembly_count, size_bytes
+                    self.contigs.append(ContigInfo(row[0], contig_fname, int(row[1]), offset, size_bytes, int(row[2])))
+                    offset += size_bytes
                     contig_count += 1
 
         logging.info(f'Found {contig_count} contigs')
 
-    def _read_and_normalize(self, file_name):
+    def _read_and_normalize(self, contig_info : ContigInfo):
         """
         Reads and normalizes the float features present in features using the precomputed means and standard deviations
         in #mean_stdev
         Parameters:
-            file_name: the file name to read and normalize
+            contig_info: the metadata of the contig to be loaded
         """
 
         # features is a map from feature name (e.g. 'coverage') to a numpy array containing the feature
-        features = _read_contig_data(file_name, self.feature_names)
+        features = _read_contig_data(contig_info.file, contig_info.offset, self.feature_names)
         for feature_name in float_feature_names:
             if feature_name not in features:
                 continue
