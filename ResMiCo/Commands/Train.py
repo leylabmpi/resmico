@@ -96,10 +96,8 @@ def parse_args(curr_args=None, subparsers=None):
                         help='Seed used for numpy.random and tf (default: %(default)s)')
     parser.add_argument('--n-procs', default=1, type=int,
                         help='Number of parallel processes (default: %(default)s)')
-    parser.add_argument('--fraq_neg', default=1., type=float,
+    parser.add_argument('--fraq-neg', default=1., type=float,
                         help='Portion of samples to keep in overrepresented class (default: %(default)s)')
-    parser.add_argument('--n-feat', default=28, type=int,
-                        help='Number of features per position (default: %(default)s)')
     parser.add_argument('--features', help='Features to use for training', default=[
         'ref_base_A',
         'ref_base_C',
@@ -128,6 +126,8 @@ def parse_args(curr_args=None, subparsers=None):
                              'files transformed from zipped tsv feature files')
     parser.add_argument('--log-level', default='INFO',
                         help='Logging level, one of [CRITICAL, FATAL, ERROR, WARNING, INFO, DEBUG]')
+    parser.add_argument('--chunks', default=False,
+                        help='If true, use the toc_chunked/binary_features_chunked data instead of toc/binary_features')
     # running test args
     if curr_args:
         args = parser.parse_args(curr_args)
