@@ -270,7 +270,9 @@ class BinaryData(tf.keras.utils.Sequence):
         """
         Return the next mini-batch of size #batch_size
         """
+        logging.info(f'Requesting batch {index}')
         start = timer()
+
         self.log_count += 1
         self.contig_count += self.batch_size
         batch_indices = self.indices[self.batch_size * index:  self.batch_size * (index + 1)]
@@ -279,7 +281,6 @@ class BinaryData(tf.keras.utils.Sequence):
         contig_data = [self.reader.contigs[i] for i in batch_indices]
         y = [self.reader.contigs[i].misassembly if self.reader.contigs[i].misassembly == 0 else 1 for i in
              batch_indices]
-        logging.info(f'Requesting batch {index}')
 
         features_data = self.reader.read_contigs(contig_data)
 
@@ -305,6 +306,7 @@ class BinaryData(tf.keras.utils.Sequence):
         if True:  # self.log_count % self.log_freq == 0:  # Show progress
             logging.info(f'Mini-batch #{self.log_count} (contigs {self.contig_count}/{len(self.indices)}) '
                          f'generated in {(timer() - start):5.2f}s')
+
 
         return x, np.array(y)
 

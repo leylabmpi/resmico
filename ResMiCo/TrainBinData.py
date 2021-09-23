@@ -40,7 +40,8 @@ def main(args):
                                              write_graph=True, write_images=True)
 
     logging.info('Loading contig data...')
-    reader = ContigReader.ContigReader(args.feature_files_path, args.features, args.n_procs, args.chunks, args.normalize_stdev)
+    reader = ContigReader.ContigReader(args.feature_files_path, args.features, args.n_procs, args.chunks,
+                                       args.normalize_stdev)
 
     # separate data into 90% for training and 10% for evaluation
     all_idx = np.arange(len(reader))
@@ -51,7 +52,7 @@ def main(args):
 
     # create data generators for training data and evaluation data
     train_data = Models.BinaryData(reader, train_idx, args.batch_size, args.features, args.max_len, args.fraq_neg)
-    eval_data = Models.BinaryDataEval(reader, eval_idx, args.features, args.max_len, args.max_len//2, 500000)
+    eval_data = Models.BinaryDataEval(reader, eval_idx, args.features, args.max_len, args.max_len // 2, 500000)
     eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_data.indices])
 
     logging.info('Training network...')
@@ -62,7 +63,7 @@ def main(args):
         resmico.net.fit(x=train_data,
                         epochs=num_epochs,
                         workers=args.n_procs,
-                        use_multiprocessing=args.n_procs > 1,
+                        use_multiprocessing=True,
                         max_queue_size=max(args.n_procs, 10),
                         # callbacks=[mc, tb_logs],
                         verbose=2)
@@ -71,7 +72,8 @@ def main(args):
 
         logging.info('Starting validation')
         start = time.time()
-        eval_data_flat_y = resmico.predict(eval_data)
+        eval_data_flat_y = resmico.predict(eval_data, workers=args.n_procs, use_multiprocessing=True,
+                                           max_queue_size=max(args.n_procs, 10))
         eval_data_predicted_y = eval_data.group(eval_data_flat_y)
 
         auc_val = average_precision_score(eval_data_y, eval_data_predicted_y)
