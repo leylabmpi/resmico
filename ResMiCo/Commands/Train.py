@@ -126,8 +126,13 @@ def parse_args(curr_args=None, subparsers=None):
                              'files transformed from zipped tsv feature files')
     parser.add_argument('--log-level', default='INFO',
                         help='Logging level, one of [CRITICAL, FATAL, ERROR, WARNING, INFO, DEBUG]')
-    parser.add_argument('--chunks', default=False,
-                        help='If true, use the toc_chunked/binary_features_chunked data instead of toc/binary_features')
+    parser.add_argument('--chunks', dest='chunks', action='store_true',
+                        help='If set, use the toc_chunked/binary_features_chunked data instead of toc/binary_features')
+    parser.add_argument('--normalize-stdev', dest='normalize_stdev', action='store_true',
+                        help='If set, normalize the floating point values by dividing by their standard deviation')
+    parser.add_argument('--no-normalize-stdev', dest='normalize_stdev', action='store_false',
+                        help='If set, the standard deviation of floating point value features won\'t be normalized')
+    parser.set_defaults(normalize_stdev=True)
     # running test args
     if curr_args:
         args = parser.parse_args(curr_args)

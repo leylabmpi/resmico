@@ -117,7 +117,7 @@ class ContigReader:
     Reads contig data from binary files written by ResMiCo-SM.
     """
 
-    def __init__(self, input_dir: str, feature_names: list[str], process_count: int, is_chunked : bool):
+    def __init__(self, input_dir: str, feature_names: list[str], process_count: int, is_chunked : bool, normalize_stdev: bool = True):
         """
         Arguments:
             - input_dir: location on disk where the feature data is stored
@@ -135,6 +135,7 @@ class ContigReader:
         self.feature_names = feature_names
         self.process_count = process_count
         self.is_chunked = is_chunked
+        self.normalize_stdev = normalize_stdev
 
         self._load_contigs_metadata(input_dir)
 
@@ -217,6 +218,7 @@ class ContigReader:
             contig_fname = fname[:-len('stats')] + 'features_binary'
             if self.is_chunked:
                 contig_fname += '_chunked'
+                toc_file += '_chunked'
             offset = 0
             with open(toc_file) as f:
                 rd = csv.reader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
@@ -239,6 +241,7 @@ class ContigReader:
         """
 
         # features is a map from feature name (e.g. 'coverage') to a numpy array containing the feature
+        logging.debug(f'Reading contig {contig_info.name} from {contig_info.file} at offset {contig_info.offset}')
         features = _read_contig_data(contig_info.file, contig_info.offset, self.feature_names)
         for feature_name in float_feature_names:
             if feature_name not in features:
@@ -247,10 +250,11 @@ class ContigReader:
                 logging.warning('Could not find mean/standard deviation for feature: {fname}. Skipping normalization')
                 continue
             features[feature_name] -= self.means[feature_name]
-            if features[feature_name].dtype == np.float32:  # we can do the division in place
-                features[feature_name] /= self.stdevs[feature_name]
-            else:  # need to create a new floating point numpy array
-                features[feature_name] = features[feature_name] / self.stdevs[feature_name]
+            if self.normalize_stdev:
+                if features[feature_name].dtype == np.float32:  # we can do the division in place
+                    features[feature_name] /= self.stdevs[feature_name]
+                else:  # need to create a new floating point numpy array
+                    features[feature_name] = features[feature_name] / self.stdevs[feature_name]
             # replace NANs with 0 (the new mean)
             nan_pos = np.isnan(features[feature_name])
             features[feature_name][nan_pos] = 0
