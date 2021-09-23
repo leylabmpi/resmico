@@ -30,12 +30,12 @@ rule asmbl_metaSPAdes:
 	read2 = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}',
                   '{read_length}', '{read_depth}', 'sim_reads', 'R2.fq')
     output:
-        contigs = temp(J(config['tmp_dir'] + 'asmbl', 'metaspades', '{richness}',
+        contigs = temp(J(config['tmp_dir'], 'asmbl', 'metaspades', '{richness}',
                          '{abund_dist}', '{rep}', '{read_length}', '{read_depth}',
                          'contigs.fasta'))
     params:
         params = config['params']['assemblers']['metaspades'],
-        tmp_dir = J(config['tmp_dir'] + 'asmbl', 'metaspades', '{richness}',
+        tmp_dir = J(config['tmp_dir'], 'asmbl', 'metaspades_tmp', '{richness}',
                     '{abund_dist}', '{rep}', '{read_length}', '{read_depth}')
     conda:
         '../envs/assembly.yaml'
@@ -137,7 +137,7 @@ rule asmbl_contig_length_filter:
         temp(J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
                '{read_depth}', '{assembler}', 'contigs_filtered.fasta'))
     params:
-        exe = config['pipeline']['script_folder'] + 'contig_len_cutoff.py',
+        exe = J(config['pipeline']['script_folder'], 'contig_len_cutoff.py'),
         cutoff = config['params']['contigs']['length_cutoff']
     conda:
         '../envs/MGSIM.yaml'

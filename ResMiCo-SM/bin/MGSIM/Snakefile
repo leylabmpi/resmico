@@ -74,17 +74,6 @@ def create_rand_seed(wildcards):
         return random.randint(1,100000)
     else:
         return None
-
-def chpt_ref_genomes(wildcards):
-    """
-    Checkpointing for compiled ref genome files for metaQUAST 
-    """
-    chpt_out = checkpoints.MGSIM_genome_rename.get(**wildcards).output[0]
-    d = os.path.join(config['tmp_dir'] + 'ref_genomes')
-    files = glob.glob(os.path.join(d, '*.fna'))
-    if len(files) < 1:
-        sys.stderr.write('WARNING: No ref genomes found\n')
-    return files
     
 rule MGSIM_communities:
     """
@@ -261,5 +250,4 @@ rule MGSIM_compress_read2:
         """
         ionice {params.ionice} gzip -c {input} > {output} 2> {log}
         """
-
           

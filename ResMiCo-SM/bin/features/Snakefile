@@ -3,17 +3,34 @@ rule bam_to_DL_features:
     Converting bam to features
     """
     input:
-        fna = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}',
-                '{assembler}', 'contigs_filtered.fasta'),
-	fai = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}',
-                '{assembler}', 'contigs_filtered.fasta.fai'),
+        fna = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                '{read_depth}', '{assembler}', 'contigs_filtered.fasta'),
+	fai = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                '{read_depth}', '{assembler}', 'contigs_filtered.fasta.fai'),
         bam = J(config['tmp_dir'], 'map', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
                 '{read_depth}', '{assembler}.bam'),
         bai = J(config['tmp_dir'], 'map', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                '{read_depth}', '{assembler}.bam.bai')
+                '{read_depth}', '{assembler}.bam.bai'),
+        fasta = J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                  '{read_depth}', '{assembler}', 'combined_reference', 'contigs_reports',
+                  'contigs_filtered.mis_contigs.fa'),
+        masmbl = J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                   '{read_depth}', '{assembler}', 'combined_reference', 'contigs_reports',
+                   'contigs_report_contigs_filtered.mis_contigs.info')
     output:
-        tsv = temp(J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                     '{read_depth}', '{assembler}', 'features.tsv'))
+        toc = temp(J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
+                     '{read_length}', '{read_depth}', '{assembler}', 'toc')),
+        tocc = temp(J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
+                      '{read_length}', '{read_depth}', '{assembler}', 'toc_chunked')),         
+        sts = temp(J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
+                     '{read_length}', '{read_depth}', '{assembler}', 'stats')),
+        tsv = temp(J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
+                     '{read_length}', '{read_depth}', '{assembler}', 'features.tsv.gz')),
+        fb = temp(J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
+                    '{read_length}', '{read_depth}', '{assembler}', 'features_binary')),
+        fbc = temp(J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
+                     '{read_length}', '{read_depth}', '{assembler}',
+                     'features_binary_chunked'))
     params:
         exe = config['pipeline']['script_folder'] + 'bam2feat', 
 	params = config['params']['feature_table']['make'],
@@ -28,21 +45,23 @@ rule bam_to_DL_features:
     conda:
         '../envs/bowtie2.yaml'
     log:
-        J(log_dir, 'bam_to_DL_features', '{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}',
-          '{assembler}.log')
+        J(log_dir, 'bam_to_DL_features', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+          '{read_depth}', '{assembler}.log')
     benchmark:
-        J(benchmark_dir, 'bam_to_DL_features', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-          '{read_depth}', '{assembler}.txt')
+        J(benchmark_dir, 'bam_to_DL_features', '{richness}', '{abund_dist}', '{rep}',
+          '{read_length}', '{read_depth}', '{assembler}.txt')
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
+        OUTDIR=`dirname {output.tsv}`
         if [ `{params.exe_empty} {input.fna}` -eq 0 ]; then
           {params.exe} {params.params} \
-            --procs {threads} --batches 50 --chunks 10 \
+            --procs {threads} \
             --assembler {params.assembler} \
             --bam_file {input.bam} \
             --fasta_file {input.fna} \
-            --o {output.tsv} \
+            --misassembly_file {input.masmbl} \
+            --o $OUTDIR \
             2>> {log} 1>&2
         else
           echo "Input empty; skipping" > {log}
@@ -50,67 +69,120 @@ rule bam_to_DL_features:
         fi
         """
         
-rule metaquast_masmbl_feature_join:
-    """
-    Adding metaQUAST misassembly report info to feature table
-    """
-    input:
-        fasta = J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}', '{assembler}',
-                  'combined_reference', 'contigs_reports', 'contigs_filtered.mis_contigs.fa'),
-        masmbl = J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}', '{assembler}',
-                   'combined_reference', 'contigs_reports', 'contigs_report_contigs_filtered.mis_contigs.info'),
-        feats = J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}',
-                  '{assembler}', 'features.tsv')
-    output:
-        temp(J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}',
-               '{assembler}', 'features_j.tsv'))
-    params:
-        exe = config['pipeline']['script_folder'] + 'metaquast_masmbl_report_feature_join.py',
-        exe_empty = config['pipeline']['script_folder'] + 'is_empty.py'
-    resources:
-        time = lambda wildcards, attempt: attempt ** 2 * 60 * 12,
-        mem_gb_pt = lambda wildcards, attempt: attempt ** 2 * 2 + 20
-    conda:
-        '../envs/bowtie2.yaml'
-    log:
-        J(log_dir, 'metaquast_masmbl_feature_join', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-          '{read_depth}', '{assembler}.log')
-    benchmark:
-        J(log_dir, 'metaquast_masmbl_feature_join', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-          '{read_depth}', '{assembler}.txt')
-    shell:
-        """
-        export PATH=$CONDA_PREFIX/bin:$PATH
-        if [ `{params.exe_empty} {input.feats}` -eq 0 ]; then        
-          {params.exe} {input.fasta} {input.masmbl} {input.feats} > {output} 2> {log}
-        else
-          echo "Input empty; skipping" > {log}
-          touch {output} 2>> {log}
-        fi
-        """
+# rule metaquast_masmbl_feature_join:
+#     """
+#     Adding metaQUAST misassembly report info to feature table
+#     """
+#     input:
+#         fasta = J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+#                   '{read_depth}', '{assembler}', 'combined_reference', 'contigs_reports',
+#                   'contigs_filtered.mis_contigs.fa'),
+#         masmbl = J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+#                    '{read_depth}', '{assembler}', 'combined_reference', 'contigs_reports',
+#                    'contigs_report_contigs_filtered.mis_contigs.info'),
+#         feats = J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
+#                   '{read_length}', '{read_depth}', '{assembler}', 'features.tsv')
+#     output:
+#         temp(J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
+#                '{read_length}', '{read_depth}', '{assembler}', 'features_j.tsv'))
+#     params:
+#         exe = config['pipeline']['script_folder'] + 'metaquast_masmbl_report_feature_join.py',
+#         exe_empty = config['pipeline']['script_folder'] + 'is_empty.py'
+#     resources:
+#         time = lambda wildcards, attempt: attempt ** 2 * 60 * 12,
+#         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 * 2 + 20
+#     conda:
+#         '../envs/bowtie2.yaml'
+#     log:
+#         J(log_dir, 'metaquast_masmbl_feature_join', '{richness}', '{abund_dist}', '{rep}',
+#           '{read_length}', '{read_depth}', '{assembler}.log')
+#     benchmark:
+#         J(log_dir, 'metaquast_masmbl_feature_join', '{richness}', '{abund_dist}', '{rep}',
+#           '{read_length}', '{read_depth}', '{assembler}.txt')
+#     shell:
+#         """
+#         export PATH=$CONDA_PREFIX/bin:$PATH
+#         if [ `{params.exe_empty} {input.feats}` -eq 0 ]; then        
+#           {params.exe} {input.fasta} {input.masmbl} {input.feats} > {output} 2> {log}
+#         else
+#           echo "Input empty; skipping" > {log}
+#           touch {output} 2>> {log}
+#         fi
+#         """
 
-rule features_compress:
+# rule features_compress:
+#     """
+#     Compressing table
+#     """
+#     input:
+#         J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+#           '{read_depth}', '{assembler}', 'features_j.tsv')
+#     output:
+#         J(features_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}',
+#           '{assembler}', 'features.tsv.gz')
+#     resources:
+#         time = lambda wildcards, attempt: attempt ** 3 * 59,
+#         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 * 8
+#     log:
+#         J(log_dir, 'features_compress', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+#           '{read_depth}', '{assembler}.log')
+#     benchmark:
+#         J(benchmark_dir, 'features_compress', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+#           '{read_depth}', '{assembler}.txt')
+#     shell:
+#         """
+#         gzip -c {input} > {output} 2> {log}
+#         """
+
+rule features_copy:
     """
-    Compressing table
+    Copyin over feature table info
     """
     input:
-        J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-          '{read_depth}', '{assembler}', 'features_j.tsv')
+        toc = J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
+                '{read_length}', '{read_depth}', '{assembler}', 'toc'),
+        tocc = J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
+                 '{read_length}', '{read_depth}', '{assembler}', 'toc_chunked'),   
+        sts = J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
+                '{read_length}', '{read_depth}', '{assembler}', 'stats'),
+        tsv = J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
+                '{read_length}', '{read_depth}', '{assembler}', 'features.tsv.gz'),
+        fb = J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
+               '{read_length}', '{read_depth}', '{assembler}', 'features_binary'),
+        fbc = J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
+                '{read_length}', '{read_depth}', '{assembler}', 'features_binary_chunked')
     output:
-        J(features_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}',
-          '{assembler}', 'features.tsv.gz')
+        toc = J(features_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                '{read_depth}', '{assembler}', 'toc'),
+        tocc = J(features_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                '{read_depth}', '{assembler}', 'toc_chunked'),
+        sts = J(features_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                '{read_depth}', '{assembler}', 'stats'),
+        tsv = J(features_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                '{read_depth}', '{assembler}', 'features.tsv.gz'),
+        fb = J(features_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+               '{read_depth}', '{assembler}', 'features_binary'),
+        fbc = J(features_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                '{read_depth}', '{assembler}', 'features_binary_chunked')
+    params:
+        ionice = config['params']['ionice']
     resources:
         time = lambda wildcards, attempt: attempt ** 3 * 59,
         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 * 8
     log:
-        J(log_dir, 'features_compress', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+        J(log_dir, 'features_copy', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
           '{read_depth}', '{assembler}.log')
     benchmark:
-        J(benchmark_dir, 'features_compress', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+        J(benchmark_dir, 'features_copy', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
           '{read_depth}', '{assembler}.txt')
     shell:
         """
-        gzip -c {input} > {output} 2> {log}
+        ionice {params.ionice} cp -f {input.toc} {output.toc} 2> {log}
+        ionice {params.ionice} cp -f {input.tocc} {output.tocc} 2>> {log}
+        ionice {params.ionice} cp -f {input.sts} {output.sts} 2>> {log}
+        ionice {params.ionice} cp -f {input.tsv} {output.tsv} 2>> {log}
+        ionice {params.ionice} cp -r {input.fb} {output.fb} 2>> {log}
+        ionice {params.ionice} cp -r {input.fbc} {output.fbc} 2>> {log}
         """
 
 localrules: features_file_table        
@@ -120,7 +192,8 @@ rule features_file_table:
     """
     input:
         feats = Expand(J(features_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                         '{read_depth}', '{assembler}', 'features.tsv.gz'), config['sim_params'])
+                         '{read_depth}', '{assembler}', 'features.tsv.gz'),
+                       config['sim_params'])
     output:
         tsv = features_dir + 'feature_files.tsv'
     params:
