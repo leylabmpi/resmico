@@ -1,3 +1,26 @@
+def chpt_ref_genomes(wildcards):
+    """
+    Checkpointing for compiled ref genome files for metaQUAST 
+    """
+    chpt_out = checkpoints.MGSIM_genome_rename.get(**wildcards).output[0]
+    d = os.path.join(config['tmp_dir'] + 'ref_genomes')
+    files = glob.glob(os.path.join(d, '*.fna'))
+    if len(files) < 1:
+        sys.stderr.write('WARNING: No ref genomes found. This is generally OK\n')
+    return files
+
+def chpt_mq_ref_genomes(wildcards):
+    """
+    Checkpointing for compiled ref genome files for metaQUAST 
+    """
+    chpt_out = checkpoints.metaquast_ref_genomes.get(**wildcards).output[0]
+    d = os.path.join(config['tmp_dir'],  'metaquast', wildcards.richness,
+                      wildcards.abund_dist, wildcards.rep, 'genomes')
+    files = glob.glob(os.path.join(d, '*.fna'))
+    if len(files) < 1:
+        sys.stderr.write('WARNING: No ref genomes for metaQUAST found. This is generally OK\n')
+    return files
+
 def all_bam_files(wildcards):
     genomes_tbl = config['genomes_tbl']
     out_files = []
@@ -53,7 +76,8 @@ def all_which_input(wildcards):
         F += Expand(J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}',
                       'metaquast_cleanup.done'),
                     config['sim_params'])
-        F.append(genomes_dir + 'genomes_rm.done')
+        if config['reads_tbl'] is None:
+            F.append(genomes_dir + 'genomes_rm.done')
         
     # read mapping to contigs
     if not skipped(config['params']['map']['samtools']):

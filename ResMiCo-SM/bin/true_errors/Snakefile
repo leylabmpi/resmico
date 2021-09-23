@@ -37,14 +37,14 @@ checkpoint metaquast_ref_genomes:
     """
     input:
         refs = genomes_dir + 'genomes.tsv',
-        abund = mgsim_dir + '{richness}/{abund_dist}/{rep}/comm_wAbund.txt',
+        abund = J(mgsim_dir, '{richness}', '{abund_dist}', '{rep}', 'comm_wAbund.txt')
     output:
-        refs = temp(config['tmp_dir'] + \
-                    'metaquast/{richness}/{abund_dist}/{rep}/genomes/genomes.tsv')
+        refs = temp(J(config['tmp_dir'], 'metaquast', '{richness}', '{abund_dist}',
+                      '{rep}', 'genomes', 'genomes.tsv'))
     params:
         exe = config['pipeline']['script_folder'] + 'genome_symlink.py'
     log:
-        log_dir + 'metaquast_ref_genomes/{richness}/{abund_dist}/{rep}.log'
+        J(log_dir, 'metaquast_ref_genomes', '{richness}', '{abund_dist}', '{rep}.log')
     shell:
         """
         OUTDIR=`dirname {output.refs}`
@@ -80,18 +80,6 @@ def metaquast_time(wildcards, input, threads, attempt):
         read_depth_time_min = float(8e6) / 1000000 * 60 * 2
     T_min = n_refs + read_depth_time_min + 720 * attempt + 480
     return int(round(T_min,0))
-
-def chpt_mq_ref_genomes(wildcards):
-    """
-    Checkpointing for compiled ref genome files for metaQUAST 
-    """
-    chpt_out = checkpoints.metaquast_ref_genomes.get(**wildcards).output[0]
-    d = os.path.join(config['tmp_dir'],  'metaquast', wildcards.richness,
-                      wildcards.abund_dist, wildcards.rep, 'genomes')
-    files = glob.glob(os.path.join(d, '*.fna'))
-    if len(files) < 1:
-        sys.stderr.write('WARNING: No ref genomes for metaQUAST found\n')
-    return files
     
 rule metaquast:
     """
@@ -110,7 +98,7 @@ rule metaquast:
 	                  'contigs_report_contigs_filtered.mis_contigs.info')),
         fasta_tmp = temp(J(config['tmp_dir'], 'metaquast', '{richness}', '{abund_dist}',
                            '{rep}', '{read_length}', '{read_depth}', '{assembler}',
-                           'combined_reference' + 'contigs_reports',
+                           'combined_reference', 'contigs_reports',
                            'contigs_filtered.mis_contigs.fa')),
         done_tmp = touch(J(config['tmp_dir'], 'metaquast', '{richness}', '{abund_dist}',
                            '{rep}', '{read_length}', '{read_depth}', '{assembler}',
@@ -119,7 +107,7 @@ rule metaquast:
                  '{read_depth}', '{assembler}', 'combined_reference', 'contigs_reports',
 	         'contigs_report_contigs_filtered.mis_contigs.info'),
         fasta = J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                  '{read_depth}', '{assembler}', 'combined_reference' + 'contigs_reports',
+                  '{read_depth}', '{assembler}', 'combined_reference', 'contigs_reports',
                   'contigs_filtered.mis_contigs.fa'),
         done = touch(J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
                        '{read_depth}', '{assembler}', 'metaquast.done'))
@@ -197,21 +185,23 @@ rule metaquast_ref_genomes_rm:
                 os.unlink(F)
         open(output.done, 'w').close()
 
-localrules: ref_genomes_rm
-rule ref_genomes_rm:
-    """
-    Removing ref genome files
-    """
-    input:
-        done = Expand(J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}',
-                        'metaquast_cleanup.done'),
-                      config['sim_params']),
-        fna = chpt_ref_genomes
-    output:
-        done = genomes_dir + 'genomes_rm.done'
-    run:
-        import os,sys
-        for F in input.fna:
-            if os.path.isfile(F):
-                os.unlink(F)
-        open(output.done, 'w').close()
+if config['reads_tbl'] is None:
+    localrules: ref_genomes_rm
+    rule ref_genomes_rm:
+        """
+        Removing ref genome files
+        """
+        input:
+            done = Expand(J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}',
+                            'metaquast_cleanup.done'),
+                          config['sim_params']),
+            fna = chpt_ref_genomes
+        output:
+            done = genomes_dir + 'genomes_rm.done'
+        run:
+            import os,sys
+            for F in input.fna:
+                if os.path.isfile(F):
+                    os.unlink(F)
+            open(output.done, 'w').close()
+    
