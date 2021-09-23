@@ -50,7 +50,7 @@ def main(args):
     logging.info('Number of devices: {}'.format(strategy.num_replicas_in_sync))
 
     with strategy.scope():
-        resmico = Models.resmico(config)
+        resmico = Models.Resmico(config)
     resmico.print_summary()
 
     # check if seed works, print weights for the first 5 layers -> seed works

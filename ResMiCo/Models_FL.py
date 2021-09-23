@@ -14,11 +14,12 @@ from toolz import itertoolz
 
 from ResMiCo import Utils
 from ResMiCo import ContigReader
+from ResMiCo.ContigReader import ContigInfo
 
 
-class resmico(object):
+class Resmico(object):
     """
-    Implements a convolutional network for misassembly prediction. 
+    Implements a convolutional network for mis-assembly prediction.
     """
 
     def __init__(self, config):
@@ -301,7 +302,7 @@ class BinaryData(tf.keras.utils.Sequence):
             stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
             x[i][:contig_len, :] = stacked_features
 
-        if True: #self.log_count % self.log_freq == 0:  # Show progress
+        if True:  # self.log_count % self.log_freq == 0:  # Show progress
             logging.info(f'Mini-batch #{self.log_count} (contigs {self.contig_count}/{len(self.indices)}) '
                          f'generated in {(timer() - start):5.2f}s')
 
@@ -376,14 +377,14 @@ class BinaryDataEval(tf.keras.utils.Sequence):
     def __len__(self):
         return len(self.batch_list)
 
-    def __getitem__(self, batch_idx):
+    def __getitem__(self, batch_idx: int):
         """ Return the mini-batch at index #index """
         # if batch_idx % 50 == 0:  # to see some progress
         logging.info(f'Evaluating: {batch_idx}/{len(self.batch_list)}')
+        start = timer()
         # files to process
         indices = self.batch_list[batch_idx]
-        contig_data = [self.reader.contigs[i] for i in indices]
-        logging.info(f'Requesting validation batch {batch_idx}')
+        contig_data: list[ContigInfo] = [self.reader.contigs[i] for i in indices]
 
         features_data = self.reader.read_contigs(contig_data)
         assert len(features_data) == len(contig_data)
@@ -397,7 +398,8 @@ class BinaryDataEval(tf.keras.utils.Sequence):
         # of shape (contig_count, max_len, num_features) to be used for evaluation
         for i, contig_features in enumerate(features_data):
             to_merge = [None] * len(self.feature_names)
-            contig_len = len(contig_features[self.feature_names[0]])
+            contig_len = contig_data[i].length
+            assert contig_len == len(contig_features[self.feature_names[0]])
             start_idx = 0
             count = 0
             while start_idx == 0 or start_idx + (self.window - self.step) < contig_len:
@@ -414,6 +416,7 @@ class BinaryDataEval(tf.keras.utils.Sequence):
                 count += 1
             self.idx_map[batch_idx].append(count)
         assert (len(x) == sum(self.idx_map[batch_idx])), f'{len(x)} vs {sum(self.idx_map[batch_idx])}'
+        logging.info(f'Batch with {len(x)} contigs generated in {(timer() - start):5.2f}s')
         return np.array(x)
 
 

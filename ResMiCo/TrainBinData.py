@@ -21,12 +21,12 @@ def main(args):
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
 
-    logging.info('Constructing model...')
+    logging.info('Building Tensorflow model...')
     strategy = tf.distribute.MirroredStrategy()
-    logging.info('Number of devices: {}'.format(strategy.num_replicas_in_sync))
+    logging.info(f'Number of devices: {strategy.num_replicas_in_sync}')
 
     with strategy.scope():
-        resmico = Models.resmico(args)
+        resmico = Models.Resmico(args)
     resmico.print_summary()
 
     # save model every epoch
