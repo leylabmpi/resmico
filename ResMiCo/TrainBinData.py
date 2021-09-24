@@ -65,7 +65,7 @@ def main(args):
 
     # add a prefetch option that builds the next batch ready for consumption by the GPU as it is working on
     # the current batch.
-    train_data_tf = train_data_tf.prefetch(4)
+    train_data_tf = train_data_tf.prefetch(2 * strategy.num_replicas_in_sync)
 
     # set the sharding policy to DATA in order to avoid Tensorflow ugly console barf
     options = tf.data.Options()
@@ -79,13 +79,9 @@ def main(args):
     data_iter = lambda: (s for s in eval_data)
     eval_data_tf = tf.data.Dataset.from_generator(
         data_iter,
-        output_signature=(
-            tf.TensorSpec(shape=(None, None, len(args.features)), dtype=tf.float32)))
-    eval_data_tf = eval_data_tf.prefetch(4)
-    # set the sharding policy to DATA in order to avoid Tensorflow ugly console barf
-    options = tf.data.Options()
-    options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
-    eval_data_tf = eval_data_tf.with_options(options)
+        output_signature=(tf.TensorSpec(shape=(None, None, len(args.features)), dtype=tf.float32)))
+    eval_data_tf = eval_data_tf.prefetch(2 * strategy.num_replicas_in_sync)
+    eval_data_tf = eval_data_tf.with_options(options)  # avoids Tensorflow ugly console barfT
 
     logging.info('Training network...')
     num_epochs = 2  # todo: last run monitor more often
@@ -97,14 +93,17 @@ def main(args):
                         workers=args.n_procs,
                         use_multiprocessing=True,
                         max_queue_size=max(args.n_procs, 10),
-                        # callbacks=[mc, tb_logs],
+                        callbacks=[mc, tb_logs],
                         verbose=2)
         duration = time.time() - start
         logging.info(f'Fitted {num_epochs} epochs in {duration:.0f}s')
+        train_data.on_epoch_end()
 
         logging.info('Starting validation')
         start = time.time()
-        eval_data_flat_y = resmico.predict(eval_data_tf, workers=args.n_procs, use_multiprocessing=True,
+        eval_data_flat_y = resmico.predict(x=eval_data_tf,
+                                           workers=args.n_procs,
+                                           use_multiprocessing=True,
                                            max_queue_size=max(args.n_procs, 10))
         eval_data_predicted_y = eval_data.group(eval_data_flat_y)
 
