@@ -23,7 +23,6 @@ def main(args):
 
     logging.info('Building Tensorflow model...')
     strategy = tf.distribute.MirroredStrategy()
-    logging.info(f'Number of devices: {strategy.num_replicas_in_sync}')
 
     with strategy.scope():
         resmico = Models.Resmico(args)
@@ -53,11 +52,11 @@ def main(args):
     # create data generators for training data and evaluation data
     train_data = Models.BinaryData(reader, train_idx, args.batch_size, args.features, args.max_len, args.fraq_neg)
 
-    # convert the slow Keras train_data to a tf.data object
-    # first, convert the keras sequence into a generator-like object
+    # convert the slow Keras train_data of type Sequence to a tf.data object
+    # first, we convert the keras sequence into a generator-like object
     data_iter = lambda: (s for s in train_data)
 
-    # then you can use tf.data.Dataset.from_generator
+    # second, we use tf.data.Dataset.from_generator to create a tf.data.Dataset object and use this for training
     train_data_tf = tf.data.Dataset.from_generator(
         data_iter,
         output_signature=(
@@ -66,10 +65,23 @@ def main(args):
 
     # add a prefetch option that builds the next batch ready for consumption by the GPU as it is working on
     # the current batch.
-    train_data_tf = train_data_tf.prefetch(4)
+    train_data_tf = train_data_tf.prefetch(2 * strategy.num_replicas_in_sync)
+
+    # set the sharding policy to DATA in order to avoid Tensorflow ugly console barf
+    options = tf.data.Options()
+    options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
+    train_data_tf = train_data_tf.with_options(options)
 
     eval_data = Models.BinaryDataEval(reader, eval_idx, args.features, args.max_len, args.max_len // 2, 500000)
     eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_data.indices])
+
+    # convert the slow Keras eval_data of type Sequence to a tf.data object
+    data_iter = lambda: (s for s in eval_data)
+    eval_data_tf = tf.data.Dataset.from_generator(
+        data_iter,
+        output_signature=(tf.TensorSpec(shape=(None, None, len(args.features)), dtype=tf.float32)))
+    eval_data_tf = eval_data_tf.prefetch(2 * strategy.num_replicas_in_sync)
+    eval_data_tf = eval_data_tf.with_options(options)  # avoids Tensorflow ugly console barfT
 
     logging.info('Training network...')
     num_epochs = 2  # todo: last run monitor more often
@@ -81,14 +93,17 @@ def main(args):
                         workers=args.n_procs,
                         use_multiprocessing=True,
                         max_queue_size=max(args.n_procs, 10),
-                        # callbacks=[mc, tb_logs],
+                        callbacks=[mc, tb_logs],
                         verbose=2)
         duration = time.time() - start
         logging.info(f'Fitted {num_epochs} epochs in {duration:.0f}s')
+        train_data.on_epoch_end()
 
         logging.info('Starting validation')
         start = time.time()
-        eval_data_flat_y = resmico.predict(eval_data, workers=args.n_procs, use_multiprocessing=True,
+        eval_data_flat_y = resmico.predict(x=eval_data_tf,
+                                           workers=args.n_procs,
+                                           use_multiprocessing=True,
                                            max_queue_size=max(args.n_procs, 10))
         eval_data_predicted_y = eval_data.group(eval_data_flat_y)
 

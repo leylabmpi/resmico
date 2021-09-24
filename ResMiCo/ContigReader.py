@@ -103,6 +103,7 @@ class ContigInfo:
     """
     Contains metadata about a single contig.
     """
+
     def __init__(self, name: str, file: str, length: int, offset: int, size_bytes: int, misassembly: int):
         self.name = name
         self.file = file
@@ -117,7 +118,8 @@ class ContigReader:
     Reads contig data from binary files written by ResMiCo-SM.
     """
 
-    def __init__(self, input_dir: str, feature_names: list[str], process_count: int, is_chunked : bool, normalize_stdev: bool = True):
+    def __init__(self, input_dir: str, feature_names: list[str], process_count: int, is_chunked: bool,
+                 normalize_stdev: bool = True):
         """
         Arguments:
             - input_dir: location on disk where the feature data is stored
@@ -138,7 +140,6 @@ class ContigReader:
         self.normalize_stdev = normalize_stdev
 
         self._load_contigs_metadata(input_dir)
-
 
     def __len__(self):
         return len(self.contigs)
@@ -200,7 +201,6 @@ class ContigReader:
                     var = 0
                 self.stdevs[feature_name] = math.sqrt(var) / (cnt ** 2)
                 self.means[feature_name] /= cnt
-        logging.info('Computed global means and stdevs:')
         # print the computed values
         header = ''
         values = ''
@@ -210,7 +210,8 @@ class ContigReader:
                 header += f'{mtype}_{metric}_Match\t\t\t'
                 values += f'{self.means[feature_name]:.2f}/{self.stdevs[feature_name]}\t\t\t'
 
-        print('_' * 300 + '\n', header, '\n', values, '\n', '_' * 300)
+        separator = '_' * 300
+        logging.info('Computed global means and stdevs:\n' + separator +'\n' + header + '\n' + values + '\n' + separator)
 
         contig_count = 0
         for fname in file_list:
@@ -232,7 +233,7 @@ class ContigReader:
 
         logging.info(f'Found {contig_count} contigs')
 
-    def _read_and_normalize(self, contig_info : ContigInfo):
+    def _read_and_normalize(self, contig_info: ContigInfo):
         """
         Reads and normalizes the float features present in features using the precomputed means and standard deviations
         in #mean_stdev
@@ -260,40 +261,6 @@ class ContigReader:
             features[feature_name][nan_pos] = 0
         return features
 
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--i', help='Input directory. All .tsv.gz files will be read recursively.', default='./')
-    parser.add_argument('--p', help='Number of processes to use for parallelization', default=1, type=int)
-    parser.add_argument('--features', help='List of features to pre-process',
-                        default=[
-                            'ref_base',
-                            'num_query_A',
-                            'num_query_C',
-                            'num_query_G',
-                            'num_query_T',
-                            'coverage',
-                            'num_proper_Match',
-                            'num_orphans_Match',
-                            'max_insert_size_Match',
-                            'mean_insert_size_Match',
-                            'min_insert_size_Match',
-                            'stdev_insert_size_Match',
-                            'mean_mapq_Match',
-                            'min_mapq_Match',
-                            'stdev_mapq_Match',
-                            'seq_window_perc_gc',
-                            'num_proper_SNP',
-                            'Extensive_misassembly_by_pos',
-                        ])
-
-    args = parser.parse_args()
-    logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.DEBUG)
-
-    reader = ContigReader(args.i, args.features, args.p)
-    contigs_data = reader.read_contigs(reader.contigs)
 
 if __name__ == '__main__':
     pass
