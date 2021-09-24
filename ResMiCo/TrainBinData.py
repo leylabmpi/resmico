@@ -53,11 +53,11 @@ def main(args):
     # create data generators for training data and evaluation data
     train_data = Models.BinaryData(reader, train_idx, args.batch_size, args.features, args.max_len, args.fraq_neg)
 
-    # convert the slow Keras train_data to a tf.data object
-    # first, convert the keras sequence into a generator-like object
+    # convert the slow Keras train_data of type Sequence to a tf.data object
+    # first, we convert the keras sequence into a generator-like object
     data_iter = lambda: (s for s in train_data)
 
-    # then you can use tf.data.Dataset.from_generator
+    # second, we use tf.data.Dataset.from_generator to create a tf.data.Dataset object and use this for training
     train_data_tf = tf.data.Dataset.from_generator(
         data_iter,
         output_signature=(
@@ -67,6 +67,11 @@ def main(args):
     # add a prefetch option that builds the next batch ready for consumption by the GPU as it is working on
     # the current batch.
     train_data_tf = train_data_tf.prefetch(4)
+
+    # set the sharding policy to DATA in order to avoid Tensorflow ugly console barf
+    options = tf.data.Options()
+    options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
+    train_data_tf.with_options(options)
 
     eval_data = Models.BinaryDataEval(reader, eval_idx, args.features, args.max_len, args.max_len // 2, 500000)
     eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_data.indices])
