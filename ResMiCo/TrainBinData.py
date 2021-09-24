@@ -75,6 +75,18 @@ def main(args):
     eval_data = Models.BinaryDataEval(reader, eval_idx, args.features, args.max_len, args.max_len // 2, 500000)
     eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_data.indices])
 
+    # convert the slow Keras eval_data of type Sequence to a tf.data object
+    data_iter = lambda: (s for s in eval_data)
+    eval_data_tf = tf.data.Dataset.from_generator(
+        data_iter,
+        output_signature=(
+            tf.TensorSpec(shape=(None, None, len(args.features)), dtype=tf.float32)))
+    eval_data_tf = eval_data_tf.prefetch(4)
+    # set the sharding policy to DATA in order to avoid Tensorflow ugly console barf
+    options = tf.data.Options()
+    options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
+    eval_data_tf = eval_data_tf.with_options(options)
+
     logging.info('Training network...')
     num_epochs = 2  # todo: last run monitor more often
     auc_val_best = 0.5
@@ -92,7 +104,7 @@ def main(args):
 
         logging.info('Starting validation')
         start = time.time()
-        eval_data_flat_y = resmico.predict(eval_data, workers=args.n_procs, use_multiprocessing=True,
+        eval_data_flat_y = resmico.predict(eval_data_tf, workers=args.n_procs, use_multiprocessing=True,
                                            max_queue_size=max(args.n_procs, 10))
         eval_data_predicted_y = eval_data.group(eval_data_flat_y)
 
