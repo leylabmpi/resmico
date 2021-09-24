@@ -23,7 +23,6 @@ def main(args):
 
     logging.info('Building Tensorflow model...')
     strategy = tf.distribute.MirroredStrategy()
-    logging.info(f'Number of devices: {strategy.num_replicas_in_sync}')
 
     with strategy.scope():
         resmico = Models.Resmico(args)
