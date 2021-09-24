@@ -52,6 +52,22 @@ def main(args):
 
     # create data generators for training data and evaluation data
     train_data = Models.BinaryData(reader, train_idx, args.batch_size, args.features, args.max_len, args.fraq_neg)
+
+    # convert the slow Keras train_data to a tf.data object
+    # first, convert the keras sequence into a generator-like object
+    data_iter = lambda: (s for s in train_data)
+
+    # then you can use tf.data.Dataset.from_generator
+    train_data_tf = tf.data.Dataset.from_generator(
+        data_iter,
+        output_signature=(
+            tf.TensorSpec(shape=(args.batch_size, None, len(args.features)), dtype=tf.float32),
+            tf.TensorSpec(shape=(args.batch_size), dtype=tf.uint8)))
+
+    # add a prefetch option that builds the next batch ready for consumption by the GPU as it is working on
+    # the current batch.
+    train_data_tf = train_data_tf.prefetch(4)
+
     eval_data = Models.BinaryDataEval(reader, eval_idx, args.features, args.max_len, args.max_len // 2, 500000)
     eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_data.indices])
 
@@ -60,7 +76,7 @@ def main(args):
     auc_val_best = 0.5
     for epoch in range(math.ceil(args.n_epochs / num_epochs)):
         start = time.time()
-        resmico.net.fit(x=train_data,
+        resmico.net.fit(x=train_data_tf,
                         epochs=num_epochs,
                         workers=args.n_procs,
                         use_multiprocessing=True,
