@@ -163,7 +163,7 @@ class Resmico(object):
         return self.net.predict(x, **kwargs)
 
     def print_summary(self):
-        logging.info(f'Network summary:\n{self.net.summary()}')
+        self.net.summary(print_fn=logging.info)
 
     def save(self, path):
         self.net.save(path)
@@ -354,10 +354,10 @@ class BinaryDataEval(tf.keras.utils.Sequence):
             counts = []
             for idx in batch:
                 contig_len = contig_data[idx].length
-                chunk_count = 1 + math.ceil((contig_len - self.window) / self.step)
+                chunk_count = 1 + max(0, math.ceil((contig_len - self.window) / self.step))
                 counts.append(chunk_count)
             chunk_counts.append(counts)
-            logging.debug(f'Added {sum(counts)} contig chunks to evaluation batch')
+            logging.debug(f'Added {len(counts)} contigs with {sum(counts)} chunks to evaluation batch')
         return batch_list, chunk_counts
 
     def group(self, y):
