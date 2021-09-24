@@ -330,17 +330,17 @@ class BinaryDataEval(tf.keras.utils.Sequence):
         # creates batches of contigs such that the total length in each batch is < total_contig_length
         # chunk_counts[batch_count][idx] represents the number of chunks for the contig number #idx
         # in the batch #batch_count
-        self.batch_list, self.chunk_counts = self._create_batch_list(reader.contigs, self.indices, total_contig_length)
+        self.batch_list, self.chunk_counts = self._create_batch_list(reader.contigs, total_contig_length)
 
         # flattened ground truth for each eval contig
         self.y = [0 if self.reader.contigs[i].misassembly == 0 else 1 for b in self.batch_list for i in b]
 
-    def _create_batch_list(self, contig_data: list[ContigInfo], indices: list[int], total_contig_length: int):
-        """ Divide the validation indices into mini-batches of maximum (contig) size #self.total_contig_length """
+    def _create_batch_list(self, contig_data: list[ContigInfo], total_contig_length: int):
+        """ Divide the validation indices into mini-batches of total contig length < #total_contig_length """
         current_indices = []
         current_length = 0
         result = []
-        for idx in indices:
+        for idx in self.indices:
             if current_length + contig_data[idx].length > total_contig_length:
                 result.append(current_indices)
                 current_indices = []
