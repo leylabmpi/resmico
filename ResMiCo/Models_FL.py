@@ -1,4 +1,5 @@
 import logging
+import math
 import time
 from timeit import default_timer as timer
 
@@ -162,7 +163,7 @@ class Resmico(object):
         return self.net.predict(x, **kwargs)
 
     def print_summary(self):
-        logging.info(self.net.summary())
+        logging.info(f'Network summary:\n{self.net.summary()}')
 
     def save(self, path):
         self.net.save(path)
@@ -327,13 +328,14 @@ class BinaryDataEval(tf.keras.utils.Sequence):
         self.indices = indices
         self.feature_names = feature_names
         # creates batches of contigs such that the total length in each batch is < total_contig_length
-        self.batch_list = self._create_batch_list(reader.contigs, self.indices, total_contig_length)
-        # idx_map[batch_count][idx] represents the number of chunks for the contig number #idx in the batch #batch_count
-        self.chunk_counts = [[] for _ in range(len(self.batch_list))]
+        # chunk_counts[batch_count][idx] represents the number of chunks for the contig number #idx
+        # in the batch #batch_count
+        self.batch_list, self.chunk_counts = self._create_batch_list(reader.contigs, self.indices, total_contig_length)
+
         # flattened ground truth for each eval contig
         self.y = [0 if self.reader.contigs[i].misassembly == 0 else 1 for b in self.batch_list for i in b]
 
-    def _create_batch_list(self, contig_data, indices, total_contig_length):
+    def _create_batch_list(self, contig_data: list[ContigInfo], indices: list[int], total_contig_length: int):
         """ Divide the validation indices into mini-batches of maximum (contig) size #self.total_contig_length """
         current_indices = []
         current_length = 0
@@ -346,7 +348,16 @@ class BinaryDataEval(tf.keras.utils.Sequence):
             current_length += contig_data[idx].length
             current_indices.append(idx)
         result.append(current_indices)
-        return result
+
+        chunk_counts = []
+        for batch in result:
+            counts = []
+            for idx in batch:
+                contig_len = contig_data[idx].length
+                chunk_count = 1 + math.ceil((contig_len - self.window) / self.step)
+                counts.append(chunk_count)
+            chunk_counts.append(counts)
+        return result, chunk_counts
 
     def group(self, y):
         """
@@ -363,7 +374,7 @@ class BinaryDataEval(tf.keras.utils.Sequence):
         for batch in self.chunk_counts:
             total_len += sum(batch)
             grouped_y_size += len(batch)
-        assert len(y) == total_len, f'y has length {len(y)}, idx_map total length is {total_len}'
+        assert len(y) == total_len, f'y has length {len(y)}, chunk_counts total length is {total_len}'
         assert grouped_y_size == len(self.indices), \
             f'Index map has {grouped_y_size} elements, while indices has {len(self.indices)} elements'
         grouped_y = np.zeros(len(self.indices))
@@ -395,7 +406,6 @@ class BinaryDataEval(tf.keras.utils.Sequence):
         max_len = min(max_contig_len, self.window)
 
         x = []
-        counts = []
         # traverse all contig features, break down into multiple contigs if too long, and create a numpy 3D array
         # of shape (contig_count, max_len, num_features) to be used for evaluation
         for i, contig_features in enumerate(features_data):
@@ -404,20 +414,20 @@ class BinaryDataEval(tf.keras.utils.Sequence):
             assert contig_len == len(contig_features[self.feature_names[0]])
             start_idx = 0
             count = 0
-            while start_idx == 0 or start_idx + (self.window - self.step) < contig_len:
+            while True:
                 np_data = np.zeros((max_len, len(self.feature_names)))
 
                 end_idx = start_idx + self.window
                 for j, feature_name in enumerate(self.feature_names):
                     to_merge[j] = contig_features[feature_name][start_idx:end_idx]
                 start_idx += self.step
-                stacked_features = np.stack(to_merge, axis=-1);
+                stacked_features = np.stack(to_merge, axis=-1)
                 # each feature becomes a column in x[i]
                 np_data[:stacked_features.shape[0], :stacked_features.shape[1]] = stacked_features
                 x.append(np_data)
                 count += 1
-            counts.append(count)
-        self.chunk_counts[batch_idx] = counts
+                if end_idx >= contig_len:
+                    break
         assert (len(x) == sum(self.chunk_counts[batch_idx])), f'{len(x)} vs {sum(self.chunk_counts[batch_idx])}'
         logging.info(f'Batch with {len(x)} contigs generated in {(timer() - start):5.2f}s')
         return np.array(x)
