@@ -339,25 +339,26 @@ class BinaryDataEval(tf.keras.utils.Sequence):
         """ Divide the validation indices into mini-batches of total contig length < #total_contig_length """
         current_indices = []
         current_length = 0
-        result = []
+        batch_list = []
         for idx in self.indices:
             if current_length + contig_data[idx].length > total_contig_length:
-                result.append(current_indices)
+                batch_list.append(current_indices)
                 current_indices = []
                 current_length = 0
             current_length += contig_data[idx].length
             current_indices.append(idx)
-        result.append(current_indices)
+        batch_list.append(current_indices)
 
         chunk_counts = []
-        for batch in result:
+        for batch in batch_list:
             counts = []
             for idx in batch:
                 contig_len = contig_data[idx].length
                 chunk_count = 1 + math.ceil((contig_len - self.window) / self.step)
                 counts.append(chunk_count)
             chunk_counts.append(counts)
-        return result, chunk_counts
+            logging.debug(f'Added {sum(counts)} contig chunks to evaluation batch')
+        return batch_list, chunk_counts
 
     def group(self, y):
         """
