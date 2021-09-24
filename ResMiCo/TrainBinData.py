@@ -70,7 +70,7 @@ def main(args):
     # set the sharding policy to DATA in order to avoid Tensorflow ugly console barf
     options = tf.data.Options()
     options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
-    train_data_tf.with_options(options)
+    train_data_tf = train_data_tf.with_options(options)
 
     eval_data = Models.BinaryDataEval(reader, eval_idx, args.features, args.max_len, args.max_len // 2, 500000)
     eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_data.indices])

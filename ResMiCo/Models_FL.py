@@ -162,7 +162,7 @@ class Resmico(object):
         return self.net.predict(x, **kwargs)
 
     def print_summary(self):
-        print(self.net.summary())
+        logging.info(self.net.summary())
 
     def save(self, path):
         self.net.save(path)
