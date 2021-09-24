@@ -59,7 +59,7 @@ def compute_sum_sumsq_n(featurefiles_table, n_feat=18):
                 n_el += xi.shape[0]
 
     path = os.path.split(featurefiles_table)[0]
-    np.save(path + '/mean_std', [feat_sum, feat_sq_sum, n_el])
+    np.save(path + '/mean_std', np.array([feat_sum, feat_sq_sum, n_el], dtype=object))
     return
 
 
@@ -481,17 +481,21 @@ def pickle_data_b(features_in, set_target=True):
         w_mean_mq = col_names.index('mean_mapq_Match')
         w_min_mq = col_names.index('min_mapq_Match')
         w_std_mq = col_names.index('stdev_mapq_Match')
+        w_mean_al = col_names.index('mean_al_score_Match')
+        w_min_al = col_names.index('min_al_score_Match')
+        w_std_al = col_names.index('stdev_al_score_Match')       
         w_gc = col_names.index('seq_window_perc_gc')  # try without
         w_npropV = col_names.index('num_proper_SNP')
         w_cov = col_names.index('coverage')
 
         w_features = [w_max_is, w_min_is, w_mean_is, w_std_is,
                       w_min_mq, w_mean_mq, w_std_mq,
+                      w_min_al, w_mean_al, w_std_al,
                       w_gc,
                       w_cov]
 
         w_num_features = [w_npropM, w_orpM, w_npropV]
-        nf = 20  # 4 for reference features, 4 count features, 12 important features
+        nf = 23  # 4 for reference features, 4 count features, 12 important features, 3 'al_score'
 
         # formatting rows
         for row in tsv:
