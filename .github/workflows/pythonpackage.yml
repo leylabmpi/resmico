@@ -64,6 +64,7 @@ jobs:
       shell: bash
       working-directory: ${{runner.workspace}}/ResMiCo/tests
       run: |
+        pip install pytest
         pytest ./test_Models_FL.py ./test_ContigReader.py
 #    - name: pytest
 #      shell: bash -l {0}
