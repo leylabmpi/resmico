@@ -60,11 +60,11 @@ jobs:
         conda info -a
         conda env update -f conda_env.yaml python=${{ matrix.python-version }}
         conda list
+        conda activate /usr/share/miniconda3/envs/resmico
     - name: test_resmico
       shell: bash
       working-directory: ${{runner.workspace}}/ResMiCo/tests
       run: |
-        pip install pytest
         pytest ./test_Models_FL.py ./test_ContigReader.py
 #    - name: pytest
 #      shell: bash -l {0}
