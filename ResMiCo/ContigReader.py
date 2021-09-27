@@ -30,8 +30,11 @@ feature_names = ['ref_base_A', 'ref_base_C', 'ref_base_G', 'ref_base_T', 'covera
                 + ['num_proper_SNP', 'seq_window_perc_gc', 'Extensive_misassembly_by_pos']
 
 
-def _replace_with_nan(arr, v):
+def _replace_with_nan(data, feature_name, v):
     """Replaces all elements in arr that are equal to v with np.nan"""
+    if feature_name not in data:
+        return
+    arr = data[feature_name]
     arr[arr == v] = np.nan
 
 
@@ -82,22 +85,22 @@ def _read_contig_data(feature_file_name: str, offset: int, feature_names: list[s
         _read_feature(f, data, 'mean_insert_size_Match', 4 * contig_size, np.float32, feature_names)
         _read_feature(f, data, 'stdev_insert_size_Match', 4 * contig_size, np.float32, feature_names)
         _read_feature(f, data, 'max_insert_size_Match', 2 * contig_size, np.uint16, feature_names)
-        _replace_with_nan(data['min_insert_size_Match'], 65535)
-        _replace_with_nan(data['max_insert_size_Match'], 65535)
+        _replace_with_nan(data, 'min_insert_size_Match', 65535)
+        _replace_with_nan(data, 'max_insert_size_Match', 65535)
 
         _read_feature(f, data, 'min_mapq_Match', contig_size, np.uint8, feature_names)
         _read_feature(f, data, 'mean_mapq_Match', 4 * contig_size, np.float32, feature_names)
         _read_feature(f, data, 'stdev_mapq_Match', 4 * contig_size, np.float32, feature_names)
         _read_feature(f, data, 'max_mapq_Match', contig_size, np.uint8, feature_names)
-        _replace_with_nan(data['min_mapq_Match'], 255)
-        _replace_with_nan(data['max_mapq_Match'], 255)
+        _replace_with_nan(data, 'min_mapq_Match', 255)
+        _replace_with_nan(data, 'max_mapq_Match', 255)
 
         _read_feature(f, data, 'min_al_score_Match', contig_size, np.int8, feature_names)
         _read_feature(f, data, 'mean_al_score_Match', 4 * contig_size, np.float32, feature_names)
         _read_feature(f, data, 'stdev_al_score_Match', 4 * contig_size, np.float32, feature_names)
         _read_feature(f, data, 'max_al_score_Match', contig_size, np.int8, feature_names)
-        _replace_with_nan(data['min_al_score_Match'], 127)
-        _replace_with_nan(data['max_al_score_Match'], 127)
+        _replace_with_nan(data, 'min_al_score_Match', 127)
+        _replace_with_nan(data, 'max_al_score_Match', 127)
 
         _read_feature(f, data, 'num_proper_Match', 2 * contig_size, np.uint16, feature_names, 10000)
         _read_feature(f, data, 'num_orhpans_Match', 2 * contig_size, np.uint16, feature_names, 10000)
