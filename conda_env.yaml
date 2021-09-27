@@ -10,7 +10,7 @@ dependencies:
 - pathos
 - pytables
 - pytest
-- python>=3.6
+- python>=3.9
 - pandas>=1.1.2
 - scikit-learn
 - snakemake>=5.31.1
