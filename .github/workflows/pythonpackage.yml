@@ -50,10 +50,6 @@ jobs:
         python-version: ${{ matrix.python-version }}
         channels: conda-forge,bioconda
         activate-environment: resmico
-    - name: Checkout repository
-      uses: actions/checkout@v2
-    - name: Checkout submodules
-      run: git submodule update --init --recursive
     - name: conda env setup
       shell: bash -l {0}
       run: |
@@ -62,7 +58,7 @@ jobs:
         conda list
         conda activate /usr/share/miniconda3/envs/resmico
     - name: test_resmico
-      shell: bash
+      shell: bash -l {0}
       working-directory: ${{runner.workspace}}/ResMiCo/tests
       run: |
         pytest ./test_Models_FL.py ./test_ContigReader.py
