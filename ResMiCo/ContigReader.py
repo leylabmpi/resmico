@@ -148,14 +148,12 @@ class ContigReader:
         Reads the features from the given contig feature files and returns the result in a list of len(contig_files)
         arrays of shape (contig_len, num_features).
         """
-        start = timer()
         # pool = Pool(self.process_count)
         result = []
         # TODO: try using pool.map() instead for larger batch-sizes; for the small test set, not using a pool
         #  is 100x faster (probably bc. mini-batch size is only 6)
         for contig_data in map(self._read_and_normalize, contig_infos):
             result.append(contig_data)
-        logging.info(f'Contigs read in {(timer() - start):5.2f}s')
         return result
 
     def _load_contigs_metadata(self, input_dir):
@@ -239,10 +237,12 @@ class ContigReader:
         Parameters:
             contig_info: the metadata of the contig to be loaded
         """
-
+        start = timer()
         # features is a map from feature name (e.g. 'coverage') to a numpy array containing the feature
         # logging.debug(f'Reading contig {contig_info.name} from {contig_info.file} at offset {contig_info.offset}')
         features = _read_contig_data(contig_info.file, contig_info.offset, self.feature_names)
+        logging.info(f'Contigs read in {(timer() - start):5.2f}s')
+        start = timer()
         for feature_name in float_feature_names:
             if feature_name not in features:
                 continue
@@ -258,6 +258,7 @@ class ContigReader:
             # replace NANs with 0 (the new mean)
             nan_pos = np.isnan(features[feature_name])
             features[feature_name][nan_pos] = 0
+        logging.info(f'Contigs normalized in {(timer() - start):5.2f}s')
         return features
 
 
