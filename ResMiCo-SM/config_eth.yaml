@@ -1,0 +1,91 @@
+# Input table
+## Table of genomes
+genomes_file: /cluster/home/ddanciu/deepmased/test_genomes/ref_genome_n10/genomes_n10.tsv
+## If using pre-generated reads
+reads_file: Skip
+
+# Output directory
+output_dir: /cluster/home/ddanciu/deepmased/test_genomes/ref_genome_n10_out/
+
+# Temporary output directory (/dev/shm/ for shared memory)
+tmp_dir: /cluster/home/ddanciu/deepmased/tmp
+
+# Email for notifications ("Skip" to skip)
+email: ddanciu@ethz.ch
+
+# software parameters for data simulations
+## Use "Skip" to skip  steps. If no params for rule, use ""
+## `reps:` is the number of replicate simulations
+## If `keep_reads: True`, then simulated reads are kept
+params:
+  ionice: -c 3
+  # simulating metagenomes
+  MGSIM:
+    genome_download: ""
+    sim_reps: 3
+    community:
+      richness:
+        - 0.8
+      abundance_distribution:
+        - "mean:10,sigma:2"
+      random_seed: 8192
+      other_sim_params: ""
+    reads:
+      length:
+        - 100
+        - 150
+      depth:
+        - 1000000
+      other_sim_params: --art-paired --art-mflen 270 --art-sdev 50 --rndSeed 8712
+      skewer: -n -l 70 -q 25
+      keep_reads: True # False
+  # coverage
+  nonpareil:
+    params: -T kmer
+    summary: 1e9   # this is target seq. depth
+  # assemblying metagenomes
+  assemblers:
+    metaspades: -k auto --only-assembler
+    megahit: --min-count 1 --min-contig-len 1000
+  # assembly filtering
+  contigs:
+    length_cutoff: 1000       # length in bp
+  # assessing assembly errors
+  asmbl_errors:
+    metaquast: --max-ref-number 0 --min-contig 1000 --min-identity 95 --extensive-mis-size 100
+               --no-html --no-plots --no-icarus --no-gc --no-snps --no-sv
+  # mapping reads to contigs
+  map:
+    samtools: ""
+    bowtie2: ""
+    max_coverage: 20
+    keep_bam: True
+  # creating ResMiCo feature tables
+  feature_table:
+    make: --window 6
+  # state-of-the-art
+  SotA:
+    ALE: ""
+    VALET: ""
+    metaMIC:
+      extract: --mlen 1000
+      predict: --mlen 1000 --slen 500 -a MEGAHIT
+
+# params just for creating feature tables for non-simulated data
+nonsim_params:
+  # max number of reads to use
+  subsample_reads: 5000000
+  # read quality filtering
+  skewer: -n -l 70 -q 25
+  # max per-contig coverage
+  max_coverage: 20
+  # keep bam files?
+  keep_bam: True
+  # feature tables
+  make_features: --window 6
+
+# snakemake pipeline
+pipeline:
+  snakemake_folder: ./
+  script_folder: ./bin/scripts/
+  name: ResMiCo-SM
