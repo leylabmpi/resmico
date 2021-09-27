@@ -1138,7 +1138,7 @@ def _read_label_from_file(f, samples):
 
 
 def read_all_labels(samples_dict):
-    files_dict = itertoolz.groupby(lambda t: t[1], list(itertoolz.map(
+    files_dict = itertoolz.groupby(lambda t: t[1], list(map( #itertoolz.
         lambda s: (s, samples_dict[s]), samples_dict.keys())))
     y = []
     for f, samples in files_dict.items():
@@ -1159,7 +1159,7 @@ def _read_len_from_file(f, samples):
 
 def read_all_lens(samples_dict):
     # works only when no samples missing from the file
-    files_dict = itertoolz.groupby(lambda t: t[1], list(itertoolz.map(
+    files_dict = itertoolz.groupby(lambda t: t[1], list(map( #itertoolz.
         lambda s: (s, samples_dict[s]), samples_dict.keys())))
     y = []
     for f, samples in files_dict.items():

@@ -495,7 +495,7 @@ class GeneratorBigD(tf.keras.utils.Sequence):
         sample_keys = np.array(list(self.data_dict.keys()))[indices_tmp]
         # files to process
         files_dict = itertoolz.groupby(lambda t: t[1],
-                                       list(itertoolz.map(lambda s: (s, self.data_dict[s]), sample_keys)))
+                                       list(map(lambda s: (s, self.data_dict[s]), sample_keys))) #itertoolz.
         # for every file, associate a random number, which can be used to construct random number to sample a range
 
         file_seeds = np.random.randint(0, 1000000, len(files_dict.items()))
@@ -561,7 +561,7 @@ class GeneratorPredLong(tf.keras.utils.Sequence):
     def generate(self, ind):
         sample_keys = np.array(list(self.data_dict.keys()))[self.batch_list[ind]]
         files_dict = itertoolz.groupby(lambda t: t[1], list(
-            itertoolz.map(lambda s: (s, self.data_dict[s]), sample_keys)))
+            map(lambda s: (s, self.data_dict[s]), sample_keys))) #itertoolz.
         # attention: grouping can change order, it is important that indices are sorted
         X = Utils.load_full_contigs(files_dict)
 
@@ -594,7 +594,7 @@ class GeneratorFullLen(tf.keras.utils.Sequence):
     def generate(self, ind):
         sample_keys = np.array(list(self.data_dict.keys()))[self.batch_list[ind]]
         files_dict = itertoolz.groupby(lambda t: t[1], list(
-            itertoolz.map(lambda s: (s, self.data_dict[s]), sample_keys)))
+            map(lambda s: (s, self.data_dict[s]), sample_keys))) #itertoolz.
         X = Utils.load_full_contigs(files_dict)
 
         max_len = max([self.all_lens[cont_ind] for cont_ind in self.batch_list[ind]])
@@ -630,7 +630,7 @@ class Generator_v1(tf.keras.utils.Sequence):
     def generate(self, ind):
         sample_keys = np.array(list(self.data_dict.keys()))[self.batch_list[ind]]
         files_dict = itertoolz.groupby(lambda t: t[1], list(
-            itertoolz.map(lambda s: (s, self.data_dict[s]), sample_keys)))
+            map(lambda s: (s, self.data_dict[s]), sample_keys))) #itertoolz.
         X = Utils.load_full_contigs(files_dict)
 
         batch_size = 0

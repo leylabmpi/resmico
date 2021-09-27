@@ -22,7 +22,7 @@ class Config(object):
         self.n_conv = args.n_conv
         self.n_fc = args.n_fc
         self.n_hid = args.n_hid
-        self.n_feat = args.n_feat
+        self.features = args.features
         # self.pool_window = args.pool_window
         self.dropout = args.dropout
         self.lr_init = args.lr_init
