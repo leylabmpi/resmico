@@ -2,7 +2,7 @@ name: ResMiCo
 
 on:
   push:
-    branches: [ master ]
+    branches: [ all ]
   pull_request:
     branches: [ master ]
 
