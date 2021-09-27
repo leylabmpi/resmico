@@ -45,7 +45,6 @@ def _read_contig_data(feature_file_name: str, offset: int, feature_names: list[s
     Returns:
          - a map from feature name to feature data
     """
-    logging.debug(f'Reading {feature_file_name}')
     data = {}
     input_file = open(feature_file_name, mode='rb')
     input_file.seek(offset)
@@ -156,7 +155,7 @@ class ContigReader:
         #  is 100x faster (probably bc. mini-batch size is only 6)
         for contig_data in map(self._read_and_normalize, contig_infos):
             result.append(contig_data)
-        logging.debug(f'Contigs read in {(timer() - start):5.2f}s')
+        logging.info(f'Contigs read in {(timer() - start):5.2f}s')
         return result
 
     def _load_contigs_metadata(self, input_dir):
@@ -242,7 +241,7 @@ class ContigReader:
         """
 
         # features is a map from feature name (e.g. 'coverage') to a numpy array containing the feature
-        logging.debug(f'Reading contig {contig_info.name} from {contig_info.file} at offset {contig_info.offset}')
+        # logging.debug(f'Reading contig {contig_info.name} from {contig_info.file} at offset {contig_info.offset}')
         features = _read_contig_data(contig_info.file, contig_info.offset, self.feature_names)
         for feature_name in float_feature_names:
             if feature_name not in features:
