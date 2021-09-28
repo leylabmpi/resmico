@@ -340,6 +340,7 @@ class BinaryDataEval(tf.keras.utils.Sequence):
         # flattened ground truth for each eval contig
         self.y = [0 if self.reader.contigs[i].misassembly == 0 else 1 for b in self.batch_list for i in b]
         # the cached results
+        self.cache_results = cache_results
         if cache_results:
             self.data = [None] * len(self.batch_list)
 
@@ -402,7 +403,7 @@ class BinaryDataEval(tf.keras.utils.Sequence):
     def __getitem__(self, batch_idx: int):
         """ Return the mini-batch at index #index """
         logging.info(f'Evaluating: {batch_idx}/{len(self.batch_list)}')
-        if self.data and self.data[batch_idx] is not None:
+        if self.cache_results and self.data[batch_idx] is not None:
             return self.data[batch_idx]
         start = timer()
         # files to process
@@ -441,7 +442,8 @@ class BinaryDataEval(tf.keras.utils.Sequence):
         assert (len(x) == sum(self.chunk_counts[batch_idx])), f'{len(x)} vs {sum(self.chunk_counts[batch_idx])}'
         logging.info(f'Batch with {len(x)} contigs generated in {(timer() - start):5.2f}s')
         result = np.array(x)
-        self.data[batch_idx] = result
+        if self.cache_results:
+            self.data[batch_idx] = result
         return result
 
 
