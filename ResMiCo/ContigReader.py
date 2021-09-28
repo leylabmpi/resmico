@@ -1,11 +1,10 @@
-import argparse
 import csv
 import gzip
 import json
 import logging
 import math
 import os
-from multiprocessing import Pool
+# from multiprocessing import Pool
 from pathlib import Path
 from timeit import default_timer as timer
 import struct
@@ -131,8 +130,6 @@ class ContigReader:
     Reads contig data from binary files written by ResMiCo-SM.
     """
 
-    pool = None
-
     def __init__(self, input_dir: str, feature_names: list[str], process_count: int, is_chunked: bool,
                  normalize_stdev: bool = True):
         """
@@ -151,7 +148,6 @@ class ContigReader:
 
         self.feature_names = feature_names
         self.process_count = process_count
-        ContigReader.pool = Pool(self.process_count)
         self.is_chunked = is_chunked
         self.normalize_stdev = normalize_stdev
 
