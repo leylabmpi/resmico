@@ -151,7 +151,7 @@ class ContigReader:
 
         self.feature_names = feature_names
         self.process_count = process_count
-        pool = Pool(self.process_count)
+        ContigReader.pool = Pool(self.process_count)
         self.is_chunked = is_chunked
         self.normalize_stdev = normalize_stdev
 
