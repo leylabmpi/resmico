@@ -402,7 +402,7 @@ class BinaryDataEval(tf.keras.utils.Sequence):
     def __getitem__(self, batch_idx: int):
         """ Return the mini-batch at index #index """
         logging.info(f'Evaluating: {batch_idx}/{len(self.batch_list)}')
-        if self.data[batch_idx] is not None:
+        if self.data and self.data[batch_idx] is not None:
             return self.data[batch_idx]
         start = timer()
         # files to process
