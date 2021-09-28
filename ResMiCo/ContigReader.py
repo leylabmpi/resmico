@@ -131,6 +131,8 @@ class ContigReader:
     Reads contig data from binary files written by ResMiCo-SM.
     """
 
+    pool = None
+
     def __init__(self, input_dir: str, feature_names: list[str], process_count: int, is_chunked: bool,
                  normalize_stdev: bool = True):
         """
@@ -149,6 +151,7 @@ class ContigReader:
 
         self.feature_names = feature_names
         self.process_count = process_count
+        pool = Pool(self.process_count)
         self.is_chunked = is_chunked
         self.normalize_stdev = normalize_stdev
 
@@ -173,7 +176,7 @@ class ContigReader:
         result = []
         # TODO: try using pool.map() instead for larger batch-sizes; for the small test set, not using a pool
         #  is 100x faster (probably bc. mini-batch size is only 6)
-        for contig_data in map(self._read_and_normalize, contig_infos):
+        for contig_data in ContigReader.pool.map(self._read_and_normalize, contig_infos):
             result.append(contig_data)
         logging.info(f'Contigs read in {(timer() - start):5.2f}s; read: {self.read_time:5.2f}s '
                      f'normalize: {self.normalize_time:5.2f}s')
