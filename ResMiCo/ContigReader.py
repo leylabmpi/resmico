@@ -222,7 +222,7 @@ class ContigReader:
                 var = cnt * self.stdevs[feature_name] - self.means[feature_name] ** 2
                 if -0.1 < var < 0:  # fix small rounding errors that may lead to negative values
                     var = 0
-                self.stdevs[feature_name] = math.sqrt(var) / (cnt ** 2)
+                self.stdevs[feature_name] = math.sqrt(var) / cnt
                 self.means[feature_name] /= cnt
         # print the computed values
         header = ''
