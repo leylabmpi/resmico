@@ -72,8 +72,7 @@ def main(args):
     options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
     train_data_tf = train_data_tf.with_options(options)
 
-    eval_data = Models.BinaryDataEval(reader, eval_idx, args.features, args.max_len, args.max_len // 2, 500000,
-                                      args.cache)
+    eval_data = Models.BinaryDataEval(reader, eval_idx, args.features, args.max_len, args.max_len // 2, 500000)
     eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_data.indices])
 
     # convert the slow Keras eval_data of type Sequence to a tf.data object

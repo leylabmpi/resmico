@@ -4,7 +4,6 @@ import gzip
 import json
 import logging
 import math
-import os
 from multiprocessing import Pool
 from pathlib import Path
 from timeit import default_timer as timer
@@ -30,22 +29,9 @@ feature_names = ['ref_base_A', 'ref_base_C', 'ref_base_G', 'ref_base_T', 'covera
                 + ['num_proper_SNP', 'seq_window_perc_gc', 'Extensive_misassembly_by_pos']
 
 
-def _replace_with_nan(data, feature_name, v):
+def _replace_with_nan(arr, v):
     """Replaces all elements in arr that are equal to v with np.nan"""
-    if feature_name not in data:
-        return
-    arr = data[feature_name]
     arr[arr == v] = np.nan
-
-
-def _read_feature(file: gzip.GzipFile, data, feature_name: str, bytes: int, dtype, feature_names: list[str],
-                  normalize_by: int = 1):
-    if feature_name not in feature_names:
-        file.seek(bytes, os.SEEK_CUR)
-        return
-    data[feature_name] = np.frombuffer(file.read(bytes), dtype=dtype).astype(np.float32)
-    if normalize_by != 1:
-        data[feature_name] /= 10000
 
 
 def _read_contig_data(feature_file_name: str, offset: int, feature_names: list[str]):
@@ -59,6 +45,7 @@ def _read_contig_data(feature_file_name: str, offset: int, feature_names: list[s
     Returns:
          - a map from feature name to feature data
     """
+    logging.debug(f'Reading {feature_file_name}')
     data = {}
     input_file = open(feature_file_name, mode='rb')
     input_file.seek(offset)
@@ -74,39 +61,39 @@ def _read_contig_data(feature_file_name: str, offset: int, feature_names: list[s
         # everything is converted to float32, because frombuffer creates an immutable array, so the int values need to
         # be made mutable (in order to convert from fixed point back to float) and the float values need to be copied
         # (in order to make them writeable for normalization)
-        _read_feature(f, data, 'num_query_A', 2 * contig_size, np.uint16, feature_names, 10000)
-        _read_feature(f, data, 'num_query_C', 2 * contig_size, np.uint16, feature_names, 10000)
-        _read_feature(f, data, 'num_query_G', 2 * contig_size, np.uint16, feature_names, 10000)
-        _read_feature(f, data, 'num_query_T', 2 * contig_size, np.uint16, feature_names, 10000)
-        _read_feature(f, data, 'num_SNPs', 2 * contig_size, np.uint16, feature_names, 10000)
-        _read_feature(f, data, 'num_discordant', 2 * contig_size, np.uint16, feature_names, 10000)
+        data['num_query_A'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32) / 10000
+        data['num_query_C'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32) / 10000
+        data['num_query_G'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32) / 10000
+        data['num_query_T'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32) / 10000
+        data['num_SNPs'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32) / 10000
+        data['num_discordant'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32) / 10000
 
-        _read_feature(f, data, 'min_insert_size_Match', 2 * contig_size, np.uint16, feature_names)
-        _read_feature(f, data, 'mean_insert_size_Match', 4 * contig_size, np.float32, feature_names)
-        _read_feature(f, data, 'stdev_insert_size_Match', 4 * contig_size, np.float32, feature_names)
-        _read_feature(f, data, 'max_insert_size_Match', 2 * contig_size, np.uint16, feature_names)
-        _replace_with_nan(data, 'min_insert_size_Match', 65535)
-        _replace_with_nan(data, 'max_insert_size_Match', 65535)
+        data['min_insert_size_Match'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32)
+        data['mean_insert_size_Match'] = np.frombuffer(f.read(4 * contig_size), dtype=np.float32).astype(np.float32)
+        data['stdev_insert_size_Match'] = np.frombuffer(f.read(4 * contig_size), dtype=np.float32).astype(np.float32)
+        data['max_insert_size_Match'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32)
+        _replace_with_nan(data['min_insert_size_Match'], 65535)
+        _replace_with_nan(data['max_insert_size_Match'], 65535)
 
-        _read_feature(f, data, 'min_mapq_Match', contig_size, np.uint8, feature_names)
-        _read_feature(f, data, 'mean_mapq_Match', 4 * contig_size, np.float32, feature_names)
-        _read_feature(f, data, 'stdev_mapq_Match', 4 * contig_size, np.float32, feature_names)
-        _read_feature(f, data, 'max_mapq_Match', contig_size, np.uint8, feature_names)
-        _replace_with_nan(data, 'min_mapq_Match', 255)
-        _replace_with_nan(data, 'max_mapq_Match', 255)
+        data['min_mapq_Match'] = np.frombuffer(f.read(contig_size), dtype=np.uint8).astype(np.float32)
+        data['mean_mapq_Match'] = np.frombuffer(f.read(4 * contig_size), dtype=np.float32).astype(np.float32)
+        data['stdev_mapq_Match'] = np.frombuffer(f.read(4 * contig_size), dtype=np.float32).astype(np.float32)
+        data['max_mapq_Match'] = np.frombuffer(f.read(contig_size), dtype=np.uint8).astype(np.float32)
+        _replace_with_nan(data['min_mapq_Match'], 255)
+        _replace_with_nan(data['max_mapq_Match'], 255)
 
-        _read_feature(f, data, 'min_al_score_Match', contig_size, np.int8, feature_names)
-        _read_feature(f, data, 'mean_al_score_Match', 4 * contig_size, np.float32, feature_names)
-        _read_feature(f, data, 'stdev_al_score_Match', 4 * contig_size, np.float32, feature_names)
-        _read_feature(f, data, 'max_al_score_Match', contig_size, np.int8, feature_names)
-        _replace_with_nan(data, 'min_al_score_Match', 127)
-        _replace_with_nan(data, 'max_al_score_Match', 127)
+        data['min_al_score_Match'] = np.frombuffer(f.read(contig_size), dtype=np.int8).astype(np.float32)
+        data['mean_al_score_Match'] = np.frombuffer(f.read(4 * contig_size), dtype=np.float32).astype(np.float32)
+        data['stdev_al_score_Match'] = np.frombuffer(f.read(4 * contig_size), dtype=np.float32).astype(np.float32)
+        data['max_al_score_Match'] = np.frombuffer(f.read(contig_size), dtype=np.int8).astype(np.float32)
+        _replace_with_nan(data['min_al_score_Match'], 127)
+        _replace_with_nan(data['max_al_score_Match'], 127)
 
-        _read_feature(f, data, 'num_proper_Match', 2 * contig_size, np.uint16, feature_names, 10000)
-        _read_feature(f, data, 'num_orphans_Match', 2 * contig_size, np.uint16, feature_names, 10000)
-        _read_feature(f, data, 'num_proper_SNP', 2 * contig_size, np.uint16, feature_names, 10000)
-        _read_feature(f, data, 'seq_window_perc_gc', 4 * contig_size, np.float32, feature_names)
-        _read_feature(f, data, 'Extensive_misassembly_by_pos', contig_size, np.uint8, feature_names)
+        data['num_proper_Match'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32) / 10000
+        data['num_orphans_Match'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32) / 10000
+        data['num_proper_SNP'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32) / 10000
+        data['seq_window_perc_gc'] = np.frombuffer(f.read(4 * contig_size), dtype=np.float32).astype(np.float32)
+        data['Extensive_misassembly_by_pos'] = np.frombuffer(f.read(contig_size), dtype=np.uint8).astype(np.float32)
     # keep desired features only
     result = {f: data[f] for f in feature_names}
     return result
@@ -131,8 +118,6 @@ class ContigReader:
     Reads contig data from binary files written by ResMiCo-SM.
     """
 
-    pool = None
-
     def __init__(self, input_dir: str, feature_names: list[str], process_count: int, is_chunked: bool,
                  normalize_stdev: bool = True):
         """
@@ -151,15 +136,10 @@ class ContigReader:
 
         self.feature_names = feature_names
         self.process_count = process_count
-        ContigReader.pool = Pool(self.process_count)
         self.is_chunked = is_chunked
         self.normalize_stdev = normalize_stdev
 
         self._load_contigs_metadata(input_dir)
-
-        # just temp attributes for measuring performance
-        self.normalize_time = 0
-        self.read_time = 0
 
     def __len__(self):
         return len(self.contigs)
@@ -170,16 +150,13 @@ class ContigReader:
         arrays of shape (contig_len, num_features).
         """
         start = timer()
-        self.normalize_time = 0
-        self.read_time = 0
         # pool = Pool(self.process_count)
         result = []
         # TODO: try using pool.map() instead for larger batch-sizes; for the small test set, not using a pool
         #  is 100x faster (probably bc. mini-batch size is only 6)
         for contig_data in map(self._read_and_normalize, contig_infos):
             result.append(contig_data)
-        logging.info(f'Contigs read in {(timer() - start):5.2f}s; read: {self.read_time:5.2f}s '
-                     f'normalize: {self.normalize_time:5.2f}s')
+        logging.debug(f'Contigs read in {(timer() - start):5.2f}s')
         return result
 
     def _load_contigs_metadata(self, input_dir):
@@ -222,7 +199,7 @@ class ContigReader:
                 var = cnt * self.stdevs[feature_name] - self.means[feature_name] ** 2
                 if -0.1 < var < 0:  # fix small rounding errors that may lead to negative values
                     var = 0
-                self.stdevs[feature_name] = math.sqrt(var) / cnt
+                self.stdevs[feature_name] = math.sqrt(var) / (cnt ** 2)
                 self.means[feature_name] /= cnt
         # print the computed values
         header = ''
@@ -234,8 +211,7 @@ class ContigReader:
                 values += f'{self.means[feature_name]:.2f}/{self.stdevs[feature_name]}\t\t\t'
 
         separator = '_' * 300
-        logging.info(
-            'Computed global means and stdevs:\n' + separator + '\n' + header + '\n' + values + '\n' + separator)
+        logging.info('Computed global means and stdevs:\n' + separator +'\n' + header + '\n' + values + '\n' + separator)
 
         contig_count = 0
         for fname in file_list:
@@ -264,12 +240,10 @@ class ContigReader:
         Parameters:
             contig_info: the metadata of the contig to be loaded
         """
-        start = timer()
+
         # features is a map from feature name (e.g. 'coverage') to a numpy array containing the feature
-        # logging.debug(f'Reading contig {contig_info.name} from {contig_info.file} at offset {contig_info.offset}')
+        logging.debug(f'Reading contig {contig_info.name} from {contig_info.file} at offset {contig_info.offset}')
         features = _read_contig_data(contig_info.file, contig_info.offset, self.feature_names)
-        self.read_time += (timer() - start)
-        start = timer()
         for feature_name in float_feature_names:
             if feature_name not in features:
                 continue
@@ -285,7 +259,6 @@ class ContigReader:
             # replace NANs with 0 (the new mean)
             nan_pos = np.isnan(features[feature_name])
             features[feature_name][nan_pos] = 0
-        self.normalize_time += (timer() - start)
         return features
 
 
