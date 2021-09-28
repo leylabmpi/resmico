@@ -136,6 +136,9 @@ def parse_args(curr_args=None, subparsers=None):
     parser.add_argument('--no-normalize-stdev', dest='normalize_stdev', action='store_false',
                         help='If set, the standard deviation of floating point value features won\'t be normalized')
     parser.set_defaults(normalize_stdev=True)
+    parser.add_argument('--cache', dest='cache', action='store_true',
+                        help='If set, the validation data will be cached in memory for quicker access time')
+
     # running test args
     if curr_args:
         args = parser.parse_args(curr_args)

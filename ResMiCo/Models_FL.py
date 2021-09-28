@@ -313,14 +313,19 @@ class BinaryData(tf.keras.utils.Sequence):
 
 
 class BinaryDataEval(tf.keras.utils.Sequence):
-    def __init__(self, reader, indices, feature_names, window, step, total_contig_length):
+    def __init__(self, reader: ContigReader, indices: list[int], feature_names: list[str], window: int, step: int,
+                 total_contig_length: int, cache_results: bool):
         """
         Arguments:
+            reader - ContigReader instance used to load data from disk
+            indices - the indices of the contigs to be loaded for evaluation
+            feature_names - features to load, e.g. ['coverage', 'num_proper_Match']
             window - the maximum contig length; if a contig is longer than #window, it will be chopped
                 into smaller pieces at #step intervals
             step - amount by which the sliding window is moved forward through a contig that is longer than #window
             nprocs - number of processes used to load the contig data
             total_contig_length - maximum total length of the contigs in a mini-batch
+            cache_results - if True, the generator will cache the result in memory the first time is read from disk
         """
         self.window = window
         self.step = step
@@ -334,6 +339,10 @@ class BinaryDataEval(tf.keras.utils.Sequence):
 
         # flattened ground truth for each eval contig
         self.y = [0 if self.reader.contigs[i].misassembly == 0 else 1 for b in self.batch_list for i in b]
+        # the cached results
+        self.cache_results = cache_results
+        if cache_results:
+            self.data = [None] * len(self.batch_list)
 
     def _create_batch_list(self, contig_data: list[ContigInfo], total_contig_length: int):
         """ Divide the validation indices into mini-batches of total contig length < #total_contig_length """
@@ -393,8 +402,9 @@ class BinaryDataEval(tf.keras.utils.Sequence):
 
     def __getitem__(self, batch_idx: int):
         """ Return the mini-batch at index #index """
-        # if batch_idx % 50 == 0:  # to see some progress
         logging.info(f'Evaluating: {batch_idx}/{len(self.batch_list)}')
+        if self.cache_results and self.data[batch_idx] is not None:
+            return self.data[batch_idx]
         start = timer()
         # files to process
         indices = self.batch_list[batch_idx]
@@ -431,7 +441,10 @@ class BinaryDataEval(tf.keras.utils.Sequence):
                     break
         assert (len(x) == sum(self.chunk_counts[batch_idx])), f'{len(x)} vs {sum(self.chunk_counts[batch_idx])}'
         logging.info(f'Batch with {len(x)} contigs generated in {(timer() - start):5.2f}s')
-        return np.array(x)
+        result = np.array(x)
+        if self.cache_results:
+            self.data[batch_idx] = result
+        return result
 
 
 class GeneratorBigD(tf.keras.utils.Sequence):
