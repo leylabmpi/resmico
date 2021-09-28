@@ -12,6 +12,8 @@ class TestBinaryData(unittest.TestCase):
         indices = np.arange(len(reader))
         batch_size = 10
         data_gen = Models_FL.BinaryData(reader, indices, batch_size, ContigReader.feature_names, 500, 1.0)
+        # unshuffle the indices, so that we can make assertions about the returned data
+        data_gen.indices = [0,1]
         self.assertEqual(1, len(data_gen))
         train_data, y = data_gen[0]
         # even if we only have 2 samples, the remaining are filled with zero to reach the desired batch size
