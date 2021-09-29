@@ -1,5 +1,6 @@
 import logging
 import math
+import sys
 import time
 from timeit import default_timer as timer
 
@@ -226,6 +227,29 @@ class Generator(tf.keras.utils.Sequence):
         x_mb, y_mb = self.generate(indices_tmp)
         return x_mb, y_mb
 
+def update_progress(progress):
+    """
+    Displays or updates a console progress bar.
+    Accepts a float between 0 and 1. Any int will be converted to a float.
+    A value under 0 represents a 'halt'. A value at 1 or bigger represents 100%.
+    """
+    barLength = 100
+    status = ""
+    if isinstance(progress, int):
+        progress = float(progress)
+    if not isinstance(progress, float):
+        progress = 0
+        status = "error: progress var must be float\r\n"
+    if progress < 0:
+        progress = 0
+        status = "Halt...\r\n"
+    if progress >= 1:
+        progress = 1
+        status = "Done...\r\n"
+    block = int(round(barLength * progress))
+    text = "\rPercent: [{0}] {1}% {2}".format("#" * block + "-" * (barLength - block), progress * 100, status)
+    sys.stdout.write(text)
+    sys.stdout.flush()
 
 class BinaryData(tf.keras.utils.Sequence):
     def __init__(self, reader: ContigReader, indices: list[int], batch_size: int, feature_names: list[str],
@@ -271,7 +295,7 @@ class BinaryData(tf.keras.utils.Sequence):
         """
         Return the next mini-batch of size #batch_size
         """
-        logging.info(f'Requesting batch {index}')
+        update_progress(index/self.__len__())
         start = timer()
 
         self.log_count += 1
@@ -402,7 +426,7 @@ class BinaryDataEval(tf.keras.utils.Sequence):
 
     def __getitem__(self, batch_idx: int):
         """ Return the mini-batch at index #index """
-        logging.info(f'Evaluating: {batch_idx}/{len(self.batch_list)}')
+        update_progress(batch_idx/self.__len__())
         if self.cache_results and self.data[batch_idx] is not None:
             return self.data[batch_idx]
         start = timer()
@@ -508,7 +532,7 @@ class GeneratorBigD(tf.keras.utils.Sequence):
         sample_keys = np.array(list(self.data_dict.keys()))[indices_tmp]
         # files to process
         files_dict = itertoolz.groupby(lambda t: t[1],
-                                       list(map(lambda s: (s, self.data_dict[s]), sample_keys))) #itertoolz.
+                                       list(map(lambda s: (s, self.data_dict[s]), sample_keys)))  # itertoolz.
         # for every file, associate a random number, which can be used to construct random number to sample a range
 
         file_seeds = np.random.randint(0, 1000000, len(files_dict.items()))
@@ -574,7 +598,7 @@ class GeneratorPredLong(tf.keras.utils.Sequence):
     def generate(self, ind):
         sample_keys = np.array(list(self.data_dict.keys()))[self.batch_list[ind]]
         files_dict = itertoolz.groupby(lambda t: t[1], list(
-            map(lambda s: (s, self.data_dict[s]), sample_keys))) #itertoolz.
+            map(lambda s: (s, self.data_dict[s]), sample_keys)))  # itertoolz.
         # attention: grouping can change order, it is important that indices are sorted
         X = Utils.load_full_contigs(files_dict)
 
@@ -607,7 +631,7 @@ class GeneratorFullLen(tf.keras.utils.Sequence):
     def generate(self, ind):
         sample_keys = np.array(list(self.data_dict.keys()))[self.batch_list[ind]]
         files_dict = itertoolz.groupby(lambda t: t[1], list(
-            map(lambda s: (s, self.data_dict[s]), sample_keys))) #itertoolz.
+            map(lambda s: (s, self.data_dict[s]), sample_keys)))  # itertoolz.
         X = Utils.load_full_contigs(files_dict)
 
         max_len = max([self.all_lens[cont_ind] for cont_ind in self.batch_list[ind]])
@@ -643,7 +667,7 @@ class Generator_v1(tf.keras.utils.Sequence):
     def generate(self, ind):
         sample_keys = np.array(list(self.data_dict.keys()))[self.batch_list[ind]]
         files_dict = itertoolz.groupby(lambda t: t[1], list(
-            map(lambda s: (s, self.data_dict[s]), sample_keys))) #itertoolz.
+            map(lambda s: (s, self.data_dict[s]), sample_keys)))  # itertoolz.
         X = Utils.load_full_contigs(files_dict)
 
         batch_size = 0
