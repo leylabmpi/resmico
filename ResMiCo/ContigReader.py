@@ -279,11 +279,14 @@ class ContigReader:
                     futures.append(p.submit(self.read_file, fname))
 
             i = 0
+            current = 0
             for f in futures:
                 contig_features = f.result()
                 for contig_feature in contig_features:
                     self.contigs[i].features = contig_feature
                     i += 1
+                Utils.update_progress(current, len(file_list), 'Loading features: ', '')
+                current += 1
 
 
     def read_file(self, fname):
