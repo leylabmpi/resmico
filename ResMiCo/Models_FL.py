@@ -244,7 +244,8 @@ def update_progress(current: int, total: int, prefix: str, tail: str):
         progress = 1
         status = "Done...\r\n"
     block = int(round(barLength * progress))
-    text = f'\r{prefix}[{"#" * block + "-" * (barLength - block)}] {current}/{total} {status}'
+    current_str = str(current).rjust(len(str(total)))
+    text = f'\r{prefix}[{"#" * block + "-" * (barLength - block)}] {current_str}/{total} {status}'
     sys.stdout.write(text)
     sys.stdout.flush()
 
