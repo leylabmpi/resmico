@@ -227,14 +227,14 @@ class Generator(tf.keras.utils.Sequence):
         x_mb, y_mb = self.generate(indices_tmp)
         return x_mb, y_mb
 
-def update_progress(progress):
+def update_progress(progress, tail):
     """
     Displays or updates a console progress bar.
     Accepts a float between 0 and 1. Any int will be converted to a float.
     A value under 0 represents a 'halt'. A value at 1 or bigger represents 100%.
     """
     barLength = 100
-    status = ""
+    status = tail
     if isinstance(progress, int):
         progress = float(progress)
     if not isinstance(progress, float):
@@ -295,7 +295,6 @@ class BinaryData(tf.keras.utils.Sequence):
         """
         Return the next mini-batch of size #batch_size
         """
-        update_progress(index/self.__len__())
         start = timer()
 
         self.log_count += 1
@@ -329,10 +328,7 @@ class BinaryData(tf.keras.utils.Sequence):
             stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
             x[i][:contig_len, :] = stacked_features
 
-        if True:  # self.log_count % self.log_freq == 0:  # Show progress
-            logging.info(f'Mini-batch #{self.log_count} (contigs {self.contig_count}/{len(self.indices)}) '
-                         f'generated in {(timer() - start):5.2f}s')
-
+        update_progress(index / self.__len__(), f' {(timer() - start):5.2f}s')
         return x, np.array(y)
 
 
