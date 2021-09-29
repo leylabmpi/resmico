@@ -273,13 +273,17 @@ class ContigReader:
         #         self._normalize(contig_info.features)
 
         if self.in_memory:
+            logging.info('Loading data...')
             futures: list[Future] = []
-            with ProcessPoolExecutor() as p:
+            with ProcessPoolExecutor(4) as p:
                 for fname in file_list:
-                    futures.append(p.submit(self.read_file, fname))
+                    future = p.submit(self.read_file, fname)
+                    future.add_done_callback(lambda x: print('Done!'))
+                    futures.append(future)
 
             i = 0
             current = 0
+            logging.info('Waiting for futures to finish...')
             for f in futures:
                 contig_features = f.result()
                 for contig_feature in contig_features:
