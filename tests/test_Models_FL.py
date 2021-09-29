@@ -13,7 +13,7 @@ class TestBinaryData(unittest.TestCase):
         batch_size = 10
         data_gen = Models_FL.BinaryData(reader, indices, batch_size, ContigReader.feature_names, 500, 1.0)
         # unshuffle the indices, so that we can make assertions about the returned data
-        data_gen.indices = [0,1]
+        data_gen.indices = [0, 1]
         self.assertEqual(1, len(data_gen))
         train_data, y = data_gen[0]
         # even if we only have 2 samples, the remaining are filled with zero to reach the desired batch size
@@ -151,3 +151,29 @@ class TestBinaryDataEval(unittest.TestCase):
 
         self.assertTrue(all(a == b for a, b in zip(eval_data[0][1][0][0:6], [1, 0, 0, 0, 1, 1])))
         self.assertTrue(all(a == b for a, b in zip(eval_data[0][1][5][0:6], [1, 0, 0, 0, 0, 0])))
+
+    # this time, we cache in the ContigReader
+    def test_gen_eval_data_cached2(self):
+        reader = ContigReader.ContigReader('./data/preprocess/', ContigReader.feature_names, 1, False, True)
+        indices = np.arange(len(reader))
+        eval_data = Models_FL.BinaryDataEval(reader, indices, ContigReader.feature_names, 500, 250, 1e5, False)
+        self.assertEqual(1, len(eval_data))
+        self.assertEqual(2, len(eval_data.batch_list[0]))
+        self.assertTrue(all(a == b for a, b in zip(eval_data[0][0][0][0:6], [1, 0, 0, 0, 2, 1])))
+        self.assertTrue(all(a == b for a, b in zip(eval_data[0][0][5][0:6], [1, 0, 0, 0, 0, 0])))
+
+        self.assertTrue(all(a == b for a, b in zip(eval_data[0][1][0][0:6], [1, 0, 0, 0, 1, 1])))
+        self.assertTrue(all(a == b for a, b in zip(eval_data[0][1][5][0:6], [1, 0, 0, 0, 0, 0])))
+
+    # this time, we cache in the ContigReader, and also use chunks
+    def test_gen_eval_data_cached2(self):
+        reader = ContigReader.ContigReader('./data/preprocess/', ContigReader.feature_names, 1, True, True)
+        indices = np.arange(len(reader))
+        eval_data = Models_FL.BinaryDataEval(reader, indices, ContigReader.feature_names, 500, 250, 1e5, False)
+        self.assertEqual(1, len(eval_data))
+        self.assertEqual(2, len(eval_data.batch_list[0]))
+        self.assertTrue(all(a == b for a, b in zip(eval_data[0][0][0][0:5], [1, 0, 0, 0, 0])))
+        self.assertTrue(all(a == b for a, b in zip(eval_data[0][0][4][0:5], [1, 0, 0, 0, 0])))
+
+        self.assertTrue(all(a == b for a, b in zip(eval_data[0][1][0][0:5], [1, 0, 0, 0, 0])))
+        self.assertTrue(all(a == b for a, b in zip(eval_data[0][1][4][0:5], [1, 0, 0, 0, 0])))

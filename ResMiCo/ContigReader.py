@@ -1,3 +1,5 @@
+from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import Future
 import csv
 import gzip
 import json
@@ -47,7 +49,7 @@ def _read_feature(file: gzip.GzipFile, data, feature_name: str, bytes: int, dtyp
         return
     data[feature_name] = np.frombuffer(file.read(bytes), dtype=dtype).astype(np.float32)
     if normalize_by != 1:
-        data[feature_name] /= 10000
+        data[feature_name] /= normalize_by
 
 
 def _read_contig_data(input_file, feature_names: list[str]):
@@ -107,9 +109,7 @@ def _read_contig_data(input_file, feature_names: list[str]):
         _read_feature(f, data, 'num_proper_SNP', 2 * contig_size, np.uint16, feature_names, 10000)
         _read_feature(f, data, 'seq_window_perc_gc', 4 * contig_size, np.float32, feature_names)
         _read_feature(f, data, 'Extensive_misassembly_by_pos', contig_size, np.uint8, feature_names)
-    # keep desired features only
-    result = {f: data[f] for f in feature_names}
-    return result
+    return data
 
 
 class ContigInfo:
@@ -255,22 +255,61 @@ class ContigReader:
 
         logging.info(f'Found {contig_count} contigs')
 
+        # if self.in_memory:
+        #     logging.info('Loading contig features in memory')
+        #     old_file = ''
+        #     current = 1
+        #     for contig_info in self.contigs:
+        #         if old_file != contig_info.file:
+        #             old_file = contig_info.file
+        #             binary_file = open(contig_info.file, 'rb')
+        #             # memory-map the file, size 0 means whole file
+        #             mm = mmap.mmap(binary_file.fileno(), 0, access=mmap.ACCESS_READ)
+        #             Utils.update_progress(current, len(file_list), 'Loading features: ', '')
+        #             current += 1
+        #         # the gzip reader reads ahead and messes up the current position, so we need to re-seek
+        #         mm.seek(contig_info.offset)
+        #         contig_info.features = _read_contig_data(mm, self.feature_names)
+        #         self._normalize(contig_info.features)
+
         if self.in_memory:
-            logging.info('Loading contig features in memory')
-            old_file = ''
-            current = 1
-            for contig_info in self.contigs:
-                if old_file != contig_info.file:
-                    old_file = contig_info.file
-                    binary_file = open(contig_info.file, 'rb')
-                    # memory-map the file, size 0 means whole file
-                    mm = mmap.mmap(binary_file.fileno(), 0, access=mmap.ACCESS_READ)
-                    Utils.update_progress(current, len(file_list), 'Loading features: ', '')
-                    current += 1
+            futures: list[Future] = []
+            with ProcessPoolExecutor() as p:
+                for fname in file_list:
+                    futures.append(p.submit(self.read_file, fname))
+
+            i = 0
+            for f in futures:
+                contig_features = f.result()
+                for contig_feature in contig_features:
+                    self.contigs[i].features = contig_feature
+                    i += 1
+
+
+    def read_file(self, fname):
+        toc_file = fname[:-len('stats')] + 'toc'
+        contig_fname = fname[:-len('stats')] + 'features_binary'
+        if self.is_chunked:
+            contig_fname += '_chunked'
+            toc_file += '_chunked'
+        offset = 0
+        result = []
+        with open(toc_file) as f, open(contig_fname) as binary_file:
+            binary_file = open(contig_fname, 'rb')
+            # memory-map the file, size 0 means whole file
+            mm = mmap.mmap(binary_file.fileno(), 0, access=mmap.ACCESS_READ)
+
+            rd = csv.reader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
+            next(rd)  # skip CSV header: Assembler, Contig_name, MissassembleCount, ContigLen
+            for row in rd:
+                size_bytes = int(row[3])
                 # the gzip reader reads ahead and messes up the current position, so we need to re-seek
-                mm.seek(contig_info.offset)
-                contig_info.features = _read_contig_data(mm, self.feature_names)
-                self._normalize(contig_info.features)
+                mm.seek(offset)
+                features = _read_contig_data(mm, self.feature_names)
+                self._normalize(features)
+                result.append(features)
+                offset += size_bytes
+        return result
 
     def _read_and_normalize(self, contig_info: ContigInfo):
         """
