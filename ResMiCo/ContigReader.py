@@ -3,6 +3,7 @@ import gzip
 import json
 import logging
 import math
+import mmap
 import os
 # from multiprocessing import Pool
 from pathlib import Path
@@ -262,11 +263,13 @@ class ContigReader:
                 if old_file != contig_info.file:
                     old_file = contig_info.file
                     binary_file = open(contig_info.file, 'rb')
+                    # memory-map the file, size 0 means whole file
+                    mm = mmap.mmap(binary_file.fileno(), 0, access=mmap.ACCESS_READ)
                     Utils.update_progress(current, len(file_list), 'Loading features: ', '')
                     current += 1
                 # the gzip reader reads ahead and messes up the current position, so we need to re-seek
-                binary_file.seek(contig_info.offset)
-                contig_info.features = _read_contig_data(binary_file, self.feature_names)
+                mm.seek(contig_info.offset)
+                contig_info.features = _read_contig_data(mm, self.feature_names)
                 self._normalize(contig_info.features)
 
     def _read_and_normalize(self, contig_info: ContigInfo):
