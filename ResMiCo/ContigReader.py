@@ -174,7 +174,7 @@ class ContigReader:
         #  is 100x faster (probably bc. mini-batch size is only 6)
         for contig_data in map(self._read_and_normalize, contig_infos):
             result.append(contig_data)
-        logging.info(f'Contigs read in {(timer() - start):5.2f}s; read: {self.read_time:5.2f}s '
+        logging.debug(f'Contigs read in {(timer() - start):5.2f}s; read: {self.read_time:5.2f}s '
                      f'normalize: {self.normalize_time:5.2f}s')
         return result
 
