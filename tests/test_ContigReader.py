@@ -6,7 +6,8 @@ from ResMiCo import ContigReader
 
 class TestReadContig(unittest.TestCase):
     def test_read_from_file(self):
-        result = ContigReader._read_contig_data('./data/preprocess/features_binary', 0, ContigReader.feature_names)
+        input_file = open('./data/preprocess/features_binary', 'rb')
+        result = ContigReader._read_contig_data(input_file, ContigReader.feature_names)
         self.assertEqual(500, len(result['ref_base_A']))
         self.assertIsNone(
             np.testing.assert_array_equal(np.array([1] * 498 + [0, 0]), result['ref_base_A']))
@@ -47,7 +48,8 @@ class TestReadContig(unittest.TestCase):
             self.assertEqual(1 if pos < 20 else 0, result['Extensive_misassembly_by_pos'][pos])
 
     def test_normalize_zero_mean_one_stdev(self):
-        old_result = ContigReader._read_contig_data('./data/preprocess/features_binary', 0, ContigReader.feature_names)
+        input_file = open('./data/preprocess/features_binary', 'rb')
+        old_result = ContigReader._read_contig_data(input_file, ContigReader.feature_names)
 
         reader = ContigReader.ContigReader('./data/preprocess/', ContigReader.feature_names, 1, False)
         for fname in ContigReader.float_feature_names:
@@ -63,7 +65,8 @@ class TestReadContig(unittest.TestCase):
             self.assertIsNone(np.testing.assert_array_equal(old_result[fname], result[fname]))
 
     def test_normalize_zero_mean_two_stdev(self):
-        old_result = ContigReader._read_contig_data('./data/preprocess/features_binary', 0, ContigReader.feature_names)
+        input_file = open('./data/preprocess/features_binary', 'rb')
+        old_result = ContigReader._read_contig_data(input_file, ContigReader.feature_names)
 
         reader = ContigReader.ContigReader('./data/preprocess/', ContigReader.feature_names, 1, False)
         for fname in ContigReader.float_feature_names:
