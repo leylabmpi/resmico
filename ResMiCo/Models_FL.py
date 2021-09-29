@@ -227,7 +227,8 @@ class Generator(tf.keras.utils.Sequence):
         x_mb, y_mb = self.generate(indices_tmp)
         return x_mb, y_mb
 
-def update_progress(progress, tail):
+
+def update_progress(current: int, total: int, prefix: str, tail: str):
     """
     Displays or updates a console progress bar.
     Accepts a float between 0 and 1. Any int will be converted to a float.
@@ -235,11 +236,7 @@ def update_progress(progress, tail):
     """
     barLength = 100
     status = tail
-    if isinstance(progress, int):
-        progress = float(progress)
-    if not isinstance(progress, float):
-        progress = 0
-        status = "error: progress var must be float\r\n"
+    progress = current / total
     if progress < 0:
         progress = 0
         status = "Halt...\r\n"
@@ -247,9 +244,10 @@ def update_progress(progress, tail):
         progress = 1
         status = "Done...\r\n"
     block = int(round(barLength * progress))
-    text = "\rPercent: [{0}] {1}% {2}".format("#" * block + "-" * (barLength - block), progress * 100, status)
+    text = f'\r{prefix}[{"#" * block + "-" * (barLength - block)}] {current}/{total} {status}'
     sys.stdout.write(text)
     sys.stdout.flush()
+
 
 class BinaryData(tf.keras.utils.Sequence):
     def __init__(self, reader: ContigReader, indices: list[int], batch_size: int, feature_names: list[str],
@@ -328,7 +326,7 @@ class BinaryData(tf.keras.utils.Sequence):
             stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
             x[i][:contig_len, :] = stacked_features
 
-        update_progress(index / self.__len__(), f' {(timer() - start):5.2f}s')
+        update_progress(index, self.__len__(), 'Training: ', f' {(timer() - start):5.2f}s')
         return x, np.array(y)
 
 
@@ -422,7 +420,6 @@ class BinaryDataEval(tf.keras.utils.Sequence):
 
     def __getitem__(self, batch_idx: int):
         """ Return the mini-batch at index #index """
-        update_progress(batch_idx/self.__len__())
         if self.cache_results and self.data[batch_idx] is not None:
             return self.data[batch_idx]
         start = timer()
@@ -460,7 +457,7 @@ class BinaryDataEval(tf.keras.utils.Sequence):
                 if end_idx >= contig_len:
                     break
         assert (len(x) == sum(self.chunk_counts[batch_idx])), f'{len(x)} vs {sum(self.chunk_counts[batch_idx])}'
-        logging.info(f'Batch with {len(x)} contigs generated in {(timer() - start):5.2f}s')
+        update_progress(batch_idx, self.__len__(), 'Evaluating: ', f' {(timer() - start):5.2f}s')
         result = np.array(x)
         if self.cache_results:
             self.data[batch_idx] = result
