@@ -276,7 +276,7 @@ class ContigReader:
             futures: list[Future] = []
             i = 0
             current = 0
-            with ProcessPoolExecutor(self.process_count) as p:
+            with Pool(processes=self.process_count) as p:
                 for fname, contig_features in p.map(self.read_file, file_list,
                                                     chunksize=int(self.__len__() / self.process_count)):
                     for contig_feature in contig_features:
