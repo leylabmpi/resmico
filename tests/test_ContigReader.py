@@ -6,10 +6,11 @@ from ResMiCo import ContigReader
 
 class TestReadContig(unittest.TestCase):
     def test_read_from_file(self):
-        result = ContigReader._read_contig_data('./data/preprocess/features_binary', 0, ContigReader.feature_names)
+        input_file = open('./data/preprocess/features_binary', 'rb')
+        result = ContigReader._read_contig_data(input_file, ContigReader.feature_names)
         self.assertEqual(500, len(result['ref_base_A']))
         self.assertIsNone(
-            np.testing.assert_array_equal(np.array([1]*498  + [0,0]), result['ref_base_A']))
+            np.testing.assert_array_equal(np.array([1] * 498 + [0, 0]), result['ref_base_A']))
         self.assertIsNone(
             np.testing.assert_array_equal(np.array([0] * 498 + [1, 1]), result['ref_base_C']))
         self.assertTrue(not np.any(result['ref_base_G']))
@@ -25,8 +26,8 @@ class TestReadContig(unittest.TestCase):
             self.assertEqual(0.5 if 420 <= pos < 425 else 0, result['num_query_T'][pos])
 
             self.assertIsNone(np.testing.assert_equal(-28 if pos == 0 else 0 if pos < 5 else np.nan,
-                                                      result['min_al_score_Match'][pos]));
-            self.assertIsNone(np.testing.assert_equal(0 if pos < 5 else np.nan, result['max_al_score_Match'][pos]));
+                                                      result['min_al_score_Match'][pos]))
+            self.assertIsNone(np.testing.assert_equal(0 if pos < 5 else np.nan, result['max_al_score_Match'][pos]))
 
             self.assertIsNone(
                 np.testing.assert_array_equal(425 if pos < 5 else np.nan, result['min_insert_size_Match'][pos]))
@@ -40,15 +41,15 @@ class TestReadContig(unittest.TestCase):
             self.assertIsNone(np.testing.assert_array_equal(6 if pos < 5 else np.nan, result['min_mapq_Match'][pos]))
             self.assertIsNone(np.testing.assert_array_equal(7 if pos == 0 else 6 if pos < 5 else np.nan,
                                                             result['max_mapq_Match'][pos]))
-            self.assertIsNone(
-                np.testing.assert_array_equal(np.nan if pos >= 5 else 6.5 if pos == 0 else 6, result['mean_mapq_Match'][
-                    pos]))
+            self.assertIsNone(np.testing.assert_array_equal(np.nan if pos >= 5 else 6.5 if pos == 0 else 6,
+                                                            result['mean_mapq_Match'][pos]))
             self.assertEqual(0.5 if 0 < pos < 5 else 1 if 420 <= pos < 425 else 0, result['num_proper_SNP'][pos])
             self.assertEqual(0 if pos < 498 else 25 if pos == 498 else 50, result['seq_window_perc_gc'][pos])
             self.assertEqual(1 if pos < 20 else 0, result['Extensive_misassembly_by_pos'][pos])
 
     def test_normalize_zero_mean_one_stdev(self):
-        old_result = ContigReader._read_contig_data('./data/preprocess/features_binary', 0, ContigReader.feature_names)
+        input_file = open('./data/preprocess/features_binary', 'rb')
+        old_result = ContigReader._read_contig_data(input_file, ContigReader.feature_names)
 
         reader = ContigReader.ContigReader('./data/preprocess/', ContigReader.feature_names, 1, False)
         for fname in ContigReader.float_feature_names:
@@ -64,7 +65,8 @@ class TestReadContig(unittest.TestCase):
             self.assertIsNone(np.testing.assert_array_equal(old_result[fname], result[fname]))
 
     def test_normalize_zero_mean_two_stdev(self):
-        old_result = ContigReader._read_contig_data('./data/preprocess/features_binary', 0, ContigReader.feature_names)
+        input_file = open('./data/preprocess/features_binary', 'rb')
+        old_result = ContigReader._read_contig_data(input_file, ContigReader.feature_names)
 
         reader = ContigReader.ContigReader('./data/preprocess/', ContigReader.feature_names, 1, False)
         for fname in ContigReader.float_feature_names:
@@ -77,7 +79,7 @@ class TestReadContig(unittest.TestCase):
             # replace NANs with 0, as that's what the normalization in ContigReader does
             nan_pos = np.isnan(old_result[fname])
             old_result[fname][nan_pos] = 0
-            self.assertIsNone(np.testing.assert_array_equal(old_result[fname]/2, result[fname]))
+            self.assertIsNone(np.testing.assert_array_equal(old_result[fname] / 2, result[fname]))
 
     if __name__ == '__main__':
         unittest.main()

@@ -483,7 +483,7 @@ def pickle_data_b(features_in, set_target=True):
         w_std_mq = col_names.index('stdev_mapq_Match')
         w_mean_al = col_names.index('mean_al_score_Match')
         w_min_al = col_names.index('min_al_score_Match')
-        w_std_al = col_names.index('stdev_al_score_Match')       
+        w_std_al = col_names.index('stdev_al_score_Match')
         w_gc = col_names.index('seq_window_perc_gc')  # try without
         w_npropV = col_names.index('num_proper_SNP')
         w_cov = col_names.index('coverage')
@@ -1138,7 +1138,7 @@ def _read_label_from_file(f, samples):
 
 
 def read_all_labels(samples_dict):
-    files_dict = itertoolz.groupby(lambda t: t[1], list(map( #itertoolz.
+    files_dict = itertoolz.groupby(lambda t: t[1], list(map(  # itertoolz.
         lambda s: (s, samples_dict[s]), samples_dict.keys())))
     y = []
     for f, samples in files_dict.items():
@@ -1159,7 +1159,7 @@ def _read_len_from_file(f, samples):
 
 def read_all_lens(samples_dict):
     # works only when no samples missing from the file
-    files_dict = itertoolz.groupby(lambda t: t[1], list(map( #itertoolz.
+    files_dict = itertoolz.groupby(lambda t: t[1], list(map(  # itertoolz.
         lambda s: (s, samples_dict[s]), samples_dict.keys())))
     y = []
     for f, samples in files_dict.items():
@@ -1441,3 +1441,25 @@ def aggregate_chunks(batches_list, all_lens, all_labels, all_names, all_preds, w
                 dic_predictions['cont_index'].append(cont_ind)
 
     return dic_predictions
+
+
+def update_progress(current: int, total: int, prefix: str, tail: str):
+    """
+    Displays or updates a console progress bar.
+    Accepts a float between 0 and 1. Any int will be converted to a float.
+    A value under 0 represents a 'halt'. A value at 1 or bigger represents 100%.
+    """
+    barLength = 100
+    status = tail
+    progress = current / total
+    if progress < 0:
+        progress = 0
+        status = "Halt...\r\n"
+    if progress >= 1:
+        progress = 1
+        status = "Done...\r\n"
+    block = int(round(barLength * progress))
+    current_str = str(current).rjust(len(str(total)))
+    text = f'\r{prefix}[{"#" * block + "-" * (barLength - block)}] {current_str}/{total} {status}'
+    sys.stdout.write(text)
+    sys.stdout.flush()

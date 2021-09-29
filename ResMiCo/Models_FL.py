@@ -1,5 +1,6 @@
 import logging
 import math
+import sys
 import time
 from timeit import default_timer as timer
 
@@ -271,7 +272,6 @@ class BinaryData(tf.keras.utils.Sequence):
         """
         Return the next mini-batch of size #batch_size
         """
-        logging.info(f'Requesting batch {index}')
         start = timer()
 
         self.log_count += 1
@@ -305,10 +305,7 @@ class BinaryData(tf.keras.utils.Sequence):
             stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
             x[i][:contig_len, :] = stacked_features
 
-        if True:  # self.log_count % self.log_freq == 0:  # Show progress
-            logging.info(f'Mini-batch #{self.log_count} (contigs {self.contig_count}/{len(self.indices)}) '
-                         f'generated in {(timer() - start):5.2f}s')
-
+        Utils.update_progress(index + 1, self.__len__(), 'Training: ', f' {(timer() - start):5.2f}s')
         return x, np.array(y)
 
 
@@ -402,7 +399,6 @@ class BinaryDataEval(tf.keras.utils.Sequence):
 
     def __getitem__(self, batch_idx: int):
         """ Return the mini-batch at index #index """
-        logging.info(f'Evaluating: {batch_idx}/{len(self.batch_list)}')
         if self.cache_results and self.data[batch_idx] is not None:
             return self.data[batch_idx]
         start = timer()
@@ -440,7 +436,7 @@ class BinaryDataEval(tf.keras.utils.Sequence):
                 if end_idx >= contig_len:
                     break
         assert (len(x) == sum(self.chunk_counts[batch_idx])), f'{len(x)} vs {sum(self.chunk_counts[batch_idx])}'
-        logging.info(f'Batch with {len(x)} contigs generated in {(timer() - start):5.2f}s')
+        Utils.update_progress(batch_idx + 1, self.__len__(), 'Evaluating: ', f' {(timer() - start):5.2f}s')
         result = np.array(x)
         if self.cache_results:
             self.data[batch_idx] = result
@@ -508,7 +504,7 @@ class GeneratorBigD(tf.keras.utils.Sequence):
         sample_keys = np.array(list(self.data_dict.keys()))[indices_tmp]
         # files to process
         files_dict = itertoolz.groupby(lambda t: t[1],
-                                       list(map(lambda s: (s, self.data_dict[s]), sample_keys))) #itertoolz.
+                                       list(map(lambda s: (s, self.data_dict[s]), sample_keys)))  # itertoolz.
         # for every file, associate a random number, which can be used to construct random number to sample a range
 
         file_seeds = np.random.randint(0, 1000000, len(files_dict.items()))
@@ -574,7 +570,7 @@ class GeneratorPredLong(tf.keras.utils.Sequence):
     def generate(self, ind):
         sample_keys = np.array(list(self.data_dict.keys()))[self.batch_list[ind]]
         files_dict = itertoolz.groupby(lambda t: t[1], list(
-            map(lambda s: (s, self.data_dict[s]), sample_keys))) #itertoolz.
+            map(lambda s: (s, self.data_dict[s]), sample_keys)))  # itertoolz.
         # attention: grouping can change order, it is important that indices are sorted
         X = Utils.load_full_contigs(files_dict)
 
@@ -607,7 +603,7 @@ class GeneratorFullLen(tf.keras.utils.Sequence):
     def generate(self, ind):
         sample_keys = np.array(list(self.data_dict.keys()))[self.batch_list[ind]]
         files_dict = itertoolz.groupby(lambda t: t[1], list(
-            map(lambda s: (s, self.data_dict[s]), sample_keys))) #itertoolz.
+            map(lambda s: (s, self.data_dict[s]), sample_keys)))  # itertoolz.
         X = Utils.load_full_contigs(files_dict)
 
         max_len = max([self.all_lens[cont_ind] for cont_ind in self.batch_list[ind]])
@@ -643,7 +639,7 @@ class Generator_v1(tf.keras.utils.Sequence):
     def generate(self, ind):
         sample_keys = np.array(list(self.data_dict.keys()))[self.batch_list[ind]]
         files_dict = itertoolz.groupby(lambda t: t[1], list(
-            map(lambda s: (s, self.data_dict[s]), sample_keys))) #itertoolz.
+            map(lambda s: (s, self.data_dict[s]), sample_keys)))  # itertoolz.
         X = Utils.load_full_contigs(files_dict)
 
         batch_size = 0
