@@ -228,28 +228,6 @@ class Generator(tf.keras.utils.Sequence):
         return x_mb, y_mb
 
 
-def update_progress(current: int, total: int, prefix: str, tail: str):
-    """
-    Displays or updates a console progress bar.
-    Accepts a float between 0 and 1. Any int will be converted to a float.
-    A value under 0 represents a 'halt'. A value at 1 or bigger represents 100%.
-    """
-    barLength = 100
-    status = tail
-    progress = current / total
-    if progress < 0:
-        progress = 0
-        status = "Halt...\r\n"
-    if progress >= 1:
-        progress = 1
-        status = "Done...\r\n"
-    block = int(round(barLength * progress))
-    current_str = str(current).rjust(len(str(total)))
-    text = f'\r{prefix}[{"#" * block + "-" * (barLength - block)}] {current_str}/{total} {status}'
-    sys.stdout.write(text)
-    sys.stdout.flush()
-
-
 class BinaryData(tf.keras.utils.Sequence):
     def __init__(self, reader: ContigReader, indices: list[int], batch_size: int, feature_names: list[str],
                  max_len: int, fraq_neg: float):
@@ -327,7 +305,7 @@ class BinaryData(tf.keras.utils.Sequence):
             stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
             x[i][:contig_len, :] = stacked_features
 
-        update_progress(index, self.__len__(), 'Training: ', f' {(timer() - start):5.2f}s')
+        Utils.update_progress(index + 1, self.__len__(), 'Training: ', f' {(timer() - start):5.2f}s')
         return x, np.array(y)
 
 
@@ -458,7 +436,7 @@ class BinaryDataEval(tf.keras.utils.Sequence):
                 if end_idx >= contig_len:
                     break
         assert (len(x) == sum(self.chunk_counts[batch_idx])), f'{len(x)} vs {sum(self.chunk_counts[batch_idx])}'
-        update_progress(batch_idx, self.__len__(), 'Evaluating: ', f' {(timer() - start):5.2f}s')
+        Utils.update_progress(batch_idx + 1, self.__len__(), 'Evaluating: ', f' {(timer() - start):5.2f}s')
         result = np.array(x)
         if self.cache_results:
             self.data[batch_idx] = result

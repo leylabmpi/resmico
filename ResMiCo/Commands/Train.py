@@ -137,6 +137,8 @@ def parse_args(curr_args=None, subparsers=None):
                         help='If set, the standard deviation of floating point value features won\'t be normalized')
     parser.set_defaults(normalize_stdev=True)
     parser.add_argument('--cache', dest='cache', action='store_true',
+                        help='If set, all contig features will be cached in memory for faster training/validation')
+    parser.add_argument('--cache_validation', dest='cache_validation', action='store_true',
                         help='If set, the validation data will be cached in memory for quicker access time')
 
     # running test args

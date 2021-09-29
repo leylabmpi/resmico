@@ -67,16 +67,17 @@ class TestBinaryDataEval(unittest.TestCase):
         self.assertEqual(3, len(eval_data[1]))
 
     def test_gen_eval_data(self):
-        reader = ContigReader.ContigReader('./data/preprocess/', ContigReader.feature_names, 1, False)
-        indices = np.arange(len(reader))
-        eval_data = Models_FL.BinaryDataEval(reader, indices, ContigReader.feature_names, 500, 250, 1e5, False)
-        self.assertEqual(1, len(eval_data))
-        self.assertEqual(2, len(eval_data.batch_list[0]))
-        self.assertTrue(all(a == b for a, b in zip(eval_data[0][0][0][0:6], [1, 0, 0, 0, 2, 1])))
-        self.assertTrue(all(a == b for a, b in zip(eval_data[0][0][5][0:6], [1, 0, 0, 0, 0, 0])))
+        for cached in [False, True]:
+            reader = ContigReader.ContigReader('./data/preprocess/', ContigReader.feature_names, 1, False, cached)
+            indices = np.arange(len(reader))
+            eval_data = Models_FL.BinaryDataEval(reader, indices, ContigReader.feature_names, 500, 250, 1e5, False)
+            self.assertEqual(1, len(eval_data))
+            self.assertEqual(2, len(eval_data.batch_list[0]))
+            self.assertTrue(all(a == b for a, b in zip(eval_data[0][0][0][0:6], [1, 0, 0, 0, 2, 1])))
+            self.assertTrue(all(a == b for a, b in zip(eval_data[0][0][5][0:6], [1, 0, 0, 0, 0, 0])))
 
-        self.assertTrue(all(a == b for a, b in zip(eval_data[0][1][0][0:6], [1, 0, 0, 0, 1, 1])))
-        self.assertTrue(all(a == b for a, b in zip(eval_data[0][1][5][0:6], [1, 0, 0, 0, 0, 0])))
+            self.assertTrue(all(a == b for a, b in zip(eval_data[0][1][0][0:6], [1, 0, 0, 0, 1, 1])))
+            self.assertTrue(all(a == b for a, b in zip(eval_data[0][1][5][0:6], [1, 0, 0, 0, 0, 0])))
 
     def test_gen_eval_data_short_window(self):
         reader = ContigReader.ContigReader('./data/preprocess/', ContigReader.feature_names, 1, False)
