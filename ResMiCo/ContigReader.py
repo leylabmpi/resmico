@@ -160,7 +160,6 @@ class ContigReader:
 
         self._load_contigs_metadata(input_dir)
 
-
     def __len__(self):
         return len(self.contigs)
 
@@ -275,23 +274,16 @@ class ContigReader:
         if self.in_memory:
             logging.info('Loading data...')
             futures: list[Future] = []
-            with ProcessPoolExecutor(4) as p:
-                for fname in file_list:
-                    future = p.submit(self.read_file, fname)
-                    future.add_done_callback(lambda x: print('Done!'))
-                    futures.append(future)
-
             i = 0
             current = 0
-            logging.info('Waiting for futures to finish...')
-            for f in futures:
-                contig_features = f.result()
-                for contig_feature in contig_features:
-                    self.contigs[i].features = contig_feature
-                    i += 1
-                Utils.update_progress(current, len(file_list), 'Loading features: ', '')
-                current += 1
-
+            with ProcessPoolExecutor(self.process_count) as p:
+                for fname, contig_features in p.map(self.read_file, file_list,
+                                                    chunksize=self.__len__() / self.process_count):
+                    for contig_feature in contig_features:
+                        self.contigs[i].features = contig_feature
+                        i += 1
+                    Utils.update_progress(current, len(file_list), 'Loading features: ', '')
+                    current += 1
 
     def read_file(self, fname):
         toc_file = fname[:-len('stats')] + 'toc'
