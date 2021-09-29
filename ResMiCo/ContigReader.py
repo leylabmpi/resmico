@@ -278,7 +278,7 @@ class ContigReader:
             current = 0
             with Pool(processes=8) as p:
                 for fname, contig_features in p.map(self.read_file, file_list,
-                                                    chunksize=int(self.__len__() / self.process_count)):
+                                                    chunksize=10):
                     for contig_feature in contig_features:
                         self.contigs[i].features = contig_feature
                         i += 1
