@@ -5,7 +5,7 @@ import logging
 import math
 import mmap
 import os
-# from multiprocessing import Pool
+from multiprocessing import Pool
 from pathlib import Path
 from timeit import default_timer as timer
 import struct
