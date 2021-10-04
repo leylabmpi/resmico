@@ -8,7 +8,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra -Wfatal-errors -msse4 ${OpenMP_CXX_FLAGS}")
 
 find_package(OpenMP REQUIRED)
-# find_package(ZLIB REQUIRED)
+find_package(ZLIB REQUIRED)
 
 include_directories(.)
 include_directories(third_party)
@@ -33,7 +33,7 @@ add_subdirectory(${PROJECT_SOURCE_DIR}/third_party/bamtools EXCLUDE_FROM_ALL)
 
 file(GLOB util_files util/*.cpp)
 add_library(util ${util_files})
-target_link_libraries(util spdlog::spdlog )
+target_link_libraries(util spdlog::spdlog z)
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   target_link_libraries(util stdc++fs)
 endif()
@@ -43,9 +43,6 @@ target_link_libraries(stats spdlog::spdlog BamTools BamTools-utils util)
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   target_link_libraries(stats stdc++fs)
 endif()
-
-add_library(mem_gzip util/mem_gzip.cpp)
-target_link_libraries(mem_gzip z)
 
 add_executable(bam2feat bam2feat.cpp)
 target_link_libraries(bam2feat stats util gflags spdlog::spdlog OpenMP::OpenMP_CXX)
