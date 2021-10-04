@@ -21,8 +21,8 @@
 // Revision      : $Revision: 1.5 $
 // Revision_date : $Date: 2002/04/26 23:30:15 $
 // Author(s)     : Deepak Bandyopadhyay, Lutz Kettner
-// 
-// Standard streambuf implementation following Nicolai Josuttis, "The 
+//
+// Standard streambuf implementation following Nicolai Josuttis, "The
 // Standard C++ Library".
 // ============================================================================
 
@@ -58,14 +58,14 @@ public:
         setp( buffer, buffer + (bufferSize-1));
         setg( buffer + 4,     // beginning of putback area
               buffer + 4,     // read position
-              buffer + 4);    // end position      
+              buffer + 4);    // end position
         // ASSERT: both input & output capabilities will not be used together
     }
     int is_open() { return opened; }
-    gzstreambuf* open( const char* name, int open_mode);
+    gzstreambuf* open( const char* name, int open_mode, int offset = 0);
     gzstreambuf* close();
     ~gzstreambuf() { close(); }
-    
+
     virtual int     overflow( int c = EOF);
     virtual int     underflow();
     virtual int     sync();
@@ -76,24 +76,24 @@ protected:
     gzstreambuf buf;
 public:
     gzstreambase() { init(&buf); }
-    gzstreambase( const char* name, int open_mode);
+    gzstreambase( const char* name, int open_mode, int offset);
     ~gzstreambase();
-    void open( const char* name, int open_mode);
+    void open( const char* name, int open_mode, int offset);
     void close();
     gzstreambuf* rdbuf() { return &buf; }
 };
 
 // ----------------------------------------------------------------------------
 // User classes. Use igzstream and ogzstream analogously to ifstream and
-// ofstream respectively. They read and write files based on the gz* 
+// ofstream respectively. They read and write files based on the gz*
 // function interface of the zlib. Files are compatible with gzip compression.
 // ----------------------------------------------------------------------------
 
 class igzstream : public gzstreambase, public std::istream {
 public:
-    igzstream() : std::istream( &buf) {} 
-    igzstream( const char* name, int open_mode = std::ios::in)
-        : gzstreambase( name, open_mode), std::istream( &buf) {}  
+    igzstream() : std::istream( &buf) {}
+    igzstream( const char* name, int open_mode = std::ios::in, int offset = 0)
+        : gzstreambase( name, open_mode, offset), std::istream( &buf) {}
     gzstreambuf* rdbuf() { return gzstreambase::rdbuf(); }
     void open( const char* name, int open_mode = std::ios::in) {
         gzstreambase::open( name, open_mode);
@@ -104,7 +104,7 @@ class ogzstream : public gzstreambase, public std::ostream {
 public:
     ogzstream() : std::ostream( &buf) {}
     ogzstream( const char* name, int mode = std::ios::out)
-        : gzstreambase( name, mode), std::ostream( &buf) {}  
+        : gzstreambase( name, mode, 0), std::ostream( &buf) {}
     gzstreambuf* rdbuf() { return gzstreambase::rdbuf(); }
     void open( const char* name, int open_mode = std::ios::out) {
         gzstreambase::open( name, open_mode);

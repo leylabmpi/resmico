@@ -2,12 +2,13 @@ import numpy as np
 import unittest
 
 from ResMiCo import ContigReader
+from ResMiCo import Reader
 
 
 class TestReadContig(unittest.TestCase):
     def test_read_from_file(self):
         input_file = open('./data/preprocess/features_binary', 'rb')
-        result = ContigReader._read_contig_data(input_file, ContigReader.feature_names)
+        result = ContigReader._read_contig_data(input_file, Reader.feature_names)
         self.assertEqual(500, len(result['ref_base_A']))
         self.assertIsNone(
             np.testing.assert_array_equal(np.array([1] * 498 + [0, 0]), result['ref_base_A']))
@@ -49,16 +50,16 @@ class TestReadContig(unittest.TestCase):
 
     def test_normalize_zero_mean_one_stdev(self):
         input_file = open('./data/preprocess/features_binary', 'rb')
-        old_result = ContigReader._read_contig_data(input_file, ContigReader.feature_names)
+        old_result = ContigReader._read_contig_data(input_file, Reader.feature_names)
 
-        reader = ContigReader.ContigReader('./data/preprocess/', ContigReader.feature_names, 1, False)
-        for fname in ContigReader.float_feature_names:
+        reader = ContigReader.ContigReader('./data/preprocess/', Reader.feature_names, 1, False)
+        for fname in Reader.float_feature_names:
             reader.means[fname] = 0
             reader.stdevs[fname] = 1
 
         result = reader._read_and_normalize(reader.contigs[0])
 
-        for fname in ContigReader.float_feature_names:
+        for fname in Reader.float_feature_names:
             # replace NANs with 0, as that's what the normalization in ContigReader does
             nan_pos = np.isnan(old_result[fname])
             old_result[fname][nan_pos] = 0
@@ -66,16 +67,16 @@ class TestReadContig(unittest.TestCase):
 
     def test_normalize_zero_mean_two_stdev(self):
         input_file = open('./data/preprocess/features_binary', 'rb')
-        old_result = ContigReader._read_contig_data(input_file, ContigReader.feature_names)
+        old_result = ContigReader._read_contig_data(input_file, Reader.feature_names)
 
-        reader = ContigReader.ContigReader('./data/preprocess/', ContigReader.feature_names, 1, False)
-        for fname in ContigReader.float_feature_names:
+        reader = ContigReader.ContigReader('./data/preprocess/', Reader.feature_names, 1, False)
+        for fname in Reader.float_feature_names:
             reader.means[fname] = 0
             reader.stdevs[fname] = 2
 
         result = reader._read_and_normalize(reader.contigs[0])
 
-        for fname in ContigReader.float_feature_names:
+        for fname in Reader.float_feature_names:
             # replace NANs with 0, as that's what the normalization in ContigReader does
             nan_pos = np.isnan(old_result[fname])
             old_result[fname][nan_pos] = 0

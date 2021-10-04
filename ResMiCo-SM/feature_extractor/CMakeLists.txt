@@ -44,6 +44,9 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   target_link_libraries(stats stdc++fs)
 endif()
 
+add_library(mem_gzip util/mem_gzip.cpp)
+target_link_libraries(mem_gzip z)
+
 add_executable(bam2feat bam2feat.cpp)
 target_link_libraries(bam2feat stats util gflags spdlog::spdlog OpenMP::OpenMP_CXX)
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")

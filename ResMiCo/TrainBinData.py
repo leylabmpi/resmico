@@ -74,7 +74,7 @@ def main(args):
 
     eval_data = Models.BinaryDataEval(reader, eval_idx, args.features, args.max_len, args.max_len // 2, 500000,
                                       args.cache_validation)
-    eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_data.indices])
+    eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_data.all_indices])
 
     # convert the slow Keras eval_data of type Sequence to a tf.data object
     data_iter = lambda: (s for s in eval_data)
