@@ -99,10 +99,7 @@ def parse_args(curr_args=None, subparsers=None):
     parser.add_argument('--fraq-neg', default=1., type=float,
                         help='Portion of samples to keep in overrepresented class (default: %(default)s)')
     parser.add_argument('--features', help='Features to use for training', default=[
-        'ref_base_A',
-        'ref_base_C',
-        'ref_base_G',
-        'ref_base_T',
+        'ref_base',
         'num_query_A',
         'num_query_C',
         'num_query_G',
