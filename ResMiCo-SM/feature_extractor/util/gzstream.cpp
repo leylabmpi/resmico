@@ -42,7 +42,7 @@ namespace GZSTREAM_NAMESPACE {
 // class gzstreambuf:
 // --------------------------------------
 
-gzstreambuf* gzstreambuf::open( const char* name, int open_mode, int offset) {
+gzstreambuf* gzstreambuf::open( const char* name, int open_mode) {
     if ( is_open())
         return (gzstreambuf*)0;
     mode = open_mode;
@@ -93,8 +93,8 @@ int gzstreambuf::underflow() { // used for input buffer only
 
     // reset buffer pointers
     setg( buffer + (4 - n_putback),   // beginning of putback area
-          buffer + 4,                 // read position
-          buffer + 4 + num);          // end of buffer
+         buffer + 4,                 // read position
+         buffer + 4 + num);          // end of buffer
 
     // return next character
     return * reinterpret_cast<unsigned char *>( gptr());
@@ -137,17 +137,17 @@ int gzstreambuf::sync() {
 // class gzstreambase:
 // --------------------------------------
 
-gzstreambase::gzstreambase( const char* name, int mode, int offset) {
+gzstreambase::gzstreambase( const char* name, int mode) {
     init( &buf);
-    open( name, mode, offset);
+    open( name, mode);
 }
 
 gzstreambase::~gzstreambase() {
     buf.close();
 }
 
-void gzstreambase::open( const char* name, int open_mode, int offset) {
-    if ( ! buf.open( name, open_mode, offset))
+void gzstreambase::open( const char* name, int open_mode) {
+    if ( ! buf.open( name, open_mode))
         clear( rdstate() | std::ios::badbit);
 }
 
