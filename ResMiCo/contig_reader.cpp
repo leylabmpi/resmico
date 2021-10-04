@@ -1,7 +1,10 @@
 #include "contig_reader.hpp"
 
+#include <cassert>
+#include <cstring>
 #include <fstream>
 #include <iostream>
+#include <memory>
 
 #include "zlib.h" // declare the external fns -- uses zconf.h, too
 
@@ -35,7 +38,7 @@ int uncompress_data(const char *abSrc, int nLenSrc, uint8_t *abDst,
 
 void read_feature(std::ifstream &f, int is_read, char *dest, uint32_t size) {
   if (!is_read) {
-    f.seekg(size, std::ios::seekdir::cur);
+    f.seekg(size, std::ios::cur);
     return;
   }
   std::cout << "Reading feature of size " << size << std::endl;
