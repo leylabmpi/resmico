@@ -290,8 +290,6 @@ class BinaryData(BinaryDataBase):
         """
         Return the next mini-batch of size #batch_size
         """
-        start = timer()
-
         self.log_count += 1
         self.contig_count += self.batch_size
         batch_indices = self.indices[self.batch_size * index:  self.batch_size * (index + 1)]
@@ -302,7 +300,9 @@ class BinaryData(BinaryDataBase):
         for i, idx in enumerate(batch_indices):
             y[i] = 0 if self.reader.contigs[idx].misassembly == 0 else 1
 
+        start = timer()
         features_data = self.reader.read_contigs(contig_data, self.data)
+        Utils.update_progress(index + 1, self.__len__(), 'Training: ', f' {(timer() - start):5.2f}s')
 
         max_contig_len = max([self.reader.contigs[i].length for i in batch_indices])
         max_len = min(max_contig_len, self.max_len)
@@ -323,7 +323,6 @@ class BinaryData(BinaryDataBase):
             stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
             x[i][:contig_len, :] = stacked_features
 
-        Utils.update_progress(index + 1, self.__len__(), 'Training: ', f' {(timer() - start):5.2f}s')
         return x, np.array(y)
 
 
