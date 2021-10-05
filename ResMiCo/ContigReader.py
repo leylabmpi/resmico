@@ -384,10 +384,9 @@ class ContigReader:
                 logging.warning('Could not find mean/standard deviation for feature: {fname}. Skipping normalization')
                 continue
             features[feature_name] -= self.means[feature_name]
-            if features[feature_name].dtype == np.float32:  # we can do the division in place
-                features[feature_name] /= self.stdevs[feature_name]
-            else:  # need to create a new floating point numpy array
-                features[feature_name] = features[feature_name] / self.stdevs[feature_name]
+            if features[feature_name].dtype != np.float32:  # we can do the division in place
+                features[feature_name] = features[feature_name].astype(np.float32)
+            features[feature_name] /= self.stdevs[feature_name]
             # replace NANs with 0 (the new mean)
             nan_pos = np.isnan(features[feature_name])
             features[feature_name][nan_pos] = 0
