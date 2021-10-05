@@ -72,6 +72,7 @@ def main(args):
     options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
     train_data_tf = train_data_tf.with_options(options)
 
+    np.seterr(all='raise')
     eval_data = Models.BinaryDataEval(reader, eval_idx, args.features, args.max_len, args.max_len // 2, 500000,
                                       args.cache_validation or args.cache)
     eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_data.all_indices])

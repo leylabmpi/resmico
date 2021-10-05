@@ -421,9 +421,10 @@ class BinaryDataEval(BinaryDataBase):
 
     def __getitem__(self, batch_idx: int):
         """ Return the mini-batch at index #index """
-        if self.cache_results and self.data[batch_idx] is not None:
-            return self.data[batch_idx]
         start = timer()
+        if self.cache_results and self.data[batch_idx] is not None:
+            Utils.update_progress(batch_idx + 1, self.__len__(), 'Evaluating: ', f' {(timer() - start):5.2f}s')
+            return self.data[batch_idx]
         # files to process
         indices = self.batch_list[batch_idx]
         contig_data: list[ContigInfo] = [self.reader.contigs[i] for i in indices]

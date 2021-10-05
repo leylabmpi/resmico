@@ -383,7 +383,11 @@ class ContigReader:
             if feature_name not in self.means or feature_name not in self.stdevs:
                 logging.warning('Could not find mean/standard deviation for feature: {fname}. Skipping normalization')
                 continue
-            features[feature_name] -= self.means[feature_name]
+            try:
+                features[feature_name] -= self.means[feature_name]
+            except:
+                logging.warning(f'Exception for feature {feature_name}')
+                print(features[feature_name])
             if features[feature_name].dtype != np.float32:  # we can do the division in place
                 features[feature_name] = features[feature_name].astype(np.float32)
             features[feature_name] /= self.stdevs[feature_name]
