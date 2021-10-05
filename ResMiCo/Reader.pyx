@@ -86,6 +86,7 @@ def read_contig_py(str file_name, int length, int offset, int size, py_feature_n
     return {key: result[key] for key in py_feature_names}
 
 @cython.boundscheck(False)
+@cython.wraparound(False)
 def read_contigs_py(file_names:list[bytes], py_lengths: list[int],  py_offsets: list[int],  py_sizes: list[int],
                     py_feature_mask: list[int], int num_threads):
     assert len(file_names) == len(py_lengths) == len(py_offsets) == len(py_sizes)
