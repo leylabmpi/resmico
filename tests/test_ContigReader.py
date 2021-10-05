@@ -83,10 +83,10 @@ class TestReadContig(unittest.TestCase):
             self.assertIsNone(np.testing.assert_array_equal(old_result[fname] / 2, result[fname]))
 
     def test_read_three_features(self):
-        input_file = open('./data/preprocess/features_binary', 'rb')
         reader = ContigReader.ContigReader('./data/preprocess/', [Reader.feature_names[0], Reader.feature_names[1],
                                                                   Reader.feature_names[3]], 1, False)
-        result = reader.read_contigs(reader.contigs)
+        data = ContigReader.ContigReader.create_data_cache(2, 500, reader.feature_names)
+        result = reader.read_contigs(reader.contigs, data)
 
         # we read 2 contigs in total
         self.assertEqual(2, len(result))

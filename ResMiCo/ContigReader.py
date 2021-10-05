@@ -209,14 +209,41 @@ class ContigReader:
     def __len__(self):
         return len(self.contigs)
 
-    def read_contigs_py_tmp(self, file_names: list[bytes], lengths: list[int], offsets: list[int], sizes: list[int],
-                            py_feature_names: list[str], num_threads: int):
-        assert len(file_names) == len(lengths) == len(offsets) == len(sizes)
+    def create_data_cache(batch_size: int, max_len: int, feature_names: list[str]):
+        data = []
+        for b in range(batch_size):
+            contig_data = {}
+            for f in feature_names:
+                contig_data[f] = np.empty(max_len, dtype=Reader.feature_types[Reader.feature_names.index(f)])
+            data.append(contig_data)
+        return data
 
-    def read_contigs(self, contig_infos: list[ContigInfo]):
+    def read_contigs_py(self, contig_infos: list[ContigInfo]):
         """
         Reads the features from the given contig feature files and returns the result in a list of len(contig_files)
         arrays of shape (contig_len, num_features).
+        Parameters:
+            contig_infos: list of contig metadata to read
+        """
+        start = timer()
+        self.normalize_time = 0
+        self.read_time = 0
+        result = []
+        for contig_data in map(self._read_and_normalize, contig_infos):
+            result.append(contig_data)
+
+        logging.debug(f'Contigs read in {(timer() - start):5.2f}s; read: {self.read_time:5.2f}s '
+                      f'normalize: {self.normalize_time:5.2f}s')
+        return result
+
+    def read_contigs(self, contig_infos: list[ContigInfo], data: list[dict[str: np.array]]):
+        """
+        Reads the features from the given contig feature files and returns the result in a list of len(contig_files)
+        arrays of shape (contig_len, num_features).
+        Parameters:
+            contig_infos: list of contig metadata to read
+            data: a cached memory area where the data from disk will be read into
+              (to avoid reallocation of large numpy arrays)
         """
         start = timer()
         self.normalize_time = 0
@@ -235,9 +262,9 @@ class ContigReader:
                 lengths.append(c.length)
                 offsets.append(c.offset)
                 sizes.append(c.size_bytes)
-            features_raw = Reader.read_contigs_py(file_names, lengths, offsets, sizes, self.feature_mask,
+            Reader.read_contigs_py(data, file_names, lengths, offsets, sizes, self.feature_mask,
                                                   self.process_count)
-            for f in features_raw:
+            for f in data:
                 features = _post_process_features(f)
                 self._normalize(features)
                 result.append(features)
