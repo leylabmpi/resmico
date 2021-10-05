@@ -204,7 +204,16 @@ class ContigReader:
 
         self.feature_mask: list[int] = [1 if feature in feature_names else 0 for feature in Reader.feature_names]
 
-        self._load_contigs_metadata(input_dir)
+        logging.info('Computing global means and standard deviations. Looking for stats/toc files...')
+        file_list = [str(f) for f in list(Path(input_dir).rglob("**/stats"))]
+        logging.info(f'Processing {len(file_list)} stats/toc files found in {input_dir} ...');
+        if not file_list:
+            logging.info('Noting to do.')
+            exit(0)
+
+        self._load_contigs_metadata(input_dir, file_list)
+        if in_memory:
+            self.cache(file_list)
 
     def __len__(self):
         return len(self.contigs)
@@ -263,7 +272,7 @@ class ContigReader:
                 offsets.append(c.offset)
                 sizes.append(c.size_bytes)
             Reader.read_contigs_py(data, file_names, lengths, offsets, sizes, self.feature_mask,
-                                                  self.process_count)
+                                   self.process_count)
             for f in data:
                 features = _post_process_features(f)
                 self._normalize(features)
@@ -272,14 +281,7 @@ class ContigReader:
                       f'normalize: {self.normalize_time:5.2f}s')
         return result
 
-    def _load_contigs_metadata(self, input_dir):
-        logging.info('Computing global means and standard deviations. Looking for stats/toc files...')
-        file_list = [str(f) for f in list(Path(input_dir).rglob("**/stats"))]
-        logging.info(f'Processing {len(file_list)} stats/toc files found in {input_dir} ...');
-        if not file_list:
-            logging.info('Noting to do.')
-            exit(0)
-
+    def _load_contigs_metadata(self, input_dir, file_list):
         mean_count = 0
         stddev_count = 0
         metrics = ['insert_size', 'mapq', 'al_score']  # insert size, mapping quality, alignment quality
@@ -306,7 +308,7 @@ class ContigReader:
         for metric in metrics:
             for mtype in metric_types:
                 feature_name = f'{mtype}_{metric}_Match'
-                # the count of non-nan position is different (lower) for the stdev_* features (because computing
+                # the count of non-NaN position is different (lower) for the stdev_* features (because computing
                 # the standard deviation requires at least coverage 2, while for max/mean/min coverage=1 is sufficient)
                 cnt = stddev_count if mtype == 'stdev' else mean_count
                 var = cnt * self.stdevs[feature_name] - self.means[feature_name] ** 2
@@ -328,6 +330,7 @@ class ContigReader:
             'Computed global means and stdevs:\n' + separator + '\n' + header + '\n' + values + '\n' + separator)
 
         contig_count = 0
+        total_len = 0
         for fname in file_list:
             toc_file = fname[:-len('stats')] + 'toc'
             contig_fname = fname[:-len('stats')] + 'features_binary'
@@ -342,28 +345,31 @@ class ContigReader:
                     size_bytes = int(row[3])
                     # the fields in row are: name, length (bases), misassembly_count, size_bytes
                     contig_info = ContigInfo(row[0], contig_fname, int(row[1]), offset, size_bytes, int(row[2]))
+                    total_len += contig_info.length
                     self.contigs.append(contig_info)
                     offset += size_bytes
                     contig_count += 1
 
-        logging.info(f'Found {contig_count} contigs')
+        logging.info(
+            f'Found {contig_count} contigs, {total_len} total length, '
+            f'memory needed {total_len * Reader.bytes_per_base / 1e9:6.2f}GB')
 
-        if self.in_memory:
-            logging.info('Loading contig features in memory')
-            old_file = ''
-            current = 1
-            for contig_info in self.contigs:
-                if old_file != contig_info.file:
-                    old_file = contig_info.file
-                    binary_file = open(contig_info.file, 'rb')
-                    # memory-map the file, size 0 means whole file
-                    mm = mmap.mmap(binary_file.fileno(), 0, access=mmap.ACCESS_READ)
-                    Utils.update_progress(current, len(file_list), 'Loading features: ', '')
-                    current += 1
-                # the gzip reader reads ahead and messes up the current position, so we need to re-seek
-                mm.seek(contig_info.offset)
-                contig_info.features = _read_contig_data(mm, self.feature_names)
-                self._normalize(contig_info.features)
+    def cache(self, file_list):
+        logging.info('Loading contig features in memory')
+        old_file = ''
+        current = 1
+        for contig_info in self.contigs:
+            if old_file != contig_info.file:
+                old_file = contig_info.file
+                binary_file = open(contig_info.file, 'rb')
+                # memory-map the file, size 0 means whole file
+                mm = mmap.mmap(binary_file.fileno(), 0, access=mmap.ACCESS_READ)
+                Utils.update_progress(current, len(file_list), 'Loading features: ', '')
+                current += 1
+            # the gzip reader reads ahead and messes up the current position, so we need to re-seek
+            mm.seek(contig_info.offset)
+            contig_info.features = _read_contig_data(mm, self.feature_names)
+            self._normalize(contig_info.features)
 
     def read_file(self, fname):
         toc_file = fname[:-len('stats')] + 'toc'
