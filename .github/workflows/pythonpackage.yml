@@ -53,6 +53,11 @@ jobs:
         conda env update -f conda_env.yaml python=${{ matrix.python-version }}
         conda list
         conda activate /usr/share/miniconda3/envs/resmico
+    - name: cython_contig_reader
+        shell: bash -l {0}
+        working-directory: ${{runner.workspace}}/ResMiCo/ResMiCo
+        run: |
+          python setup.py build_ext --inplace
     - name: test_resmico
       shell: bash -l {0}
       working-directory: ${{runner.workspace}}/ResMiCo/tests
