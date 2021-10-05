@@ -206,14 +206,12 @@ class ContigReader:
 
         logging.info('Computing global means and standard deviations. Looking for stats/toc files...')
         file_list = [str(f) for f in list(Path(input_dir).rglob("**/stats"))]
-        logging.info(f'Processing {len(file_list)} stats/toc files found in {input_dir} ...');
+        logging.info(f'Processing {len(file_list)} stats/toc files found in {input_dir} ...')
         if not file_list:
             logging.info('Noting to do.')
             exit(0)
 
         self._load_contigs_metadata(input_dir, file_list)
-        if in_memory:
-            self.cache(file_list)
 
     def __len__(self):
         return len(self.contigs)
@@ -327,23 +325,6 @@ class ContigReader:
         logging.info(
             f'Found {contig_count} contigs, {total_len} total length, '
             f'memory needed {total_len * Reader.bytes_per_base / 1e9:6.2f}GB')
-
-    def cache(self, file_list):
-        logging.info('Loading contig features in memory')
-        old_file = ''
-        current = 1
-        for contig_info in self.contigs:
-            if old_file != contig_info.file:
-                old_file = contig_info.file
-                binary_file = open(contig_info.file, 'rb')
-                # memory-map the file, size 0 means whole file
-                mm = mmap.mmap(binary_file.fileno(), 0, access=mmap.ACCESS_READ)
-                Utils.update_progress(current, len(file_list), 'Loading features: ', '')
-                current += 1
-            # the gzip reader reads ahead and messes up the current position, so we need to re-seek
-            mm.seek(contig_info.offset)
-            contig_info.features = _read_contig_data(mm, self.feature_names)
-            self._normalize(contig_info.features)
 
     def read_file(self, fname):
         toc_file = fname[:-len('stats')] + 'toc'
