@@ -228,9 +228,8 @@ class Generator(tf.keras.utils.Sequence):
         x_mb, y_mb = self.generate(indices_tmp)
         return x_mb, y_mb
 
-
 class BinaryDataBase(tf.keras.utils.Sequence):
-    def __init__(self, reader: ContigReader, indices: list[int], feature_names: list[str]):
+    def __init__(self, reader: ContigReader, indices: list[int],  feature_names: list[str]):
         """
        Arguments:
            - reader: ContigReader instance with all the contig metadata
@@ -245,10 +244,9 @@ class BinaryDataBase(tf.keras.utils.Sequence):
             pos = self.expanded_feature_names.index('ref_base')
             self.expanded_feature_names[pos: pos + 1] = ['ref_base_A', 'ref_base_C', 'ref_base_G', 'ref_base_T']
 
-
 class BinaryData(BinaryDataBase):
     def __init__(self, reader: ContigReader, indices: list[int], batch_size: int, feature_names: list[str],
-                 max_len: int, fraq_neg: float):
+                 max_len: int, fraq_neg: float, do_cache):
         """
         Arguments:
             - reader: ContigReader instance with all the contig metadata
@@ -267,10 +265,10 @@ class BinaryData(BinaryDataBase):
         self.log_freq = 300 / self.batch_size
         self.contig_count = 0
         self.fraq_neg = fraq_neg
+        self.on_epoch_end()  # select negative samples and shuffle indices
         self.negative_idx = [i for i, contig in enumerate(reader.contigs) if contig.misassembly == 0]
         self.positive_idx = [i for i, contig in enumerate(reader.contigs) if contig.misassembly > 0]
-        self.on_epoch_end()  # select negative samples and shuffle indices
-        self.data = ContigReader.ContigReader.create_data_cache(batch_size, max_len, self.feature_names)
+        self.do_cache = do_cache
 
     def on_epoch_end(self):
         """
@@ -281,6 +279,7 @@ class BinaryData(BinaryDataBase):
         np.random.shuffle(self.negative_idx)
         negative_count = int(self.fraq_neg * len(self.negative_idx))
         self.indices = self.positive_idx + self.negative_idx[:negative_count]
+        # TODO: this has no effect when caching
         np.random.shuffle(self.indices)
 
     def __len__(self):
@@ -290,19 +289,20 @@ class BinaryData(BinaryDataBase):
         """
         Return the next mini-batch of size #batch_size
         """
+        start = timer()
+        if self.do_cache and index in self.cache:
+            Utils.update_progress(index + 1, self.__len__(), 'Training: ', f' {(timer() - start):5.2f}s')
+            return self.cache[index]
         self.log_count += 1
         self.contig_count += self.batch_size
         batch_indices = self.indices[self.batch_size * index:  self.batch_size * (index + 1)]
-
         # files to process
         contig_data = [self.reader.contigs[i] for i in batch_indices]
         y = np.zeros(self.batch_size)
         for i, idx in enumerate(batch_indices):
             y[i] = 0 if self.reader.contigs[idx].misassembly == 0 else 1
 
-        start = timer()
-        features_data = self.reader.read_contigs(contig_data, self.data)
-        Utils.update_progress(index + 1, self.__len__(), 'Training: ', f' {(timer() - start):5.2f}s')
+        features_data = self.reader.read_contigs(contig_data)
 
         max_contig_len = max([self.reader.contigs[i].length for i in batch_indices])
         max_len = min(max_contig_len, self.max_len)
@@ -323,6 +323,9 @@ class BinaryData(BinaryDataBase):
             stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
             x[i][:contig_len, :] = stacked_features
 
+        if self.do_cache:
+            self.cache[idx] = (x, np.array(y))
+        Utils.update_progress(index + 1, self.__len__(), 'Training: ', f' {(timer() - start):5.2f}s')
         return x, np.array(y)
 
 
@@ -354,7 +357,7 @@ class BinaryDataEval(BinaryDataBase):
         # the cached results
         self.cache_results = cache_results
         if cache_results:
-            self.cached_data = [None] * len(self.batch_list)
+            self.data = [None] * len(self.batch_list)
 
     def _create_batch_list(self, contig_data: list[ContigInfo], total_contig_length: int):
         """ Divide the validation indices into mini-batches of total contig length < #total_contig_length """
@@ -414,14 +417,14 @@ class BinaryDataEval(BinaryDataBase):
 
     def __getitem__(self, batch_idx: int):
         """ Return the mini-batch at index #index """
-        if self.cache_results and self.cached_data[batch_idx] is not None:
-            return self.cached_data[batch_idx]
+        if self.cache_results and self.data[batch_idx] is not None:
+            return self.data[batch_idx]
         start = timer()
         # files to process
         indices = self.batch_list[batch_idx]
         contig_data: list[ContigInfo] = [self.reader.contigs[i] for i in indices]
 
-        features_data = self.reader.read_contigs_py(contig_data)
+        features_data = self.reader.read_contigs(contig_data)
         assert len(features_data) == len(contig_data)
 
         max_contig_len = max([self.reader.contigs[i].length for i in indices])
@@ -454,7 +457,7 @@ class BinaryDataEval(BinaryDataBase):
         Utils.update_progress(batch_idx + 1, self.__len__(), 'Evaluating: ', f' {(timer() - start):5.2f}s')
         result = np.array(x)
         if self.cache_results:
-            self.cached_data[batch_idx] = result
+            self.data[batch_idx] = result
         return result
 
 

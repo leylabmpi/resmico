@@ -92,8 +92,7 @@ def read_contig_py(str file_name, int length, int offset, int size, py_feature_n
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def read_contigs_py(py_data: list[dict[str:np.ndarray]], file_names:list[bytes], py_lengths: list[int],
-                    py_offsets: list[int],  py_sizes: list[int],
+def read_contigs_py(file_names:list[bytes], py_lengths: list[int],  py_offsets: list[int],  py_sizes: list[int],
                     py_feature_mask: list[int], int num_threads):
     assert len(file_names) == len(py_lengths) == len(py_offsets) == len(py_sizes)
     cdef uint32_t contig_count = len(file_names)
@@ -106,21 +105,27 @@ def read_contigs_py(py_data: list[dict[str:np.ndarray]], file_names:list[bytes],
     cdef char **buf = <char **>PyMem_Malloc(sizeof(char *) * num_threads);
     for i in range(num_threads):
         buf[i] = <char *>PyMem_Malloc(sizeof(char) * max_len * bytes_per_base + 4)
+    py_all_data = [None] * contig_count
     cdef uint32_t[2] arr_len
     cdef char[:] view
     views = [] # keep all views in a list to avoid garbage collection
     for ctg_idx in range(contig_count):
+        np_data = [None] * N_FEATURES
+        np_data_int8 = [None] * N_FEATURES
         all_data[ctg_idx] = <char **> PyMem_Malloc(sizeof(char **) * N_FEATURES)
         for feat_idx in range(N_FEATURES):
             if feature_mask[feat_idx]:
-                view = py_data[ctg_idx][feature_names[feat_idx]].view(np.int8)
+                np_data[feat_idx] = np.empty(lengths[ctg_idx], dtype = feature_types[feat_idx])
+                view = np_data[feat_idx].view(np.int8)
                 views.append(view)
                 all_data[ctg_idx][feat_idx] = &view[0]
             else:
                 all_data[ctg_idx][feat_idx] = NULL
+        py_all_data[ctg_idx] = np_data
 
     cdef uint8_t feature_sizes_bytes[N_FEATURES]
     feature_sizes_bytes[:] = feature_sizes
+
 
     cdef char ** c_file_names = <char **>PyMem_Malloc(sizeof(char**) * contig_count)
     for i in range(contig_count):
@@ -134,9 +139,15 @@ def read_contigs_py(py_data: list[dict[str:np.ndarray]], file_names:list[bytes],
                              N_FEATURES, bytes_per_base_c, &feature_mask[0], &feature_sizes_bytes[0],
                              buf[openmp.omp_get_thread_num()], all_data[ctg_idx_c])
 
+    results = []
+    for ctg_idx in range(contig_count):
+        results.append({feature_name: data for feature_name, data in zip(feature_names, py_all_data[ctg_idx])
+                        if data is not None })
+
     for i in range(num_threads):
         PyMem_Free(buf[i])
     for feat_idx in range(contig_count):
         PyMem_Free(all_data[feat_idx])
     PyMem_Free(all_data)
     PyMem_Free(buf)
+    return results
