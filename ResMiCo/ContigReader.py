@@ -202,10 +202,16 @@ class ContigReader:
         self.normalize_time = 0
         self.read_time = 0
 
+        self.feature_mask: list[int] = [1 if feature in feature_names else 0 for feature in Reader.feature_names]
+
         self._load_contigs_metadata(input_dir)
 
     def __len__(self):
         return len(self.contigs)
+
+    def read_contigs_py_tmp(self, file_names: list[bytes], lengths: list[int], offsets: list[int], sizes: list[int],
+                            py_feature_names: list[str], num_threads: int):
+        assert len(file_names) == len(lengths) == len(offsets) == len(sizes)
 
     def read_contigs(self, contig_infos: list[ContigInfo]):
         """
@@ -216,8 +222,25 @@ class ContigReader:
         self.normalize_time = 0
         self.read_time = 0
         result = []
-        for contig_data in map(self._read_and_normalize, contig_infos):
-            result.append(contig_data)
+        if READ_PYTHON:
+            for contig_data in map(self._read_and_normalize, contig_infos):
+                result.append(contig_data)
+        else:
+            file_names: list[bytes] = []
+            lengths: list[int] = []
+            offsets: list[int] = []
+            sizes: list[int] = []
+            for c in contig_infos:
+                file_names.append(c.file.encode('utf-8'))
+                lengths.append(c.length)
+                offsets.append(c.offset)
+                sizes.append(c.size_bytes)
+            features_raw = Reader.read_contigs_py(file_names, lengths, offsets, sizes, self.feature_mask,
+                                                  self.process_count)
+            for f in features_raw:
+                features = _post_process_features(f)
+                self._normalize(features)
+                result.append(features)
         logging.debug(f'Contigs read in {(timer() - start):5.2f}s; read: {self.read_time:5.2f}s '
                       f'normalize: {self.normalize_time:5.2f}s')
         return result
@@ -314,7 +337,6 @@ class ContigReader:
                 mm.seek(contig_info.offset)
                 contig_info.features = _read_contig_data(mm, self.feature_names)
                 self._normalize(contig_info.features)
-
 
     def read_file(self, fname):
         toc_file = fname[:-len('stats')] + 'toc'

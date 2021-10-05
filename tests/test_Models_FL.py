@@ -75,8 +75,10 @@ class TestBinaryDataEval(unittest.TestCase):
             eval_data = Models_FL.BinaryDataEval(reader, indices, Reader.feature_names, 500, 250, 1e5, False)
             self.assertEqual(1, len(eval_data))
             self.assertEqual(2, len(eval_data.batch_list[0]))
-            self.assertTrue(all(a == b for a, b in zip(eval_data[0][0][0][0:6], [1, 0, 0, 0, 2, 1])))
-            self.assertTrue(all(a == b for a, b in zip(eval_data[0][0][5][0:6], [1, 0, 0, 0, 0, 0])))
+            self.assertIsNone(
+                np.testing.assert_array_equal(eval_data[0][0][0][0:6], np.array([1, 0, 0, 0, 2, 1])))
+            self.assertIsNone(
+                np.testing.assert_array_equal(eval_data[0][0][5][0:6], np.array([1, 0, 0, 0, 0, 0])))
 
             self.assertTrue(all(a == b for a, b in zip(eval_data[0][1][0][0:6], [1, 0, 0, 0, 1, 1])))
             self.assertTrue(all(a == b for a, b in zip(eval_data[0][1][5][0:6], [1, 0, 0, 0, 0, 0])))

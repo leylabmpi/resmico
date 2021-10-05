@@ -41,7 +41,6 @@ void read_feature(std::ifstream &f, int is_read, char *dest, uint32_t size) {
     f.seekg(size, std::ios::cur);
     return;
   }
-  std::cout << "Reading feature of size " << size << std::endl;
   f.read(dest, size);
 }
 
@@ -56,11 +55,17 @@ void read_contig_features(const char *fname, uint32_t offset,
   std::unique_ptr<char[]> cbuf(new char[size_bytes]);
   f.read(cbuf.get(), size_bytes);
   std::unique_ptr<char[]> buf(new char[length_bases * bytes_per_base + 4]);
-  uncompress_data(cbuf.get(), size_bytes,
-                  reinterpret_cast<uint8_t *>(buf.get()),
-                  length_bases * bytes_per_base + 4);
+  uint32_t bytes_uncompressed = uncompress_data(
+      cbuf.get(), size_bytes, reinterpret_cast<uint8_t *>(buf.get()),
+      length_bases * bytes_per_base + 4);
+  std::ignore = bytes_uncompressed;
+  // sanity check: make sure we uncompressed exactly as many bytes as needed to
+  // store the contig features
+  assert(bytes_uncompressed == length_bases * bytes_per_base + 4);
   uint32_t contig_size;
   std::memcpy(&contig_size, buf.get(), 4);
+  //  std::cout << "Read contig of size: " << contig_size << " from " << fname
+  //            << " at offset " << offset << std::endl;
   assert(contig_size == length_bases);
 
   char *ptr = buf.get() + 4;
@@ -68,7 +73,7 @@ void read_contig_features(const char *fname, uint32_t offset,
   for (uint32_t i = 0; i < num_features; ++i) {
     if (feature_mask[i]) {
       std::memcpy(features[i], ptr, length_bases * feature_sizes_bytes[i]);
-      ptr += length_bases *feature_sizes_bytes[i];
+      ptr += length_bases * feature_sizes_bytes[i];
     }
   }
 }
@@ -81,8 +86,8 @@ int main() {
   const char *fname = "/tmp/small/features_binary";
   read_contig_features(fname, 0, 2752, 1071, 1, 58, feature_mask, feature_sizes,
                        &data);
-  read_contig_features(fname, 2752, 2994, 1012, 1, 58, feature_mask, feature_sizes,
-                       &data);
+  read_contig_features(fname, 2752, 2994, 1012, 1, 58, feature_mask,
+                       feature_sizes, &data);
 
   return 0;
 }
