@@ -94,7 +94,6 @@ def read_contigs_py(file_names:list[bytes], py_lengths: list[int],  py_offsets: 
     cdef int[:] offsets = array('i', py_offsets)
     cdef int[:] sizes = array('i', py_sizes)
     cdef uint8_t[:] feature_mask = array('B', py_feature_mask)
-    print('\n\n\n', feature_mask[0], feature_mask[1], feature_mask[10])
     cdef char ***all_data = <char ***> PyMem_Malloc(sizeof(char ***) * contig_count)
     py_all_data = [None] * contig_count
     cdef uint32_t[2] arr_len
