@@ -88,28 +88,30 @@ def read_contig_py(str file_name, int length, int offset, int size, py_feature_n
 @cython.boundscheck(False)
 def read_contigs_py(file_names:list[bytes], py_lengths: list[int],  py_offsets: list[int],  py_sizes: list[int],
                     py_feature_mask: list[int], int num_threads):
+    assert len(file_names) == len(py_lengths) == len(py_offsets) == len(py_sizes)
+    cdef uint32_t contig_count = len(file_names)
     cdef int[:] lengths = array('i', py_lengths)
     cdef int[:] offsets = array('i', py_offsets)
     cdef int[:] sizes = array('i', py_sizes)
-    py_feature_names: list[str] = [0]
-    assert len(file_names) == len(lengths) == len(offsets) == len(sizes)
-    cdef uint32_t contig_count = len(file_names)
     cdef uint8_t[:] feature_mask = array('B', py_feature_mask)
+    print('\n\n\n', feature_mask[0], feature_mask[1], feature_mask[10])
     cdef char ***all_data = <char ***> PyMem_Malloc(sizeof(char ***) * contig_count)
     py_all_data = [None] * contig_count
     cdef uint32_t[2] arr_len
     cdef char[:] view
     views = [] # keep all views in a list to avoid garbage collection
     for ctg_idx in range(contig_count):
-        arr_len = {1, lengths[ctg_idx]}
         np_data = [None] * N_FEATURES
         np_data_int8 = [None] * N_FEATURES
         all_data[ctg_idx] = <char **> PyMem_Malloc(sizeof(char **) * N_FEATURES)
         for feat_idx in range(N_FEATURES):
-           np_data[feat_idx] = np.empty([arr_len[feature_mask[feat_idx]]], dtype = feature_types[feat_idx])
-           view = np_data[feat_idx].view(np.int8)
-           views.append(view)
-           all_data[ctg_idx][feat_idx] = &view[0]
+            if feature_mask[feat_idx]:
+                np_data[feat_idx] = np.empty(lengths[ctg_idx], dtype = feature_types[feat_idx])
+                view = np_data[feat_idx].view(np.int8)
+                views.append(view)
+                all_data[ctg_idx][feat_idx] = &view[0]
+            else:
+                all_data[ctg_idx][feat_idx] = NULL
         py_all_data[ctg_idx] = np_data
 
     cdef uint8_t feature_sizes_bytes[N_FEATURES]
@@ -130,7 +132,8 @@ def read_contigs_py(file_names:list[bytes], py_lengths: list[int],  py_offsets: 
 
     results = []
     for ctg_idx in range(contig_count):
-        results.append({feature_name: data for feature_name, data in zip(feature_names, py_all_data[ctg_idx])})
+        results.append({feature_name: data for feature_name, data in zip(feature_names, py_all_data[ctg_idx])
+                        if data is not None })
 
     for feat_idx in range(contig_count):
         PyMem_Free(all_data[feat_idx])

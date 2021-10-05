@@ -73,8 +73,8 @@ void read_contig_features(const char *fname, uint32_t offset,
   for (uint32_t i = 0; i < num_features; ++i) {
     if (feature_mask[i]) {
       std::memcpy(features[i], ptr, length_bases * feature_sizes_bytes[i]);
-      ptr += length_bases * feature_sizes_bytes[i];
     }
+    ptr += length_bases * feature_sizes_bytes[i];
   }
 }
 

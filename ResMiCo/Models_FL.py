@@ -303,7 +303,7 @@ class BinaryData(BinaryDataBase):
 
         max_contig_len = max([self.reader.contigs[i].length for i in batch_indices])
         max_len = min(max_contig_len, self.max_len)
-        # Create the numpy array storing the features for the contigs in #batch_indices
+        # Create the numpy array storing all the features for all the contigs in #batch_indices
         x = np.zeros((self.batch_size, max_len, len(features_data[0])))
 
         for i, contig_features in enumerate(features_data):

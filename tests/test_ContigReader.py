@@ -82,5 +82,29 @@ class TestReadContig(unittest.TestCase):
             old_result[fname][nan_pos] = 0
             self.assertIsNone(np.testing.assert_array_equal(old_result[fname] / 2, result[fname]))
 
+    def test_read_three_features(self):
+        input_file = open('./data/preprocess/features_binary', 'rb')
+        reader = ContigReader.ContigReader('./data/preprocess/', [Reader.feature_names[0], Reader.feature_names[1],
+                                                                  Reader.feature_names[3]], 1, False)
+        result = reader.read_contigs(reader.contigs)
+
+        # we read 2 contigs in total
+        self.assertEqual(2, len(result))
+        # each contig has 6 features (because 'ref_base' is one-hot encoded into 4 features)
+        self.assertEqual(6, len(result[0]))
+        self.assertEqual(6, len(result[1]))
+
+        self.assertEqual(500, len(result[0]['ref_base_A']))
+        self.assertIsNone(
+            np.testing.assert_array_equal(np.array([1] * 498 + [0, 0]), result[0]['ref_base_A']))
+        self.assertIsNone(
+            np.testing.assert_array_equal(np.array([0] * 498 + [1, 1]), result[0]['ref_base_C']))
+        self.assertTrue(not np.any(result[0]['ref_base_G']))
+        self.assertTrue(not np.any(result[0]['ref_base_T']))
+        coverage = result[0]['coverage']
+        for pos in range(0, len(result[0]['ref_base_A'])):
+            self.assertEqual(2 if 420 <= pos < 425 or pos < 5 else 0, coverage[pos])
+            self.assertEqual(0.5 if 420 <= pos < 425 else 0, result[0]['num_query_C'][pos])
+
     if __name__ == '__main__':
         unittest.main()
