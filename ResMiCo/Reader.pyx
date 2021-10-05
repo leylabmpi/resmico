@@ -1,5 +1,6 @@
 # distutils: language = c++
 cimport cython
+cimport openmp
 
 from array import array
 from libc.stdint cimport uint32_t
@@ -55,6 +56,10 @@ cdef extern from 'contig_reader.hpp':
                           uint32_t length_bases, uint32_t num_features,
                           uint16_t b_per_base, uint8_t *feature_mask,
                           uint8_t *feature_sizes_bytes, char **features) nogil
+    cdef void read_contig_features_buf(const char *fname, uint32_t offset, uint32_t size_bytes,
+                                   uint32_t length_bases, uint32_t num_features,
+                                   uint16_t b_per_base, uint8_t *feature_mask,
+                                   uint8_t *feature_sizes_bytes, char *buf, char ** features) nogil
 
 
 @cython.boundscheck(False)
@@ -91,11 +96,15 @@ def read_contigs_py(file_names:list[bytes], py_lengths: list[int],  py_offsets: 
                     py_feature_mask: list[int], int num_threads):
     assert len(file_names) == len(py_lengths) == len(py_offsets) == len(py_sizes)
     cdef uint32_t contig_count = len(file_names)
+    cdef int max_len = max(py_lengths)
     cdef int[:] lengths = array('i', py_lengths)
     cdef int[:] offsets = array('i', py_offsets)
     cdef int[:] sizes = array('i', py_sizes)
     cdef uint8_t[:] feature_mask = array('B', py_feature_mask)
-    cdef char ***all_data = <char ***> PyMem_Malloc(sizeof(char ***) * contig_count)
+    cdef char ***all_data = <char ***> PyMem_Malloc(sizeof(char **) * contig_count)
+    cdef char **buf = <char **>PyMem_Malloc(sizeof(char *) * num_threads);
+    for i in range(num_threads):
+        buf[i] = <char *>PyMem_Malloc(sizeof(char) * max_len * bytes_per_base + 4)
     py_all_data = [None] * contig_count
     cdef uint32_t[2] arr_len
     cdef char[:] view
@@ -126,16 +135,19 @@ def read_contigs_py(file_names:list[bytes], py_lengths: list[int],  py_offsets: 
     cdef Py_ssize_t ctg_idx_c
     cdef uint32_t bytes_per_base_c = bytes_per_base
     for ctg_idx_c in prange(contig_count, nogil=True, num_threads = num_threads):
-        read_contig_features(c_file_names[ctg_idx], offsets[ctg_idx_c], sizes[ctg_idx_c], lengths[ctg_idx_c],
+        read_contig_features_buf(c_file_names[ctg_idx], offsets[ctg_idx_c], sizes[ctg_idx_c], lengths[ctg_idx_c],
                              N_FEATURES, bytes_per_base_c, &feature_mask[0], &feature_sizes_bytes[0],
-                             all_data[ctg_idx_c])
+                             buf[openmp.omp_get_thread_num()], all_data[ctg_idx_c])
 
     results = []
     for ctg_idx in range(contig_count):
         results.append({feature_name: data for feature_name, data in zip(feature_names, py_all_data[ctg_idx])
                         if data is not None })
 
+    for i in range(num_threads):
+        PyMem_Free(buf[i])
     for feat_idx in range(contig_count):
         PyMem_Free(all_data[feat_idx])
     PyMem_Free(all_data)
+    PyMem_Free(buf)
     return results

@@ -78,6 +78,41 @@ void read_contig_features(const char *fname, uint32_t offset,
   }
 }
 
+void read_contig_features_buf(const char *fname, uint32_t offset,
+                              uint32_t size_bytes, uint32_t length_bases,
+                              uint32_t num_features, uint16_t bytes_per_base,
+                              uint8_t *feature_mask,
+                              uint8_t *feature_sizes_bytes,
+                              char *buf,
+                              char **features) {
+  std::ifstream f(fname);
+  f.seekg(offset);
+  // buffer for compressed data
+  std::unique_ptr<char[]> cbuf(new char[size_bytes]);
+  f.read(cbuf.get(), size_bytes);
+  uint32_t bytes_uncompressed = uncompress_data(
+      cbuf.get(), size_bytes, reinterpret_cast<uint8_t *>(buf),
+      length_bases * bytes_per_base + 4);
+  std::ignore = bytes_uncompressed;
+  // sanity check: make sure we uncompressed exactly as many bytes as needed to
+  // store the contig features
+  assert(bytes_uncompressed == length_bases * bytes_per_base + 4);
+  uint32_t contig_size;
+  std::memcpy(&contig_size, buf, 4);
+  //  std::cout << "Read contig of size: " << contig_size << " from " << fname
+  //            << " at offset " << offset << std::endl;
+  assert(contig_size == length_bases);
+
+  char *ptr = buf + 4;
+
+  for (uint32_t i = 0; i < num_features; ++i) {
+    if (feature_mask[i]) {
+      std::memcpy(features[i], ptr, length_bases * feature_sizes_bytes[i]);
+    }
+    ptr += length_bases * feature_sizes_bytes[i];
+  }
+}
+
 int main() {
   char *data = new char[1071];
   uint8_t feature_mask[] = {1};
