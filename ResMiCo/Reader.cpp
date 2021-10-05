@@ -7,10 +7,12 @@
             "contig_reader.hpp"
         ],
         "extra_compile_args": [
-            "-std=c++11"
+            "-std=c++11",
+            "-fopenmp"
         ],
         "extra_link_args": [
-            "-std=c++11"
+            "-std=c++11",
+            "-fopenmp"
         ],
         "language": "c++",
         "libraries": [

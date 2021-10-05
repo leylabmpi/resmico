@@ -13,7 +13,7 @@ class TestBinaryData(unittest.TestCase):
         reader = ContigReader.ContigReader('./data/preprocess/', Reader.feature_names, 1, False)
         indices = np.arange(len(reader))
         batch_size = 10
-        data_gen = Models_FL.BinaryData(reader, indices, batch_size, Reader.feature_names, 500, 1.0)
+        data_gen = Models_FL.BinaryData(reader, indices, batch_size, Reader.feature_names, 500, 1.0, True)
         # unshuffle the indices, so that we can make assertions about the returned data
         data_gen.indices = [0, 1]
         self.assertEqual(1, len(data_gen))

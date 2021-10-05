@@ -8,8 +8,8 @@ sourcefiles = ['Reader.pyx', 'contig_reader.cpp']
 extensions = [Extension('Reader',
                         sourcefiles,
                         language="c++",
-                        extra_compile_args=['-std=c++11', '-fopenmp'],
-                        extra_link_args=['-std=c++11', '-fopenmp'],
+                        extra_compile_args=['-std=c++11'],
+                        extra_link_args=['-std=c++11'],
                         libraries= ['z'],
                         )]
 

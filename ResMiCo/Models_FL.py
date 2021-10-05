@@ -246,7 +246,7 @@ class BinaryDataBase(tf.keras.utils.Sequence):
 
 class BinaryData(BinaryDataBase):
     def __init__(self, reader: ContigReader, indices: list[int], batch_size: int, feature_names: list[str],
-                 max_len: int, fraq_neg: float, do_cache):
+                 max_len: int, fraq_neg: float, do_cache: bool):
         """
         Arguments:
             - reader: ContigReader instance with all the contig metadata
@@ -265,10 +265,13 @@ class BinaryData(BinaryDataBase):
         self.log_freq = 300 / self.batch_size
         self.contig_count = 0
         self.fraq_neg = fraq_neg
-        self.on_epoch_end()  # select negative samples and shuffle indices
+        self.do_cache = do_cache
+        if self.do_cache:
+            # the cache maps a batch index to feature_name:feature_data pairs
+            self.cache: dict[int, dict[str, np.array]] = {}
         self.negative_idx = [i for i, contig in enumerate(reader.contigs) if contig.misassembly == 0]
         self.positive_idx = [i for i, contig in enumerate(reader.contigs) if contig.misassembly > 0]
-        self.do_cache = do_cache
+        self.on_epoch_end()  # select negative samples and shuffle indices
 
     def on_epoch_end(self):
         """
@@ -281,6 +284,7 @@ class BinaryData(BinaryDataBase):
         self.indices = self.positive_idx + self.negative_idx[:negative_count]
         # TODO: this has no effect when caching
         np.random.shuffle(self.indices)
+
 
     def __len__(self):
         return int(np.ceil(len(self.indices) / self.batch_size))
