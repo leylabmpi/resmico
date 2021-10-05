@@ -176,8 +176,7 @@ class ContigReader:
     Reads contig data from binary files written by ResMiCo-SM.
     """
 
-    def __init__(self, input_dir: str, feature_names: list[str], process_count: int, is_chunked: bool,
-                 in_memory: bool = False):
+    def __init__(self, input_dir: str, feature_names: list[str], process_count: int, is_chunked: bool):
         """
         Arguments:
             - input_dir: location on disk where the feature data is stored
@@ -196,7 +195,6 @@ class ContigReader:
         self.feature_names = feature_names
         self.process_count = process_count
         self.is_chunked = is_chunked
-        self.in_memory = in_memory
 
         # just temp attributes for measuring performance
         self.normalize_time = 0

@@ -295,7 +295,7 @@ class BinaryData(BinaryDataBase):
         """
         start = timer()
         if self.do_cache and index in self.cache:
-            Utils.update_progress(index + 1, self.__len__(), 'Training: ', f' {(timer() - start):5.2f}s')
+            Utils.update_progress(index + 1, len(self), 'Training: ', f' {(timer() - start):5.2f}s')
             return self.cache[index]
         self.log_count += 1
         self.contig_count += self.batch_size
@@ -307,7 +307,6 @@ class BinaryData(BinaryDataBase):
             y[i] = 0 if self.reader.contigs[idx].misassembly == 0 else 1
 
         features_data = self.reader.read_contigs(contig_data)
-
         max_contig_len = max([self.reader.contigs[i].length for i in batch_indices])
         max_len = min(max_contig_len, self.max_len)
         # Create the numpy array storing all the features for all the contigs in #batch_indices
@@ -328,7 +327,7 @@ class BinaryData(BinaryDataBase):
             x[i][:contig_len, :] = stacked_features
 
         if self.do_cache:
-            self.cache[idx] = (x, np.array(y))
+            self.cache[index] = (x, np.array(y))
         Utils.update_progress(index + 1, self.__len__(), 'Training: ', f' {(timer() - start):5.2f}s')
         return x, np.array(y)
 
@@ -348,6 +347,7 @@ class BinaryDataEval(BinaryDataBase):
             total_contig_length - maximum total length of the contigs in a mini-batch
             cache_results - if True, the generator will cache the result in memory the first time is read from disk
         """
+        logging.info(f'Creating evaluation data generator. Window: {window}, Step: {step}, Caching: {cache_results}')
         BinaryDataBase.__init__(self, reader, indices, feature_names)
         self.window = window
         self.step = step

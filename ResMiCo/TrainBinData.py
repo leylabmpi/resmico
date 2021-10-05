@@ -39,8 +39,7 @@ def main(args):
                                              write_graph=True, write_images=True)
 
     logging.info('Loading contig data...')
-    reader = ContigReader.ContigReader(args.feature_files_path, args.features, args.n_procs, args.chunks,
-                                       args.cache)
+    reader = ContigReader.ContigReader(args.feature_files_path, args.features, args.n_procs, args.chunks)
 
     # separate data into 90% for training and 10% for evaluation
     all_idx = np.arange(len(reader))
@@ -74,7 +73,7 @@ def main(args):
     train_data_tf = train_data_tf.with_options(options)
 
     eval_data = Models.BinaryDataEval(reader, eval_idx, args.features, args.max_len, args.max_len // 2, 500000,
-                                      args.cache_validation)
+                                      args.cache_validation or args.cache)
     eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_data.all_indices])
 
     # convert the slow Keras eval_data of type Sequence to a tf.data object
