@@ -50,7 +50,8 @@ def main(args):
     logging.info(f'Using {len(train_idx)} contigs for training, {len(eval_idx)} contigs for evaluation')
 
     # create data generators for training data and evaluation data
-    train_data = Models.BinaryData(reader, train_idx, args.batch_size, args.features, args.max_len, args.fraq_neg)
+    train_data = Models.BinaryData(reader, train_idx, args.batch_size, args.features, args.max_len, args.fraq_neg,
+                                   args.cache)
 
     # convert the slow Keras train_data of type Sequence to a tf.data object
     # first, we convert the keras sequence into a generator-like object
