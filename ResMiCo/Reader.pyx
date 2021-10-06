@@ -134,9 +134,8 @@ def read_contigs_py(file_names:list[bytes], py_lengths: list[int],  py_offsets: 
     cdef char ** c_file_names = <char **>PyMem_Malloc(sizeof(char*) * contig_count)
     for i in range(contig_count):
         c_file_names[i] = PyBytes_AS_STRING(file_names[i])
-        printf("File no %d is %p\n", i, c_file_names[i])
+        printf("File no %d is %p and %s\n", i, c_file_names[i], c_file_names[i])
 
-    exit(0)
     # This is the code that is actually parallelized
     cdef Py_ssize_t ctg_idx_c
     cdef uint32_t bytes_per_base_c = bytes_per_base
@@ -145,8 +144,7 @@ def read_contigs_py(file_names:list[bytes], py_lengths: list[int],  py_offsets: 
         # the buffer used by the C++ code to unzip the data (one buffer for each thread)
         buf = <char *> malloc(sizeof(char) * max_len * bytes_per_base_c + 4)
         for ctg_idx_c in prange(contig_count, schedule='guided'):
-            printf("Reading from %s at offset %d", c_file_names[ctg_idx], offsets[ctg_idx_c])
-            read_contig_features_buf(c_file_names[ctg_idx], offsets[ctg_idx_c], sizes[ctg_idx_c], lengths[ctg_idx_c],
+            read_contig_features_buf(c_file_names[ctg_idx_c], offsets[ctg_idx_c], sizes[ctg_idx_c], lengths[ctg_idx_c],
                                  N_FEATURES, bytes_per_base_c, &feature_mask[0], &feature_sizes_bytes[0],
                                  buf, all_data[ctg_idx_c], cython.parallel.threadid())
         free(buf)
