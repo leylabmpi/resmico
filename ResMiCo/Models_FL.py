@@ -457,11 +457,12 @@ class BinaryDataEval(BinaryDataBase):
             stacked_features = np.stack(to_merge, axis=-1)
             while True:
                 end_idx = start_idx + self.window
-                if end_idx <= contig_len and end_idx-start_idx == max_len:
+                if end_idx <= contig_len:
                     x.append(stacked_features[start_idx:end_idx])
                 else:
                     np_data = np.zeros((max_len, len(self.expanded_feature_names)))
-                    np_data[:min(end_idx, contig_len) - start_idx] = stacked_features[start_idx:end_idx]
+                    valid_end = min(end_idx, contig_len)
+                    np_data[:valid_end - start_idx] = stacked_features[start_idx:valid_end]
                     x.append(np_data)
                 start_idx += self.step
 
