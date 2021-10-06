@@ -4,8 +4,8 @@ from Cython.Build import cythonize
 import numpy
 import platform
 
-compile_args = ['-std=c++11', '-fopenmp']
-link_args = ['-std=c++11', '-fopenmp']
+compile_args = ['-std=c++11']
+link_args = ['-std=c++11']
 if platform.system() != 'Darwin':
     compile_args.append('-fopenmp')
     link_args.append('-fopenmp')

@@ -1,6 +1,6 @@
 # distutils: language = c++
 cimport cython
-from libc.stdio cimport printf
+from libc.stdlib cimport malloc, free
 
 from array import array
 from libc.stdint cimport uint32_t
@@ -8,7 +8,7 @@ from libc.stdint cimport uint16_t
 from libc.stdint cimport uint8_t
 
 import numpy as np
-from cython.parallel import prange
+from cython.parallel import parallel, prange
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
 
 DEF N_FEATURES = 25
@@ -104,10 +104,7 @@ def read_contigs_py(file_names:list[bytes], py_lengths: list[int],  py_offsets: 
     # the buffer used by the C++ code to write the features into; one buffer per contig; for each contig one buffer
     # per feature
     cdef char ***all_data = <char ***> PyMem_Malloc(sizeof(char **) * contig_count)
-    # the buffer used by the C++ code to unzip the data; one buffer for each thread
-    cdef char **buf = <char **>PyMem_Malloc(sizeof(char *) * num_threads);
-    for i in range(num_threads):
-        buf[i] = <char *>PyMem_Malloc(sizeof(char) * max_len * bytes_per_base + 4)
+
     py_all_data = [None] * contig_count
     cdef uint32_t[2] arr_len
     cdef char[:] view
@@ -137,20 +134,22 @@ def read_contigs_py(file_names:list[bytes], py_lengths: list[int],  py_offsets: 
     # This is the code that is actually parallelized
     cdef Py_ssize_t ctg_idx_c
     cdef uint32_t bytes_per_base_c = bytes_per_base
-    for ctg_idx_c in prange(contig_count, nogil=True, num_threads = num_threads):
-        read_contig_features_buf(c_file_names[ctg_idx], offsets[ctg_idx_c], sizes[ctg_idx_c], lengths[ctg_idx_c],
-                             N_FEATURES, bytes_per_base_c, &feature_mask[0], &feature_sizes_bytes[0],
-                             buf[cython.parallel.threadid()], all_data[ctg_idx_c], cython.parallel.threadid())
+    cdef char * buf
+    with nogil, parallel(num_threads = num_threads):
+        # the buffer used by the C++ code to unzip the data (one buffer for each thread)
+        buf = <char *> malloc(sizeof(char) * max_len * bytes_per_base_c + 4)
+        for ctg_idx_c in prange(contig_count):
+            read_contig_features_buf(c_file_names[ctg_idx], offsets[ctg_idx_c], sizes[ctg_idx_c], lengths[ctg_idx_c],
+                                 N_FEATURES, bytes_per_base_c, &feature_mask[0], &feature_sizes_bytes[0],
+                                 buf, all_data[ctg_idx_c], cython.parallel.threadid())
+        free(buf)
 
     results = []
     for ctg_idx in range(contig_count):
         results.append({feature_name: data for feature_name, data in zip(feature_names, py_all_data[ctg_idx])
                         if data is not None })
 
-    for i in range(num_threads):
-        PyMem_Free(buf[i])
     for feat_idx in range(contig_count):
         PyMem_Free(all_data[feat_idx])
     PyMem_Free(all_data)
-    PyMem_Free(buf)
     return results

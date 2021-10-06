@@ -257,6 +257,10 @@ class BinaryData(BinaryDataBase):
             - fraq_neg: fraction of samples to keep in the overrepresented class (contigs with no misassembly)
         """
         BinaryDataBase.__init__(self, reader, indices, feature_names)
+        logging.info(
+            f'Creating training data generator. Cache: {do_cache}, Batch size: {batch_size}, Max length: {max_len}, '
+            f'Fraction correctly assembled: {fraq_neg}, Features: {len(self.expanded_feature_names)}, '
+            f'Contigs: {len(indices)}')
         self.batch_size = batch_size
         self.max_len = max_len
 
