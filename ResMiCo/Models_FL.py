@@ -228,8 +228,9 @@ class Generator(tf.keras.utils.Sequence):
         x_mb, y_mb = self.generate(indices_tmp)
         return x_mb, y_mb
 
+
 class BinaryDataBase(tf.keras.utils.Sequence):
-    def __init__(self, reader: ContigReader, indices: list[int],  feature_names: list[str]):
+    def __init__(self, reader: ContigReader, indices: list[int], feature_names: list[str]):
         """
        Arguments:
            - reader: ContigReader instance with all the contig metadata
@@ -243,6 +244,7 @@ class BinaryDataBase(tf.keras.utils.Sequence):
         if 'ref_base' in self.expanded_feature_names:
             pos = self.expanded_feature_names.index('ref_base')
             self.expanded_feature_names[pos: pos + 1] = ['ref_base_A', 'ref_base_C', 'ref_base_G', 'ref_base_T']
+
 
 class BinaryData(BinaryDataBase):
     def __init__(self, reader: ContigReader, indices: list[int], batch_size: int, feature_names: list[str],
@@ -288,7 +290,6 @@ class BinaryData(BinaryDataBase):
         self.indices = self.positive_idx + self.negative_idx[:negative_count]
         # TODO: this has no effect when caching
         np.random.shuffle(self.indices)
-
 
     def __len__(self):
         return int(np.ceil(len(self.indices) / self.batch_size))
@@ -430,7 +431,6 @@ class BinaryDataEval(BinaryDataBase):
         indices = self.batch_list[batch_idx]
         contig_data: list[ContigInfo] = [self.reader.contigs[i] for i in indices]
 
-
         if self.cache_results and self.data[batch_idx] is not None:
             features_data = self.data[batch_idx]
         else:
@@ -438,7 +438,6 @@ class BinaryDataEval(BinaryDataBase):
             if self.cache_results:
                 self.data[batch_idx] = features_data
         assert len(features_data) == len(contig_data)
-
 
         max_contig_len = max([self.reader.contigs[i].length for i in indices])
         max_len = min(max_contig_len, self.window)
@@ -452,17 +451,20 @@ class BinaryDataEval(BinaryDataBase):
             assert contig_len == len(contig_features[self.expanded_feature_names[0]])
             start_idx = 0
             count = 0
+            # each feature in features_data becomes o column in x
+            for j, feature_name in enumerate(self.expanded_feature_names):
+                to_merge[j] = contig_features[feature_name]
+            stacked_features = np.stack(to_merge, axis=-1)
             while True:
-                np_data = np.zeros((max_len, len(self.expanded_feature_names)))
-
                 end_idx = start_idx + self.window
-                for j, feature_name in enumerate(self.expanded_feature_names):
-                    to_merge[j] = contig_features[feature_name][start_idx:end_idx]
+                if end_idx <= contig_len and end_idx-start_idx == max_len:
+                    x.append(stacked_features[start_idx:end_idx])
+                else:
+                    np_data = np.zeros((max_len, len(self.expanded_feature_names)))
+                    np_data[:min(end_idx, contig_len) - start_idx] = stacked_features[start_idx:end_idx]
+                    x.append(np_data)
                 start_idx += self.step
-                stacked_features = np.stack(to_merge, axis=-1)
-                # each feature becomes a column in x[i]
-                np_data[:stacked_features.shape[0], :stacked_features.shape[1]] = stacked_features
-                x.append(np_data)
+
                 count += 1
                 if end_idx >= contig_len:
                     break
