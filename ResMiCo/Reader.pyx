@@ -1,5 +1,6 @@
 # distutils: language = c++
 cimport cython
+from libc.stdio cimport printf
 from libc.stdlib cimport malloc, free
 
 from array import array
@@ -135,10 +136,12 @@ def read_contigs_py(file_names:list[bytes], py_lengths: list[int],  py_offsets: 
     cdef Py_ssize_t ctg_idx_c
     cdef uint32_t bytes_per_base_c = bytes_per_base
     cdef char * buf
+    printf("\nNew call\n\n");
     with nogil, parallel(num_threads = num_threads):
         # the buffer used by the C++ code to unzip the data (one buffer for each thread)
         buf = <char *> malloc(sizeof(char) * max_len * bytes_per_base_c + 4)
         for ctg_idx_c in prange(contig_count):
+            printf("Buffer is: %p\n", buf)
             read_contig_features_buf(c_file_names[ctg_idx], offsets[ctg_idx_c], sizes[ctg_idx_c], lengths[ctg_idx_c],
                                  N_FEATURES, bytes_per_base_c, &feature_mask[0], &feature_sizes_bytes[0],
                                  buf, all_data[ctg_idx_c], cython.parallel.threadid())
