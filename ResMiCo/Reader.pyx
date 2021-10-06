@@ -139,6 +139,7 @@ def read_contigs_py(file_names:list[bytes], py_lengths: list[int],  py_offsets: 
     cdef uint32_t bytes_per_base_c = bytes_per_base
     cdef int thread_id = -1
     for ctg_idx_c in prange(contig_count, nogil=True, num_threads = num_threads):
+        thread_id = cython.parallel.threadid()
         printf("Thread ID: %d\n", thread_id)
         read_contig_features_buf(c_file_names[ctg_idx], offsets[ctg_idx_c], sizes[ctg_idx_c], lengths[ctg_idx_c],
                              N_FEATURES, bytes_per_base_c, &feature_mask[0], &feature_sizes_bytes[0],
