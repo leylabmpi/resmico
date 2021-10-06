@@ -137,9 +137,8 @@ def read_contigs_py(file_names:list[bytes], py_lengths: list[int],  py_offsets: 
     # This is the code that is actually parallelized
     cdef Py_ssize_t ctg_idx_c
     cdef uint32_t bytes_per_base_c = bytes_per_base
-    print(f'Reading with {num_threads} threads')
     cdef int thread_id = -1
-    with nogil, cython.parallel.parallel(num_threads=10):
+    with nogil, cython.parallel.parallel(num_threads=4):
         thread_id = cython.parallel.threadid()
         printf("Thread ID: %d\n", thread_id)
     for ctg_idx_c in prange(contig_count, nogil=True, num_threads = num_threads):
