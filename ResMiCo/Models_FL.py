@@ -426,15 +426,19 @@ class BinaryDataEval(BinaryDataBase):
     def __getitem__(self, batch_idx: int):
         """ Return the mini-batch at index #index """
         start = timer()
-        if self.cache_results and self.data[batch_idx] is not None:
-            Utils.update_progress(batch_idx + 1, self.__len__(), 'Evaluating: ', f' {(timer() - start):5.2f}s')
-            return self.data[batch_idx]
         # files to process
         indices = self.batch_list[batch_idx]
         contig_data: list[ContigInfo] = [self.reader.contigs[i] for i in indices]
 
-        features_data = self.reader.read_contigs(contig_data)
+
+        if self.cache_results and self.data[batch_idx] is not None:
+            features_data = self.data[batch_idx]
+        else:
+            features_data = self.reader.read_contigs(contig_data)
+            if self.cache_results:
+                self.data[batch_idx] = features_data
         assert len(features_data) == len(contig_data)
+
 
         max_contig_len = max([self.reader.contigs[i].length for i in indices])
         max_len = min(max_contig_len, self.window)
@@ -464,10 +468,7 @@ class BinaryDataEval(BinaryDataBase):
                     break
         assert (len(x) == sum(self.chunk_counts[batch_idx])), f'{len(x)} vs {sum(self.chunk_counts[batch_idx])}'
         Utils.update_progress(batch_idx + 1, self.__len__(), 'Evaluating: ', f' {(timer() - start):5.2f}s')
-        result = np.array(x)
-        if self.cache_results:
-            self.data[batch_idx] = result
-        return result
+        return np.array(x)
 
 
 class GeneratorBigD(tf.keras.utils.Sequence):
