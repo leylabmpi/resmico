@@ -40,13 +40,18 @@ class TestBinaryData(unittest.TestCase):
 
 
 class TestBinaryDataEval(unittest.TestCase):
+    bytes_per_base = 3 + sum(  # plus 3 because ref_base is one-hot encoded, so it uses 4 bytes
+        [np.dtype(ft).itemsize for ft in Reader.feature_types])
+
     def test_batching_one_per_batch(self):
         reader = ContigReader.ContigReader('./data/preprocess/', Reader.feature_names, 1, False)
         reader.contigs = [ContigInfo('Contig1', '/tmp/c1', 1000, 0, 0, 0),
                           ContigInfo('Contig2', '/tmp/c2', 1000, 0, 0, 0),
                           ContigInfo('Contig3', '/tmp/c3', 1000, 0, 0, 0)]
         indices = np.arange(len(reader))
-        eval_data = Models_FL.BinaryDataEval(reader, indices, Reader.feature_names, 500, 250, 1010, False)
+
+        gpu_memory_bytes = 1010 * self.bytes_per_base
+        eval_data = Models_FL.BinaryDataEval(reader, indices, Reader.feature_names, 500, 250, gpu_memory_bytes, False)
         self.assertEqual(3, len(eval_data.chunk_counts))
         for i in range(len(eval_data.chunk_counts)):
             self.assertEqual(1, len(eval_data.chunk_counts[i]))
@@ -58,11 +63,16 @@ class TestBinaryDataEval(unittest.TestCase):
                           ContigInfo('Contig2', './data/preprocess/features_binary', 500, 246, 183, 0),
                           ContigInfo('Contig3', './data/preprocess/features_binary', 500, 0, 246, 0)]
         indices = np.arange(len(reader))
-        eval_data = Models_FL.BinaryDataEval(reader, indices, Reader.feature_names, 250, 200, 1000, False)
+        gpu_memory_bytes = 1600 * self.bytes_per_base
+        eval_data = Models_FL.BinaryDataEval(reader, indices, Reader.feature_names, 250, 200, gpu_memory_bytes, False)
+        # check that Contig1 and Contig2 are in the first batch (with 3 chunks each) and Contig3 is in the second batch
+        # (also with 3 chunks)
+        # 1st batch, 2 contigs, 3 chunks each
         self.assertEqual(2, len(eval_data.chunk_counts))
         self.assertEqual(2, len(eval_data.chunk_counts[0]))
         self.assertEqual(3, eval_data.chunk_counts[0][0])
         self.assertEqual(3, eval_data.chunk_counts[0][1])
+        # 2nd batch, 1 contig, 3 chunks
         self.assertEqual(1, len(eval_data.chunk_counts[1]))
         self.assertEqual(3, eval_data.chunk_counts[1][0])
 

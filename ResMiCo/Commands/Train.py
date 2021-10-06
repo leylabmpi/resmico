@@ -140,6 +140,7 @@ def parse_args(curr_args=None, subparsers=None):
     parser.add_argument('--no-cython', dest='no_cython', action='store_true',
                         help='If set, data is read using pure Python rather than using the Cython bindings '
                              '(about 2x slower, only useful for debugging')
+    parser.add_argument('--gpu-mem-gb', default=32, help='Amount of GPU memory available (per GPU)')
 
     # running test args
     if curr_args:

@@ -1,6 +1,5 @@
 import logging
 import math
-import sys
 import time
 from timeit import default_timer as timer
 
@@ -14,9 +13,10 @@ from tensorflow.keras.layers import Conv1D, Dropout, Dense
 from tensorflow.keras.layers import Bidirectional, LSTM
 from toolz import itertoolz
 
-from ResMiCo import Utils
-from ResMiCo import ContigReader
 from ResMiCo.ContigReader import ContigInfo
+from ResMiCo import ContigReader
+from ResMiCo import Reader
+from ResMiCo import Utils
 
 
 class Resmico(object):
@@ -339,7 +339,7 @@ class BinaryData(BinaryDataBase):
 
 class BinaryDataEval(BinaryDataBase):
     def __init__(self, reader: ContigReader, indices: list[int], feature_names: list[str], window: int, step: int,
-                 total_contig_length: int, cache_results: bool):
+                 total_memory_bytes: int, cache_results: bool):
         """
         Arguments:
             reader - ContigReader instance used to load data from disk
@@ -349,17 +349,17 @@ class BinaryDataEval(BinaryDataBase):
                 into smaller pieces at #step intervals
             step - amount by which the sliding window is moved forward through a contig that is longer than #window
             nprocs - number of processes used to load the contig data
-            total_contig_length - maximum total length of the contigs in a mini-batch
+            total_memory_bytes - maximum total length of the contigs in a mini-batch
             cache_results - if True, the generator will cache the result in memory the first time is read from disk
         """
         logging.info(f'Creating evaluation data generator. Window: {window}, Step: {step}, Caching: {cache_results}')
         BinaryDataBase.__init__(self, reader, indices, feature_names)
         self.window = window
         self.step = step
-        # creates batches of contigs such that the total length in each batch is < total_contig_length
+        # creates batches of contigs such that the total length in each batch is < total_memory_bytes
         # chunk_counts[batch_count][idx] represents the number of chunks for the contig number #idx
         # in the batch #batch_count
-        self.batch_list, self.chunk_counts = self._create_batch_list(reader.contigs, total_contig_length)
+        self.batch_list, self.chunk_counts = self._create_batch_list(reader.contigs, total_memory_bytes)
 
         # flattened ground truth for each eval contig
         self.y = [0 if self.reader.contigs[i].misassembly == 0 else 1 for b in self.batch_list for i in b]
@@ -368,29 +368,40 @@ class BinaryDataEval(BinaryDataBase):
         if cache_results:
             self.data = [None] * len(self.batch_list)
 
-    def _create_batch_list(self, contig_data: list[ContigInfo], total_contig_length: int):
-        """ Divide the validation indices into mini-batches of total contig length < #total_contig_length """
+    def _create_batch_list(self, contig_data: list[ContigInfo], total_memory_bytes: int):
+        """ Divide the validation indices into mini-batches of total size < #total_memory_bytes """
+        bytes_per_base = 3 + sum(  # plus 3 because ref_base is one-hot encoded, so it uses 4 bytes
+            [np.dtype(Reader.feature_types[Reader.feature_names.index(f)]).itemsize for f in self.feature_names])
+        logging.info(f'Using {bytes_per_base} bytes for each contig position')
+
         current_indices = []
-        current_length = 0
         batch_list = []
+        max_len = 0
+        batch_chunk_count = 0
+        chunk_counts = []
+        counts = []
         for idx in self.all_indices:
-            if current_length + contig_data[idx].length > total_contig_length:
+            contig_len = contig_data[idx].length
+            # number of chunks for the current contig
+            curr_chunk_count = 1 + max(0, math.ceil((contig_len - self.window) / self.step))
+            if contig_len > max_len:
+                max_len = min(self.window, contig_len)
+            batch_chunk_count += curr_chunk_count
+            # check if the new contig still fits in memory and create a new batch if not
+            if current_indices and batch_chunk_count * max_len * bytes_per_base > total_memory_bytes:
+                logging.debug(f'Added {len(counts)} contigs with {sum(counts)} chunks to evaluation batch')
                 batch_list.append(current_indices)
                 current_indices = []
-                current_length = 0
-            current_length += contig_data[idx].length
+                chunk_counts.append(counts)
+                counts = []
+                max_len = min(self.window, contig_len)
+                batch_chunk_count = curr_chunk_count
+
+            counts.append(curr_chunk_count)
             current_indices.append(idx)
         batch_list.append(current_indices)
+        chunk_counts.append(counts)
 
-        chunk_counts = []
-        for batch in batch_list:
-            counts = []
-            for idx in batch:
-                contig_len = contig_data[idx].length
-                chunk_count = 1 + max(0, math.ceil((contig_len - self.window) / self.step))
-                counts.append(chunk_count)
-            chunk_counts.append(counts)
-            logging.debug(f'Added {len(counts)} contigs with {sum(counts)} chunks to evaluation batch')
         return batch_list, chunk_counts
 
     def group(self, y):
