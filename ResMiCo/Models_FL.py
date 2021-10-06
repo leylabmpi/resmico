@@ -28,7 +28,8 @@ class Resmico(object):
         self.max_len = config.max_len
         self.filters = config.filters
         self.n_conv = config.n_conv
-        self.n_feat = len(config.features)
+        # ref_base uses one-hot encoding, so needs 4 (i.e. an extra 3) input nodes
+        self.n_feat = len(config.features) + 3 if 'ref_base' in config.features else 0
         # self.pool_window = config.pool_window
         self.dropout = config.dropout
         self.lr_init = config.lr_init
@@ -227,10 +228,25 @@ class Generator(tf.keras.utils.Sequence):
         x_mb, y_mb = self.generate(indices_tmp)
         return x_mb, y_mb
 
+class BinaryDataBase(tf.keras.utils.Sequence):
+    def __init__(self, reader: ContigReader, indices: list[int],  feature_names: list[str]):
+        """
+       Arguments:
+           - reader: ContigReader instance with all the contig metadata
+           - indices: positions of the contigs in #reader that will be used
+           - feature_names: the names of the features to read and use for training
+        """
+        self.reader = reader
+        self.feature_names = feature_names
+        self.all_indices = indices
+        self.expanded_feature_names = feature_names.copy()
+        if 'ref_base' in self.expanded_feature_names:
+            pos = self.expanded_feature_names.index('ref_base')
+            self.expanded_feature_names[pos: pos + 1] = ['ref_base_A', 'ref_base_C', 'ref_base_G', 'ref_base_T']
 
-class BinaryData(tf.keras.utils.Sequence):
+class BinaryData(BinaryDataBase):
     def __init__(self, reader: ContigReader, indices: list[int], batch_size: int, feature_names: list[str],
-                 max_len: int, fraq_neg: float):
+                 max_len: int, fraq_neg: float, do_cache: bool):
         """
         Arguments:
             - reader: ContigReader instance with all the contig metadata
@@ -240,16 +256,23 @@ class BinaryData(tf.keras.utils.Sequence):
             - max_len: maximum acceptable length for a contig. Longer contigs are clipped at a random position
             - fraq_neg: fraction of samples to keep in the overrepresented class (contigs with no misassembly)
         """
-        self.reader = reader
-        self.all_indices = indices
-        self.max_len = max_len
+        BinaryDataBase.__init__(self, reader, indices, feature_names)
+        logging.info(
+            f'Creating training data generator. Cache: {do_cache}, Batch size: {batch_size}, Max length: {max_len}, '
+            f'Fraction correctly assembled: {fraq_neg}, Features: {len(self.expanded_feature_names)}, '
+            f'Contigs: {len(indices)}')
         self.batch_size = batch_size
-        self.feature_names = feature_names
+        self.max_len = max_len
+
         # log_count and LOG_FREQ are used to show some progress every LOG_FREQ batches
         self.log_count = 0
         self.log_freq = 300 / self.batch_size
         self.contig_count = 0
         self.fraq_neg = fraq_neg
+        self.do_cache = do_cache
+        if self.do_cache:
+            # the cache maps a batch index to feature_name:feature_data pairs
+            self.cache: dict[int, dict[str, np.array]] = {}
         self.negative_idx = [i for i, contig in enumerate(reader.contigs) if contig.misassembly == 0]
         self.positive_idx = [i for i, contig in enumerate(reader.contigs) if contig.misassembly > 0]
         self.on_epoch_end()  # select negative samples and shuffle indices
@@ -263,7 +286,9 @@ class BinaryData(tf.keras.utils.Sequence):
         np.random.shuffle(self.negative_idx)
         negative_count = int(self.fraq_neg * len(self.negative_idx))
         self.indices = self.positive_idx + self.negative_idx[:negative_count]
+        # TODO: this has no effect when caching
         np.random.shuffle(self.indices)
+
 
     def __len__(self):
         return int(np.ceil(len(self.indices) / self.batch_size))
@@ -273,11 +298,12 @@ class BinaryData(tf.keras.utils.Sequence):
         Return the next mini-batch of size #batch_size
         """
         start = timer()
-
+        if self.do_cache and index in self.cache:
+            Utils.update_progress(index + 1, len(self), 'Training: ', f' {(timer() - start):5.2f}s')
+            return self.cache[index]
         self.log_count += 1
         self.contig_count += self.batch_size
         batch_indices = self.indices[self.batch_size * index:  self.batch_size * (index + 1)]
-
         # files to process
         contig_data = [self.reader.contigs[i] for i in batch_indices]
         y = np.zeros(self.batch_size)
@@ -285,31 +311,32 @@ class BinaryData(tf.keras.utils.Sequence):
             y[i] = 0 if self.reader.contigs[idx].misassembly == 0 else 1
 
         features_data = self.reader.read_contigs(contig_data)
-
         max_contig_len = max([self.reader.contigs[i].length for i in batch_indices])
         max_len = min(max_contig_len, self.max_len)
-        # Create the numpy array storing the features for the contigs in #batch_indices
+        # Create the numpy array storing all the features for all the contigs in #batch_indices
         x = np.zeros((self.batch_size, max_len, len(features_data[0])))
 
         for i, contig_features in enumerate(features_data):
-            to_merge = [None] * len(self.feature_names)
-            contig_len = len(contig_features[self.feature_names[0]])
+            to_merge = [None] * len(self.expanded_feature_names)
+            contig_len = len(contig_features[self.expanded_feature_names[0]])
             start_idx = 0
             end_idx = contig_len
             if contig_len > self.max_len:
                 start_idx = np.random.randint(contig_len - self.max_len + 1)
                 end_idx = start_idx + self.max_len
                 contig_len = self.max_len
-            for j, feature_name in enumerate(self.feature_names):
+            for j, feature_name in enumerate(self.expanded_feature_names):
                 to_merge[j] = contig_features[feature_name][start_idx:end_idx]
             stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
             x[i][:contig_len, :] = stacked_features
 
+        if self.do_cache:
+            self.cache[index] = (x, np.array(y))
         Utils.update_progress(index + 1, self.__len__(), 'Training: ', f' {(timer() - start):5.2f}s')
         return x, np.array(y)
 
 
-class BinaryDataEval(tf.keras.utils.Sequence):
+class BinaryDataEval(BinaryDataBase):
     def __init__(self, reader: ContigReader, indices: list[int], feature_names: list[str], window: int, step: int,
                  total_contig_length: int, cache_results: bool):
         """
@@ -324,11 +351,10 @@ class BinaryDataEval(tf.keras.utils.Sequence):
             total_contig_length - maximum total length of the contigs in a mini-batch
             cache_results - if True, the generator will cache the result in memory the first time is read from disk
         """
+        logging.info(f'Creating evaluation data generator. Window: {window}, Step: {step}, Caching: {cache_results}')
+        BinaryDataBase.__init__(self, reader, indices, feature_names)
         self.window = window
         self.step = step
-        self.reader = reader
-        self.indices = indices
-        self.feature_names = feature_names
         # creates batches of contigs such that the total length in each batch is < total_contig_length
         # chunk_counts[batch_count][idx] represents the number of chunks for the contig number #idx
         # in the batch #batch_count
@@ -346,7 +372,7 @@ class BinaryDataEval(tf.keras.utils.Sequence):
         current_indices = []
         current_length = 0
         batch_list = []
-        for idx in self.indices:
+        for idx in self.all_indices:
             if current_length + contig_data[idx].length > total_contig_length:
                 batch_list.append(current_indices)
                 current_indices = []
@@ -382,9 +408,9 @@ class BinaryDataEval(tf.keras.utils.Sequence):
             total_len += sum(batch)
             grouped_y_size += len(batch)
         assert len(y) == total_len, f'y has length {len(y)}, chunk_counts total length is {total_len}'
-        assert grouped_y_size == len(self.indices), \
-            f'Index map has {grouped_y_size} elements, while indices has {len(self.indices)} elements'
-        grouped_y = np.zeros(len(self.indices))
+        assert grouped_y_size == len(self.all_indices), \
+            f'Index map has {grouped_y_size} elements, while indices has {len(self.all_indices)} elements'
+        grouped_y = np.zeros(len(self.all_indices))
         i = 0
         j = 0
         for batch in self.chunk_counts:
@@ -399,9 +425,10 @@ class BinaryDataEval(tf.keras.utils.Sequence):
 
     def __getitem__(self, batch_idx: int):
         """ Return the mini-batch at index #index """
-        if self.cache_results and self.data[batch_idx] is not None:
-            return self.data[batch_idx]
         start = timer()
+        if self.cache_results and self.data[batch_idx] is not None:
+            Utils.update_progress(batch_idx + 1, self.__len__(), 'Evaluating: ', f' {(timer() - start):5.2f}s')
+            return self.data[batch_idx]
         # files to process
         indices = self.batch_list[batch_idx]
         contig_data: list[ContigInfo] = [self.reader.contigs[i] for i in indices]
@@ -416,16 +443,16 @@ class BinaryDataEval(tf.keras.utils.Sequence):
         # traverse all contig features, break down into multiple contigs if too long, and create a numpy 3D array
         # of shape (contig_count, max_len, num_features) to be used for evaluation
         for i, contig_features in enumerate(features_data):
-            to_merge = [None] * len(self.feature_names)
+            to_merge = [None] * len(self.expanded_feature_names)
             contig_len = contig_data[i].length
-            assert contig_len == len(contig_features[self.feature_names[0]])
+            assert contig_len == len(contig_features[self.expanded_feature_names[0]])
             start_idx = 0
             count = 0
             while True:
-                np_data = np.zeros((max_len, len(self.feature_names)))
+                np_data = np.zeros((max_len, len(self.expanded_feature_names)))
 
                 end_idx = start_idx + self.window
-                for j, feature_name in enumerate(self.feature_names):
+                for j, feature_name in enumerate(self.expanded_feature_names):
                     to_merge[j] = contig_features[feature_name][start_idx:end_idx]
                 start_idx += self.step
                 stacked_features = np.stack(to_merge, axis=-1)
@@ -446,7 +473,6 @@ class BinaryDataEval(tf.keras.utils.Sequence):
 class GeneratorBigD(tf.keras.utils.Sequence):
     def __init__(self, data_dict, max_len, batch_size,
                  shuffle_data=True, fraq_neg=1, rnd_seed=None, nprocs=4):
-        self.max_len = max_len
         self.batch_size = batch_size
         self.data_dict = data_dict
         self.shuffle_data = shuffle_data

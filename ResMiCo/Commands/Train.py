@@ -99,10 +99,7 @@ def parse_args(curr_args=None, subparsers=None):
     parser.add_argument('--fraq-neg', default=1., type=float,
                         help='Portion of samples to keep in overrepresented class (default: %(default)s)')
     parser.add_argument('--features', help='Features to use for training', default=[
-        'ref_base_A',
-        'ref_base_C',
-        'ref_base_G',
-        'ref_base_T',
+        'ref_base',
         'num_query_A',
         'num_query_C',
         'num_query_G',
@@ -140,6 +137,9 @@ def parse_args(curr_args=None, subparsers=None):
                         help='If set, all contig features will be cached in memory for faster training/validation')
     parser.add_argument('--cache_validation', dest='cache_validation', action='store_true',
                         help='If set, the validation data will be cached in memory for quicker access time')
+    parser.add_argument('--no-cython', dest='no_cython', action='store_true',
+                        help='If set, data is read using pure Python rather than using the Cython bindings '
+                             '(about 2x slower, only useful for debugging')
 
     # running test args
     if curr_args:

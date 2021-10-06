@@ -1,3 +1,3 @@
-Contig	Misassembly	Offset
-Contig2_0	1	54
-Contig1	0	0	52
+Contig	Size	MisassemblCnt	Offset
+Contig2_0	5	1	54
+Contig1	5	0	52

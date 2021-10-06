@@ -100,3 +100,6 @@ cmake-build-debug/
 cmake-build-release/
 venv/
 .idea/
+# Cython generated files
+ResMiCo/Reader.cpp
+ResMiCo/Reader.html

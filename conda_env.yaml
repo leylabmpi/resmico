@@ -3,6 +3,7 @@ channels:
 - bioconda
 dependencies:
 - cmake>=3.13
+- cython
 - ipython
 - keras
 - mamba>=0.11

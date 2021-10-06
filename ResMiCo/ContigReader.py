@@ -1,3 +1,5 @@
+from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import Future
 import csv
 import gzip
 import json
@@ -5,7 +7,6 @@ import logging
 import math
 import mmap
 import os
-from multiprocessing import Pool
 from pathlib import Path
 from timeit import default_timer as timer
 import struct
@@ -13,24 +14,7 @@ import struct
 import numpy as np
 
 from ResMiCo import Utils
-
-float_feature_names = ['min_insert_size_Match',
-                       'mean_insert_size_Match',
-                       'stdev_insert_size_Match',
-                       'max_insert_size_Match',
-                       'min_mapq_Match',
-                       'mean_mapq_Match',
-                       'stdev_mapq_Match',
-                       'max_mapq_Match',
-                       'min_al_score_Match',
-                       'mean_al_score_Match',
-                       'stdev_al_score_Match',
-                       'max_al_score_Match', ]
-feature_names = ['ref_base_A', 'ref_base_C', 'ref_base_G', 'ref_base_T', 'coverage', 'num_query_A', 'num_query_C',
-                 'num_query_G', 'num_query_T', 'num_SNPs', 'num_discordant'] \
-                + float_feature_names \
-                + ['num_proper_SNP', 'seq_window_perc_gc', 'Extensive_misassembly_by_pos']
-
+from ResMiCo import Reader
 
 def _replace_with_nan(data, feature_name, v):
     """Replaces all elements in arr that are equal to v with np.nan"""
@@ -47,7 +31,65 @@ def _read_feature(file: gzip.GzipFile, data, feature_name: str, bytes: int, dtyp
         return
     data[feature_name] = np.frombuffer(file.read(bytes), dtype=dtype).astype(np.float32)
     if normalize_by != 1:
-        data[feature_name] /= 10000
+        data[feature_name] /= normalize_by
+
+
+def _to_float_and_normalize(features, result, feature_name, normalize_by):
+    if feature_name in features:
+        result[feature_name] = features[feature_name].astype(np.float32)
+        result[feature_name] /= normalize_by
+
+
+def _to_float_and_nan(features, result, feature_name, nan_value):
+    if feature_name in features:
+        result[feature_name] = features[feature_name].astype(np.float32)
+        result[feature_name][result[feature_name] == nan_value] = np.nan
+
+
+def _assign(result, orig, feature_names: list[str]):
+    for feature_name in feature_names:
+        if feature_name in orig:
+            result[feature_name] = orig[feature_name]
+
+
+def _post_process_features(features):
+    result = {}
+    if 'ref_base' in features:
+        ref_base = features['ref_base']
+        result['ref_base_A'] = np.where(ref_base == 65, 1, 0)
+        result['ref_base_C'] = np.where(ref_base == 67, 1, 0)
+        result['ref_base_G'] = np.where(ref_base == 71, 1, 0)
+        result['ref_base_T'] = np.where(ref_base == 84, 1, 0)
+
+    _to_float_and_normalize(features, result, 'num_query_A', 10000)
+    _to_float_and_normalize(features, result, 'num_query_C', 10000)
+    _to_float_and_normalize(features, result, 'num_query_G', 10000)
+    _to_float_and_normalize(features, result, 'num_query_T', 10000)
+    _to_float_and_normalize(features, result, 'num_SNPs', 10000)
+    _to_float_and_normalize(features, result, 'num_discordant', 10000)
+    _to_float_and_normalize(features, result, 'num_proper_Match', 10000)
+    _to_float_and_normalize(features, result, 'num_orphans_Match', 10000)
+    _to_float_and_normalize(features, result, 'num_proper_SNP', 10000)
+
+    _to_float_and_nan(features, result, 'min_insert_size_Match', 65535)
+    _to_float_and_nan(features, result, 'max_insert_size_Match', 65535)
+    _to_float_and_nan(features, result, 'min_mapq_Match', 255)
+    _to_float_and_nan(features, result, 'max_mapq_Match', 255)
+    _to_float_and_nan(features, result, 'min_al_score_Match', 127)
+    _to_float_and_nan(features, result, 'max_al_score_Match', 127)
+
+    _assign(result, features, [
+        'coverage',
+        'mean_insert_size_Match',
+        'stdev_insert_size_Match',
+        'mean_mapq_Match',
+        'stdev_mapq_Match',
+        'mean_al_score_Match',
+        'stdev_al_score_Match',
+        'seq_window_perc_gc',
+        'Extensive_misassembly_by_pos'])
+
+    return result
 
 
 def _read_contig_data(input_file, feature_names: list[str]):
@@ -107,9 +149,7 @@ def _read_contig_data(input_file, feature_names: list[str]):
         _read_feature(f, data, 'num_proper_SNP', 2 * contig_size, np.uint16, feature_names, 10000)
         _read_feature(f, data, 'seq_window_perc_gc', 4 * contig_size, np.float32, feature_names)
         _read_feature(f, data, 'Extensive_misassembly_by_pos', contig_size, np.uint8, feature_names)
-    # keep desired features only
-    result = {f: data[f] for f in feature_names}
-    return result
+    return data
 
 
 class ContigInfo:
@@ -117,14 +157,14 @@ class ContigInfo:
     Contains metadata about a single contig.
     """
 
-    def __init__(self, name: str, file: str, length: int, offset: int, size_bytes: int, misassembly_count: int):
-        self.name = name
-        self.file = file
-        self.length = length
-        self.offset = offset
-        self.size_bytes = size_bytes
-        self.misassembly = misassembly_count
-        self.features = {}
+    def __init__(self, name: str, file_name: str, length: int, offset: int, size_bytes: int, misassembly_count: int):
+        self.name: str = name
+        self.file: str = file_name
+        self.length: int = length
+        self.offset: int = offset
+        self.size_bytes: int = size_bytes
+        self.misassembly: int = misassembly_count
+        self.features: dict[str:np.array] = {}
 
 
 class ContigReader:
@@ -133,14 +173,14 @@ class ContigReader:
     """
 
     def __init__(self, input_dir: str, feature_names: list[str], process_count: int, is_chunked: bool,
-                 in_memory: bool = False):
+                 no_cython: bool = False):
         """
         Arguments:
             - input_dir: location on disk where the feature data is stored
             - feature_names: feature names to use in training
             - process_count: number of processes to use for loading data in parallel
             - is_chunked: if True, we are loading data from contig chunks (toc_chunked rather than toc)
-            - in_memory: if True, the data will be loaded and cached in memory
+            - no_cython: whether to read data from disk using pure Python or using Cython bindings
         """
         # means and stdevs are a map from feature name to the mean and standard deviation precomputed for that
         # feature across *all* contigs, stored as a tuple
@@ -152,14 +192,22 @@ class ContigReader:
         self.feature_names = feature_names
         self.process_count = process_count
         self.is_chunked = is_chunked
-        self.in_memory = in_memory
+        self.no_cython = no_cython
 
         # just temp attributes for measuring performance
         self.normalize_time = 0
         self.read_time = 0
 
-        self._load_contigs_metadata(input_dir)
+        self.feature_mask: list[int] = [1 if feature in feature_names else 0 for feature in Reader.feature_names]
 
+        logging.info('Computing global means and standard deviations. Looking for stats/toc files...')
+        file_list = [str(f) for f in list(Path(input_dir).rglob("**/stats"))]
+        logging.info(f'Processing {len(file_list)} stats/toc files found in {input_dir} ...')
+        if not file_list:
+            logging.info('Noting to do.')
+            exit(0)
+
+        self._load_contigs_metadata(input_dir, file_list)
 
     def __len__(self):
         return len(self.contigs)
@@ -173,20 +221,31 @@ class ContigReader:
         self.normalize_time = 0
         self.read_time = 0
         result = []
-        for contig_data in map(self._read_and_normalize, contig_infos):
-            result.append(contig_data)
+        if self.no_cython:
+            for contig_data in map(self._read_and_normalize, contig_infos):
+                result.append(contig_data)
+        else:
+            file_names: list[bytes] = []
+            lengths: list[int] = []
+            offsets: list[int] = []
+            sizes: list[int] = []
+            for c in contig_infos:
+                file_names.append(c.file.encode('utf-8'))
+                lengths.append(c.length)
+                offsets.append(c.offset)
+                sizes.append(c.size_bytes)
+
+            features_raw = Reader.read_contigs_py(file_names, lengths, offsets, sizes, self.feature_mask,
+                                                  self.process_count)
+            for f in features_raw:
+                features = _post_process_features(f)
+                self._normalize(features)
+                result.append(features)
         logging.debug(f'Contigs read in {(timer() - start):5.2f}s; read: {self.read_time:5.2f}s '
                       f'normalize: {self.normalize_time:5.2f}s')
         return result
 
-    def _load_contigs_metadata(self, input_dir):
-        logging.info('Computing global means and standard deviations. Looking for stats/toc files...')
-        file_list = [str(f) for f in list(Path(input_dir).rglob("**/stats"))]
-        logging.info(f'Processing {len(file_list)} stats/toc files found in {input_dir} ...');
-        if not file_list:
-            logging.info('Noting to do.')
-            exit(0)
-
+    def _load_contigs_metadata(self, input_dir, file_list):
         mean_count = 0
         stddev_count = 0
         metrics = ['insert_size', 'mapq', 'al_score']  # insert size, mapping quality, alignment quality
@@ -213,7 +272,7 @@ class ContigReader:
         for metric in metrics:
             for mtype in metric_types:
                 feature_name = f'{mtype}_{metric}_Match'
-                # the count of non-nan position is different (lower) for the stdev_* features (because computing
+                # the count of non-NaN position is different (lower) for the stdev_* features (because computing
                 # the standard deviation requires at least coverage 2, while for max/mean/min coverage=1 is sufficient)
                 cnt = stddev_count if mtype == 'stdev' else mean_count
                 var = cnt * self.stdevs[feature_name] - self.means[feature_name] ** 2
@@ -235,6 +294,7 @@ class ContigReader:
             'Computed global means and stdevs:\n' + separator + '\n' + header + '\n' + values + '\n' + separator)
 
         contig_count = 0
+        total_len = 0
         for fname in file_list:
             toc_file = fname[:-len('stats')] + 'toc'
             contig_fname = fname[:-len('stats')] + 'features_binary'
@@ -249,28 +309,39 @@ class ContigReader:
                     size_bytes = int(row[3])
                     # the fields in row are: name, length (bases), misassembly_count, size_bytes
                     contig_info = ContigInfo(row[0], contig_fname, int(row[1]), offset, size_bytes, int(row[2]))
+                    total_len += contig_info.length
                     self.contigs.append(contig_info)
                     offset += size_bytes
                     contig_count += 1
 
-        logging.info(f'Found {contig_count} contigs')
+        logging.info(
+            f'Found {contig_count} contigs, {total_len} total length, '
+            f'memory needed {total_len * Reader.bytes_per_base / 1e9:6.2f}GB')
 
-        if self.in_memory:
-            logging.info('Loading contig features in memory')
-            old_file = ''
-            current = 1
-            for contig_info in self.contigs:
-                if old_file != contig_info.file:
-                    old_file = contig_info.file
-                    binary_file = open(contig_info.file, 'rb')
-                    # memory-map the file, size 0 means whole file
-                    mm = mmap.mmap(binary_file.fileno(), 0, access=mmap.ACCESS_READ)
-                    Utils.update_progress(current, len(file_list), 'Loading features: ', '')
-                    current += 1
+    def read_file(self, fname):
+        toc_file = fname[:-len('stats')] + 'toc'
+        contig_fname = fname[:-len('stats')] + 'features_binary'
+        if self.is_chunked:
+            contig_fname += '_chunked'
+            toc_file += '_chunked'
+        offset = 0
+        result = []
+        with open(toc_file) as f, open(contig_fname) as binary_file:
+            binary_file = open(contig_fname, 'rb')
+            # memory-map the file, size 0 means whole file
+            mm = mmap.mmap(binary_file.fileno(), 0, access=mmap.ACCESS_READ)
+
+            rd = csv.reader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
+            next(rd)  # skip CSV header: Assembler, Contig_name, MissassembleCount, ContigLen
+            for row in rd:
+                size_bytes = int(row[3])
                 # the gzip reader reads ahead and messes up the current position, so we need to re-seek
-                mm.seek(contig_info.offset)
-                contig_info.features = _read_contig_data(mm, self.feature_names)
-                self._normalize(contig_info.features)
+                mm.seek(offset)
+                features = _read_contig_data(mm, self.feature_names)
+                self._normalize(features)
+                result.append(features)
+                offset += size_bytes
+        return result
 
     def _read_and_normalize(self, contig_info: ContigInfo):
         """
@@ -282,28 +353,33 @@ class ContigReader:
         if contig_info.features:  # data is cached in memory, simply return cached value
             return contig_info.features
         start = timer()
+
         # features is a map from feature name (e.g. 'coverage') to a numpy array containing the feature
-        # logging.debug(f'Reading contig {contig_info.name} from {contig_info.file} at offset {contig_info.offset}')
+
         input_file = open(contig_info.file, mode='rb')
         input_file.seek(contig_info.offset)
         features = _read_contig_data(input_file, self.feature_names)
+
         self.read_time += (timer() - start)
         self._normalize(features)
         return features
 
     def _normalize(self, features):
         start = timer()
-        for feature_name in float_feature_names:
+        for feature_name in Reader.float_feature_names:
             if feature_name not in features:
                 continue
             if feature_name not in self.means or feature_name not in self.stdevs:
                 logging.warning('Could not find mean/standard deviation for feature: {fname}. Skipping normalization')
                 continue
+            # if np.isnan(sum(features[feature_name])):
+            #     logging.warning(f'Exception for feature {feature_name}')
+            #     print(features[feature_name])
             features[feature_name] -= self.means[feature_name]
-            if features[feature_name].dtype == np.float32:  # we can do the division in place
-                features[feature_name] /= self.stdevs[feature_name]
-            else:  # need to create a new floating point numpy array
-                features[feature_name] = features[feature_name] / self.stdevs[feature_name]
+
+            if features[feature_name].dtype != np.float32:  # we can do the division in place
+                features[feature_name] = features[feature_name].astype(np.float32)
+            features[feature_name] /= self.stdevs[feature_name]
             # replace NANs with 0 (the new mean)
             nan_pos = np.isnan(features[feature_name])
             features[feature_name][nan_pos] = 0
