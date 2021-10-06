@@ -122,9 +122,9 @@ rule MGSIM_reads:
         fna = chpt_ref_genomes
     output:
         read1 = temp(J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}',
-                       '{read_length}', '{read_depth}', 'sim_reads', '1', 'R1.fq')),
+                       '{read_length}', '{read_depth}', 'sim_reads', 'illumina', '1', 'R1.fq')),
         read2 = temp(J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}',
-                       '{read_length}', '{read_depth}', 'sim_reads', '1', 'R2.fq'))
+                       '{read_length}', '{read_depth}', 'sim_reads', 'illumina', '1', 'R2.fq'))
     params:
         params = config['params']['MGSIM']['reads']['other_sim_params'],
         read_length = lambda wildcards: wildcards.read_length,
@@ -170,9 +170,9 @@ rule MGSIM_read_filter:
     """
     input:
         read1 = J(config['tmp_dir'] + '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                  '{read_depth}', 'sim_reads', '1', 'R1.fq'),
+                  '{read_depth}', 'sim_reads', 'illumina', '1', 'R1.fq'),
         read2 = J(config['tmp_dir'] + '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                  '{read_depth}', 'sim_reads', '1', 'R2.fq')
+                  '{read_depth}', 'sim_reads', 'illumina', '1', 'R2.fq')
     output:
         read1 = temp(J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
                        '{read_depth}', 'sim_reads', 'R1.fq')),

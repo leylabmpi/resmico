@@ -14,4 +14,4 @@ dependencies:
 - bioconda::pyfasta=0.5
 - bioconda::art
 - pip:
-  - MGSIM>=0.2.3
+  - git+https://github.com/nick-youngblut/MGSIM.git

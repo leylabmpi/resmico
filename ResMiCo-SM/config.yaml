@@ -32,7 +32,7 @@ params:
       abundance_distribution:
         - "mean:10,sigma:2"
       random_seed: 8192
-      other_sim_params: ""
+      other_sim_params: --group-bias 0
     reads: 
       length:
         - 100
