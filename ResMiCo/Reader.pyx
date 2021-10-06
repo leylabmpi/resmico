@@ -134,7 +134,6 @@ def read_contigs_py(file_names:list[bytes], py_lengths: list[int],  py_offsets: 
     cdef char ** c_file_names = <char **>PyMem_Malloc(sizeof(char*) * contig_count)
     for i in range(contig_count):
         c_file_names[i] = PyBytes_AS_STRING(file_names[i])
-        printf("File no %d is %p and %s\n", i, c_file_names[i], c_file_names[i])
 
     # This is the code that is actually parallelized
     cdef Py_ssize_t ctg_idx_c
