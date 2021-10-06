@@ -137,6 +137,9 @@ def parse_args(curr_args=None, subparsers=None):
                         help='If set, all contig features will be cached in memory for faster training/validation')
     parser.add_argument('--cache_validation', dest='cache_validation', action='store_true',
                         help='If set, the validation data will be cached in memory for quicker access time')
+    parser.add_argument('--no-cython', dest='no_cython', action='store_true',
+                        help='If set, data is read using pure Python rather than using the Cython bindings '
+                             '(about 2x slower, only useful for debugging')
 
     # running test args
     if curr_args:

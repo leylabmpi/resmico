@@ -39,7 +39,8 @@ def main(args):
                                              write_graph=True, write_images=True)
 
     logging.info('Loading contig data...')
-    reader = ContigReader.ContigReader(args.feature_files_path, args.features, args.n_procs, args.chunks)
+    reader = ContigReader.ContigReader(args.feature_files_path, args.features, args.n_procs, args.chunks,
+                                       args.no_cython)
 
     # separate data into 90% for training and 10% for evaluation
     all_idx = np.arange(len(reader))

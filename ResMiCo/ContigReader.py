@@ -16,10 +16,6 @@ import numpy as np
 from ResMiCo import Utils
 from ResMiCo import Reader
 
-# whether to read data from disk using pure Python or using Cython bindings
-READ_PYTHON = False
-
-
 def _replace_with_nan(data, feature_name, v):
     """Replaces all elements in arr that are equal to v with np.nan"""
     if feature_name not in data:
@@ -176,14 +172,15 @@ class ContigReader:
     Reads contig data from binary files written by ResMiCo-SM.
     """
 
-    def __init__(self, input_dir: str, feature_names: list[str], process_count: int, is_chunked: bool):
+    def __init__(self, input_dir: str, feature_names: list[str], process_count: int, is_chunked: bool,
+                 no_cython: bool = False):
         """
         Arguments:
             - input_dir: location on disk where the feature data is stored
             - feature_names: feature names to use in training
             - process_count: number of processes to use for loading data in parallel
             - is_chunked: if True, we are loading data from contig chunks (toc_chunked rather than toc)
-            - in_memory: if True, the data will be loaded and cached in memory
+            - no_cython: whether to read data from disk using pure Python or using Cython bindings
         """
         # means and stdevs are a map from feature name to the mean and standard deviation precomputed for that
         # feature across *all* contigs, stored as a tuple
@@ -195,6 +192,7 @@ class ContigReader:
         self.feature_names = feature_names
         self.process_count = process_count
         self.is_chunked = is_chunked
+        self.no_cython = no_cython
 
         # just temp attributes for measuring performance
         self.normalize_time = 0
@@ -223,7 +221,7 @@ class ContigReader:
         self.normalize_time = 0
         self.read_time = 0
         result = []
-        if READ_PYTHON:
+        if self.no_cython:
             for contig_data in map(self._read_and_normalize, contig_infos):
                 result.append(contig_data)
         else:
