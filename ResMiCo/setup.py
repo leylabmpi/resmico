@@ -2,6 +2,12 @@
 from setuptools import Extension, setup
 from Cython.Build import cythonize
 import numpy
+import os
+import platform
+
+if platform.system() == 'Darwin':
+    os.environ['CC'] = 'gcc-10'
+    os.environ["CXX"] = "g++-10"
 
 sourcefiles = ['Reader.pyx', 'contig_reader.cpp']
 

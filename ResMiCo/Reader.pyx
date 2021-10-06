@@ -1,6 +1,6 @@
 # distutils: language = c++
 cimport cython
-cimport openmp
+from libc.stdio cimport printf
 
 from array import array
 from libc.stdint cimport uint32_t
@@ -59,7 +59,7 @@ cdef extern from 'contig_reader.hpp':
     cdef void read_contig_features_buf(const char *fname, uint32_t offset, uint32_t size_bytes,
                                    uint32_t length_bases, uint32_t num_features,
                                    uint16_t b_per_base, uint8_t *feature_mask,
-                                   uint8_t *feature_sizes_bytes, char *buf, char ** features) nogil
+                                   uint8_t *feature_sizes_bytes, char *buf, char ** features, int thread) nogil
 
 
 @cython.boundscheck(False)
@@ -101,7 +101,10 @@ def read_contigs_py(file_names:list[bytes], py_lengths: list[int],  py_offsets: 
     cdef int[:] offsets = array('i', py_offsets)
     cdef int[:] sizes = array('i', py_sizes)
     cdef uint8_t[:] feature_mask = array('B', py_feature_mask)
+    # the buffer used by the C++ code to write the features into; one buffer per contig; for each contig one buffer
+    # per feature
     cdef char ***all_data = <char ***> PyMem_Malloc(sizeof(char **) * contig_count)
+    # the buffer used by the C++ code to unzip the data; one buffer for each thread
     cdef char **buf = <char **>PyMem_Malloc(sizeof(char *) * num_threads);
     for i in range(num_threads):
         buf[i] = <char *>PyMem_Malloc(sizeof(char) * max_len * bytes_per_base + 4)
@@ -134,10 +137,15 @@ def read_contigs_py(file_names:list[bytes], py_lengths: list[int],  py_offsets: 
     # This is the code that is actually parallelized
     cdef Py_ssize_t ctg_idx_c
     cdef uint32_t bytes_per_base_c = bytes_per_base
+    print(f'Reading with {num_threads} threads')
+    cdef int thread_id = -1
+    with nogil, cython.parallel.parallel(num_threads=10):
+        thread_id = cython.parallel.threadid()
+        printf("Thread ID: %d\n", thread_id)
     for ctg_idx_c in prange(contig_count, nogil=True, num_threads = num_threads):
         read_contig_features_buf(c_file_names[ctg_idx], offsets[ctg_idx_c], sizes[ctg_idx_c], lengths[ctg_idx_c],
                              N_FEATURES, bytes_per_base_c, &feature_mask[0], &feature_sizes_bytes[0],
-                             buf[openmp.omp_get_thread_num()], all_data[ctg_idx_c])
+                             buf[cython.parallel.threadid()], all_data[ctg_idx_c], cython.parallel.threadid())
 
     results = []
     for ctg_idx in range(contig_count):

@@ -12,4 +12,4 @@ void read_contig_features_buf(const char *fname, uint32_t offset,
                               uint8_t *feature_mask,
                               uint8_t *feature_sizes_bytes,
                               char *buf,
-                              char **features);
+                              char **features, int thread);

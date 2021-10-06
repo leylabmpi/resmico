@@ -214,10 +214,6 @@ class ContigReader:
     def __len__(self):
         return len(self.contigs)
 
-    def read_contigs_py_tmp(self, file_names: list[bytes], lengths: list[int], offsets: list[int], sizes: list[int],
-                            py_feature_names: list[str], num_threads: int):
-        assert len(file_names) == len(lengths) == len(offsets) == len(sizes)
-
     def read_contigs(self, contig_infos: list[ContigInfo]):
         """
         Reads the features from the given contig feature files and returns the result in a list of len(contig_files)
@@ -361,15 +357,10 @@ class ContigReader:
         start = timer()
 
         # features is a map from feature name (e.g. 'coverage') to a numpy array containing the feature
-        if READ_PYTHON:
-            input_file = open(contig_info.file, mode='rb')
-            input_file.seek(contig_info.offset)
-            features = _read_contig_data(input_file, self.feature_names)
-        else:
-            features_raw = Reader.read_contig_py(contig_info.file, contig_info.length, contig_info.offset,
-                                                 contig_info.size_bytes,
-                                                 self.feature_names)
-            features = _post_process_features(features_raw)
+
+        input_file = open(contig_info.file, mode='rb')
+        input_file.seek(contig_info.offset)
+        features = _read_contig_data(input_file, self.feature_names)
 
         self.read_time += (timer() - start)
         self._normalize(features)
@@ -383,9 +374,9 @@ class ContigReader:
             if feature_name not in self.means or feature_name not in self.stdevs:
                 logging.warning('Could not find mean/standard deviation for feature: {fname}. Skipping normalization')
                 continue
-            if np.isnan(sum(features[feature_name])):
-                logging.warning(f'Exception for feature {feature_name}')
-                print(features[feature_name])
+            # if np.isnan(sum(features[feature_name])):
+            #     logging.warning(f'Exception for feature {feature_name}')
+            #     print(features[feature_name])
             features[feature_name] -= self.means[feature_name]
 
             if features[feature_name].dtype != np.float32:  # we can do the division in place
