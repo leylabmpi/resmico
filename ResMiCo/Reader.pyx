@@ -140,6 +140,7 @@ def read_contigs_py(file_names:list[bytes], py_lengths: list[int],  py_offsets: 
         # the buffer used by the C++ code to unzip the data (one buffer for each thread)
         buf = <char *> malloc(sizeof(char) * max_len * bytes_per_base_c + 4)
         for ctg_idx_c in prange(contig_count, schedule='guided'):
+            printf("Reading from %s at offset %d", c_file_names[ctg_idx], offsets[ctg_idx_c])
             read_contig_features_buf(c_file_names[ctg_idx], offsets[ctg_idx_c], sizes[ctg_idx_c], lengths[ctg_idx_c],
                                  N_FEATURES, bytes_per_base_c, &feature_mask[0], &feature_sizes_bytes[0],
                                  buf, all_data[ctg_idx_c], cython.parallel.threadid())
@@ -153,4 +154,5 @@ def read_contigs_py(file_names:list[bytes], py_lengths: list[int],  py_offsets: 
     for feat_idx in range(contig_count):
         PyMem_Free(all_data[feat_idx])
     PyMem_Free(all_data)
+    PyMem_Free(c_file_names)
     return results
