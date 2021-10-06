@@ -12,6 +12,9 @@ import numpy as np
 from cython.parallel import parallel, prange
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
 
+cdef extern from "Python.h":
+    char *PyBytes_AS_STRING(object)
+
 DEF N_FEATURES = 25
 float_feature_tuples = [('min_insert_size_Match', np.uint16),
                         ('mean_insert_size_Match', np.float32),
@@ -128,9 +131,9 @@ def read_contigs_py(file_names:list[bytes], py_lengths: list[int],  py_offsets: 
     feature_sizes_bytes[:] = feature_sizes
 
 
-    cdef char ** c_file_names = <char **>PyMem_Malloc(sizeof(char**) * contig_count)
+    cdef char ** c_file_names = <char **>PyMem_Malloc(sizeof(char*) * contig_count)
     for i in range(contig_count):
-        c_file_names[i] = file_names[i]
+        c_file_names[i] = PyBytes_AS_STRING(file_names[i])
 
     # This is the code that is actually parallelized
     cdef Py_ssize_t ctg_idx_c
