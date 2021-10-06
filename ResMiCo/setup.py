@@ -2,20 +2,21 @@
 from setuptools import Extension, setup
 from Cython.Build import cythonize
 import numpy
-import os
 import platform
 
-if platform.system() == 'Darwin':
-    os.environ['CC'] = 'gcc-10'
-    os.environ["CXX"] = "g++-10"
+compile_args = ['-std=c++11', '-fopenmp']
+link_args = ['-std=c++11', '-fopenmp']
+if platform.system() != 'Darwin':
+    compile_args.append('-fopenmp')
+    link_args.append('-fopenmp')
 
 sourcefiles = ['Reader.pyx', 'contig_reader.cpp']
 
 extensions = [Extension('Reader',
                         sourcefiles,
                         language="c++",
-                        extra_compile_args=['-std=c++11', '-fopenmp'],
-                        extra_link_args=['-std=c++11', '-fopenmp'],
+                        extra_compile_args=compile_args,
+                        extra_link_args=link_args,
                         libraries= ['z'],
                         )]
 
