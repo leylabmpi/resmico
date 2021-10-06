@@ -97,8 +97,7 @@ def _read_contig_data(input_file, feature_names: list[str]):
     Read a binary gzipped file containing the features for a single contig, as written by bam2feat. Features that don't
     exist are silently ignored.
     Parameters:
-         - feature_file_name: the file to read
-         - offset: where in the feature file the data for the contig starts
+         - input_file: the file to read, opened at the correct offset
          - feature_names list of feature names to return (e.g. ['coverage', 'num_discordant', 'min_mapq_Match'])
     Returns:
          - a map from feature name to feature data
