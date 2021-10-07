@@ -454,18 +454,21 @@ class BinaryDataEval(BinaryDataBase):
         max_len = min(max_contig_len, self.window)
 
         x = []
+        to_merge = [None] * len(self.expanded_feature_names)
+        stack_time = 0
         # traverse all contig features, break down into multiple contigs if too long, and create a numpy 3D array
         # of shape (contig_count, max_len, num_features) to be used for evaluation
         for i, contig_features in enumerate(features_data):
-            to_merge = [None] * len(self.expanded_feature_names)
             contig_len = contig_data[i].length
             assert contig_len == len(contig_features[self.expanded_feature_names[0]])
             start_idx = 0
             count = 0
+            start_stack = timer()
             # each feature in features_data becomes o column in x
             for j, feature_name in enumerate(self.expanded_feature_names):
                 to_merge[j] = contig_features[feature_name]
             stacked_features = np.stack(to_merge, axis=-1)
+            stack_time += (timer() - start_stack)
             while True:
                 end_idx = start_idx + self.window
                 if end_idx <= contig_len:
@@ -481,7 +484,8 @@ class BinaryDataEval(BinaryDataBase):
                 if end_idx >= contig_len:
                     break
         assert (len(x) == sum(self.chunk_counts[batch_idx])), f'{len(x)} vs {sum(self.chunk_counts[batch_idx])}'
-        Utils.update_progress(batch_idx + 1, self.__len__(), 'Evaluating: ', f' {(timer() - start):5.2f}s')
+        Utils.update_progress(batch_idx + 1, self.__len__(), 'Evaluating: ',
+                              f' {(timer() - start):5.2f}s  {stack_time:5.2f}s')
         return np.array(x)
 
 
