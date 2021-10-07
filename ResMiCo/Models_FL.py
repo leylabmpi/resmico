@@ -266,10 +266,6 @@ class BinaryData(BinaryDataBase):
         self.batch_size = batch_size
         self.max_len = max_len
 
-        # log_count and LOG_FREQ are used to show some progress every LOG_FREQ batches
-        self.log_count = 0
-        self.log_freq = 300 / self.batch_size
-        self.contig_count = 0
         self.fraq_neg = fraq_neg
         self.do_cache = do_cache
         if self.do_cache:
@@ -281,15 +277,17 @@ class BinaryData(BinaryDataBase):
 
     def on_epoch_end(self):
         """
-        Re-shuffle the training data on each epoch.
+        Re-shuffle the training data on each epoch. When data is being cached in memory, the class will always use
+        the same negative samples (to avoid loading new samples from disk). When data is loaded from disk, the negative
+        samples will change at the end of each epoch (assuming fraq_neg < 1).
         """
-        self.contig_count = 0
-        self.log_count = 0
         np.random.shuffle(self.negative_idx)
         negative_count = int(self.fraq_neg * len(self.negative_idx))
         self.indices = self.positive_idx + self.negative_idx[:negative_count]
-        # TODO: this has no effect when caching
         np.random.shuffle(self.indices)
+        if self.do_cache:
+            self.cache_indices = np.arange(len(self))
+            np.random.shuffle(self.cache_indices)
 
     def __len__(self):
         return int(np.ceil(len(self.indices) / self.batch_size))
@@ -301,9 +299,7 @@ class BinaryData(BinaryDataBase):
         start = timer()
         if self.do_cache and index in self.cache:
             Utils.update_progress(index + 1, len(self), 'Training: ', f' {(timer() - start):5.2f}s')
-            return self.cache[index]
-        self.log_count += 1
-        self.contig_count += self.batch_size
+            return self.cache[self.cache_indices[index]]
         batch_indices = self.indices[self.batch_size * index:  self.batch_size * (index + 1)]
         # files to process
         contig_data = [self.reader.contigs[i] for i in batch_indices]
