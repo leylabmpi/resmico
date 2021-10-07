@@ -350,7 +350,10 @@ class BinaryDataEval(BinaryDataBase):
             step - amount by which the sliding window is moved forward through a contig that is longer than #window
             nprocs - number of processes used to load the contig data
             total_memory_bytes - maximum total length of the contigs in a mini-batch
-            cache_results - if True, the generator will cache the result in memory the first time is read from disk
+            cache_results - if True, the generator will cache the transposed features in memory the first time they are
+              read from disk (we don't cache the final result, because padding and chunking makes it too big to fit in
+              memory; we also cache the transposed features rather than directly the contig data, because transposing
+              the features takes a long time)
         """
         logging.info(f'Creating evaluation data generator. Window: {window}, Step: {step}, Caching: {cache_results}')
         BinaryDataBase.__init__(self, reader, indices, feature_names)
@@ -442,33 +445,38 @@ class BinaryDataEval(BinaryDataBase):
         indices = self.batch_list[batch_idx]
         contig_data: list[ContigInfo] = [self.reader.contigs[i] for i in indices]
 
+        stack_time = 0
         if self.cache_results and self.data[batch_idx] is not None:
-            features_data = self.data[batch_idx]
+            all_stacked_features = self.data[batch_idx]
         else:
+            all_stacked_features = [None] * len(contig_data)
             features_data = self.reader.read_contigs(contig_data)
+            assert len(features_data) == len(contig_data)
+            to_merge = [None] * len(self.expanded_feature_names)
+
+            start_stack = timer()
+            for i, contig_features in enumerate(features_data):
+                contig_len = contig_data[i].length
+                assert contig_len == len(contig_features[self.expanded_feature_names[0]])
+                # each feature in features_data becomes o column in x
+                for j, feature_name in enumerate(self.expanded_feature_names):
+                    to_merge[j] = contig_features[feature_name]
+                stacked_features = np.stack(to_merge, axis=-1)
+                all_stacked_features[i] = stacked_features
+            stack_time += (timer() - start_stack)
             if self.cache_results:
-                self.data[batch_idx] = features_data
-        assert len(features_data) == len(contig_data)
+                self.data[batch_idx] = all_stacked_features
 
         max_contig_len = max([self.reader.contigs[i].length for i in indices])
         max_len = min(max_contig_len, self.window)
 
-        x = []
-        to_merge = [None] * len(self.expanded_feature_names)
-        stack_time = 0
+        x = []  # the evaluation data for all contigs in this batch
         # traverse all contig features, break down into multiple contigs if too long, and create a numpy 3D array
         # of shape (contig_count, max_len, num_features) to be used for evaluation
-        for i, contig_features in enumerate(features_data):
-            contig_len = contig_data[i].length
-            assert contig_len == len(contig_features[self.expanded_feature_names[0]])
+        for stacked_features in all_stacked_features:
+            contig_len = stacked_features.shape[0]
             start_idx = 0
             count = 0
-            start_stack = timer()
-            # each feature in features_data becomes o column in x
-            for j, feature_name in enumerate(self.expanded_feature_names):
-                to_merge[j] = contig_features[feature_name]
-            stacked_features = np.stack(to_merge, axis=-1)
-            stack_time += (timer() - start_stack)
             while True:
                 end_idx = start_idx + self.window
                 if end_idx <= contig_len:
