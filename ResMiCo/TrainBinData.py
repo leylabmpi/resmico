@@ -74,8 +74,8 @@ def main(args):
     train_data_tf = train_data_tf.with_options(options)
 
     np.seterr(all='raise')
-    eval_data = Models.BinaryDataEval(reader, eval_idx, args.features, args.max_len, args.max_len // 2, 500000,
-                                      args.cache_validation or args.cache)
+    eval_data = Models.BinaryDataEval(reader, eval_idx, args.features, args.max_len, args.max_len // 2,
+                                      int(args.gpu_eval_mem_gb * 1e9 * 0.8), args.cache_validation or args.cache)
     eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_data.all_indices])
 
     # convert the slow Keras eval_data of type Sequence to a tf.data object
@@ -83,7 +83,7 @@ def main(args):
     eval_data_tf = tf.data.Dataset.from_generator(
         data_iter,
         output_signature=(tf.TensorSpec(shape=(None, None, len(eval_data.expanded_feature_names)), dtype=tf.float32)))
-    eval_data_tf = eval_data_tf.prefetch(2 * strategy.num_replicas_in_sync)
+    eval_data_tf = eval_data_tf.prefetch(4 * strategy.num_replicas_in_sync)
     eval_data_tf = eval_data_tf.with_options(options)  # avoids Tensorflow ugly console barfT
 
     logging.info('Training network...')

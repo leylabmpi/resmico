@@ -315,7 +315,7 @@ class ContigReader:
 
         logging.info(
             f'Found {contig_count} contigs, {total_len} total length, '
-            f'memory needed {total_len * Reader.bytes_per_base / 1e9:6.2f}GB')
+            f'memory needed (assuming fraq-neg=1) {total_len * Reader.bytes_per_base / 1e9:6.2f}GB')
 
     def read_file(self, fname):
         toc_file = fname[:-len('stats')] + 'toc'

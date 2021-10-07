@@ -1,6 +1,5 @@
 import logging
 import math
-import sys
 import time
 from timeit import default_timer as timer
 
@@ -14,9 +13,10 @@ from tensorflow.keras.layers import Conv1D, Dropout, Dense
 from tensorflow.keras.layers import Bidirectional, LSTM
 from toolz import itertoolz
 
-from ResMiCo import Utils
-from ResMiCo import ContigReader
 from ResMiCo.ContigReader import ContigInfo
+from ResMiCo import ContigReader
+from ResMiCo import Reader
+from ResMiCo import Utils
 
 
 class Resmico(object):
@@ -228,8 +228,9 @@ class Generator(tf.keras.utils.Sequence):
         x_mb, y_mb = self.generate(indices_tmp)
         return x_mb, y_mb
 
+
 class BinaryDataBase(tf.keras.utils.Sequence):
-    def __init__(self, reader: ContigReader, indices: list[int],  feature_names: list[str]):
+    def __init__(self, reader: ContigReader, indices: list[int], feature_names: list[str]):
         """
        Arguments:
            - reader: ContigReader instance with all the contig metadata
@@ -243,6 +244,7 @@ class BinaryDataBase(tf.keras.utils.Sequence):
         if 'ref_base' in self.expanded_feature_names:
             pos = self.expanded_feature_names.index('ref_base')
             self.expanded_feature_names[pos: pos + 1] = ['ref_base_A', 'ref_base_C', 'ref_base_G', 'ref_base_T']
+
 
 class BinaryData(BinaryDataBase):
     def __init__(self, reader: ContigReader, indices: list[int], batch_size: int, feature_names: list[str],
@@ -258,16 +260,11 @@ class BinaryData(BinaryDataBase):
         """
         BinaryDataBase.__init__(self, reader, indices, feature_names)
         logging.info(
-            f'Creating training data generator. Cache: {do_cache}, Batch size: {batch_size}, Max length: {max_len}, '
-            f'Fraction correctly assembled: {fraq_neg}, Features: {len(self.expanded_feature_names)}, '
-            f'Contigs: {len(indices)}')
+            f'Creating training data generator. Batch size: {batch_size}, Max length: {max_len} Frac neg: {fraq_neg}, '
+            f'Features: {len(self.expanded_feature_names)}, Contigs: {len(indices)},  Caching: {do_cache}')
         self.batch_size = batch_size
         self.max_len = max_len
 
-        # log_count and LOG_FREQ are used to show some progress every LOG_FREQ batches
-        self.log_count = 0
-        self.log_freq = 300 / self.batch_size
-        self.contig_count = 0
         self.fraq_neg = fraq_neg
         self.do_cache = do_cache
         if self.do_cache:
@@ -279,16 +276,17 @@ class BinaryData(BinaryDataBase):
 
     def on_epoch_end(self):
         """
-        Re-shuffle the training data on each epoch.
+        Re-shuffle the training data on each epoch. When data is being cached in memory, the class will always use
+        the same negative samples (to avoid loading new samples from disk). When data is loaded from disk, the negative
+        samples will change at the end of each epoch (assuming fraq_neg < 1).
         """
-        self.contig_count = 0
-        self.log_count = 0
         np.random.shuffle(self.negative_idx)
         negative_count = int(self.fraq_neg * len(self.negative_idx))
         self.indices = self.positive_idx + self.negative_idx[:negative_count]
-        # TODO: this has no effect when caching
         np.random.shuffle(self.indices)
-
+        if self.do_cache:
+            self.cache_indices = np.arange(len(self))
+            np.random.shuffle(self.cache_indices)
 
     def __len__(self):
         return int(np.ceil(len(self.indices) / self.batch_size))
@@ -300,9 +298,7 @@ class BinaryData(BinaryDataBase):
         start = timer()
         if self.do_cache and index in self.cache:
             Utils.update_progress(index + 1, len(self), 'Training: ', f' {(timer() - start):5.2f}s')
-            return self.cache[index]
-        self.log_count += 1
-        self.contig_count += self.batch_size
+            return self.cache[self.cache_indices[index]]
         batch_indices = self.indices[self.batch_size * index:  self.batch_size * (index + 1)]
         # files to process
         contig_data = [self.reader.contigs[i] for i in batch_indices]
@@ -338,7 +334,7 @@ class BinaryData(BinaryDataBase):
 
 class BinaryDataEval(BinaryDataBase):
     def __init__(self, reader: ContigReader, indices: list[int], feature_names: list[str], window: int, step: int,
-                 total_contig_length: int, cache_results: bool):
+                 total_memory_bytes: int, cache_results: bool):
         """
         Arguments:
             reader - ContigReader instance used to load data from disk
@@ -348,17 +344,20 @@ class BinaryDataEval(BinaryDataBase):
                 into smaller pieces at #step intervals
             step - amount by which the sliding window is moved forward through a contig that is longer than #window
             nprocs - number of processes used to load the contig data
-            total_contig_length - maximum total length of the contigs in a mini-batch
-            cache_results - if True, the generator will cache the result in memory the first time is read from disk
+            total_memory_bytes - maximum total length of the contigs in a mini-batch
+            cache_results - if True, the generator will cache the transposed features in memory the first time they are
+              read from disk (we don't cache the final result, because padding and chunking makes it too big to fit in
+              memory; we also cache the transposed features rather than directly the contig data, because transposing
+              the features takes a long time)
         """
         logging.info(f'Creating evaluation data generator. Window: {window}, Step: {step}, Caching: {cache_results}')
         BinaryDataBase.__init__(self, reader, indices, feature_names)
         self.window = window
         self.step = step
-        # creates batches of contigs such that the total length in each batch is < total_contig_length
+        # creates batches of contigs such that the total length in each batch is < total_memory_bytes
         # chunk_counts[batch_count][idx] represents the number of chunks for the contig number #idx
         # in the batch #batch_count
-        self.batch_list, self.chunk_counts = self._create_batch_list(reader.contigs, total_contig_length)
+        self.batch_list, self.chunk_counts = self._create_batch_list(reader.contigs, total_memory_bytes)
 
         # flattened ground truth for each eval contig
         self.y = [0 if self.reader.contigs[i].misassembly == 0 else 1 for b in self.batch_list for i in b]
@@ -367,29 +366,40 @@ class BinaryDataEval(BinaryDataBase):
         if cache_results:
             self.data = [None] * len(self.batch_list)
 
-    def _create_batch_list(self, contig_data: list[ContigInfo], total_contig_length: int):
-        """ Divide the validation indices into mini-batches of total contig length < #total_contig_length """
+    def _create_batch_list(self, contig_data: list[ContigInfo], total_memory_bytes: int):
+        """ Divide the validation indices into mini-batches of total size < #total_memory_bytes """
+        bytes_per_base = 3 + sum(  # plus 3 because ref_base is one-hot encoded, so it uses 4 bytes
+            [np.dtype(Reader.feature_types[Reader.feature_names.index(f)]).itemsize for f in self.feature_names])
+        logging.info(f'Using {bytes_per_base} bytes for each contig position')
+
         current_indices = []
-        current_length = 0
         batch_list = []
+        max_len = 0
+        batch_chunk_count = 0
+        chunk_counts = []
+        counts = []
         for idx in self.all_indices:
-            if current_length + contig_data[idx].length > total_contig_length:
+            contig_len = contig_data[idx].length
+            # number of chunks for the current contig
+            curr_chunk_count = 1 + max(0, math.ceil((contig_len - self.window) / self.step))
+            if contig_len > max_len:
+                max_len = min(self.window, contig_len)
+            batch_chunk_count += curr_chunk_count
+            # check if the new contig still fits in memory and create a new batch if not
+            if current_indices and batch_chunk_count * max_len * bytes_per_base > total_memory_bytes:
+                logging.debug(f'Added {len(counts)} contigs with {sum(counts)} chunks to evaluation batch')
                 batch_list.append(current_indices)
                 current_indices = []
-                current_length = 0
-            current_length += contig_data[idx].length
+                chunk_counts.append(counts)
+                counts = []
+                max_len = min(self.window, contig_len)
+                batch_chunk_count = curr_chunk_count
+
+            counts.append(curr_chunk_count)
             current_indices.append(idx)
         batch_list.append(current_indices)
+        chunk_counts.append(counts)
 
-        chunk_counts = []
-        for batch in batch_list:
-            counts = []
-            for idx in batch:
-                contig_len = contig_data[idx].length
-                chunk_count = 1 + max(0, math.ceil((contig_len - self.window) / self.step))
-                counts.append(chunk_count)
-            chunk_counts.append(counts)
-            logging.debug(f'Added {len(counts)} contigs with {sum(counts)} chunks to evaluation batch')
         return batch_list, chunk_counts
 
     def group(self, y):
@@ -426,48 +436,60 @@ class BinaryDataEval(BinaryDataBase):
     def __getitem__(self, batch_idx: int):
         """ Return the mini-batch at index #index """
         start = timer()
-        if self.cache_results and self.data[batch_idx] is not None:
-            Utils.update_progress(batch_idx + 1, self.__len__(), 'Evaluating: ', f' {(timer() - start):5.2f}s')
-            return self.data[batch_idx]
         # files to process
         indices = self.batch_list[batch_idx]
         contig_data: list[ContigInfo] = [self.reader.contigs[i] for i in indices]
 
-        features_data = self.reader.read_contigs(contig_data)
-        assert len(features_data) == len(contig_data)
+        stack_time = 0
+        if self.cache_results and self.data[batch_idx] is not None:
+            all_stacked_features = self.data[batch_idx]
+        else:
+            all_stacked_features = [None] * len(contig_data)
+            features_data = self.reader.read_contigs(contig_data)
+            assert len(features_data) == len(contig_data)
+            to_merge = [None] * len(self.expanded_feature_names)
+
+            start_stack = timer()
+            for i, contig_features in enumerate(features_data):
+                contig_len = contig_data[i].length
+                assert contig_len == len(contig_features[self.expanded_feature_names[0]])
+                # each feature in features_data becomes o column in x
+                for j, feature_name in enumerate(self.expanded_feature_names):
+                    to_merge[j] = contig_features[feature_name]
+                stacked_features = np.stack(to_merge, axis=-1)
+                all_stacked_features[i] = stacked_features
+            stack_time += (timer() - start_stack)
+            if self.cache_results:
+                self.data[batch_idx] = all_stacked_features
 
         max_contig_len = max([self.reader.contigs[i].length for i in indices])
         max_len = min(max_contig_len, self.window)
 
-        x = []
+        x = []  # the evaluation data for all contigs in this batch
         # traverse all contig features, break down into multiple contigs if too long, and create a numpy 3D array
         # of shape (contig_count, max_len, num_features) to be used for evaluation
-        for i, contig_features in enumerate(features_data):
-            to_merge = [None] * len(self.expanded_feature_names)
-            contig_len = contig_data[i].length
-            assert contig_len == len(contig_features[self.expanded_feature_names[0]])
+        for stacked_features in all_stacked_features:
+            contig_len = stacked_features.shape[0]
             start_idx = 0
             count = 0
             while True:
-                np_data = np.zeros((max_len, len(self.expanded_feature_names)))
-
                 end_idx = start_idx + self.window
-                for j, feature_name in enumerate(self.expanded_feature_names):
-                    to_merge[j] = contig_features[feature_name][start_idx:end_idx]
+                if end_idx <= contig_len:
+                    x.append(stacked_features[start_idx:end_idx])
+                else:
+                    np_data = np.zeros((max_len, len(self.expanded_feature_names)))
+                    valid_end = min(end_idx, contig_len)
+                    np_data[:valid_end - start_idx] = stacked_features[start_idx:valid_end]
+                    x.append(np_data)
                 start_idx += self.step
-                stacked_features = np.stack(to_merge, axis=-1)
-                # each feature becomes a column in x[i]
-                np_data[:stacked_features.shape[0], :stacked_features.shape[1]] = stacked_features
-                x.append(np_data)
+
                 count += 1
                 if end_idx >= contig_len:
                     break
         assert (len(x) == sum(self.chunk_counts[batch_idx])), f'{len(x)} vs {sum(self.chunk_counts[batch_idx])}'
-        Utils.update_progress(batch_idx + 1, self.__len__(), 'Evaluating: ', f' {(timer() - start):5.2f}s')
-        result = np.array(x)
-        if self.cache_results:
-            self.data[batch_idx] = result
-        return result
+        Utils.update_progress(batch_idx + 1, self.__len__(), 'Evaluating: ',
+                              f' {(timer() - start):5.2f}s  {stack_time:5.2f}s')
+        return np.array(x)
 
 
 class GeneratorBigD(tf.keras.utils.Sequence):
