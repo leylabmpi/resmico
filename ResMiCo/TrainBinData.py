@@ -84,7 +84,7 @@ def main(args):
         data_iter,
         output_signature=(tf.TensorSpec(shape=(None, None, len(eval_data.expanded_feature_names)), dtype=tf.float32)))
     eval_data_tf = eval_data_tf.prefetch(4 * strategy.num_replicas_in_sync)
-    eval_data_tf = eval_data_tf.with_options(options)  # avoids Tensorflow ugly console barfT
+    eval_data_tf = eval_data_tf.with_options(options)  # avoids Tensorflow ugly console barf
 
     logging.info('Training network...')
     num_epochs = 2  # todo: last run monitor more often
