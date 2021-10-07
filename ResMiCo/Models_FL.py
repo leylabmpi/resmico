@@ -260,9 +260,8 @@ class BinaryData(BinaryDataBase):
         """
         BinaryDataBase.__init__(self, reader, indices, feature_names)
         logging.info(
-            f'Creating training data generator. Cache: {do_cache}, Batch size: {batch_size}, Max length: {max_len}, '
-            f'Fraction correctly assembled: {fraq_neg}, Features: {len(self.expanded_feature_names)}, '
-            f'Contigs: {len(indices)}')
+            f'Creating training data generator. Batch size: {batch_size}, Max length: {max_len} Frac neg: {fraq_neg}, '
+            f'Features: {len(self.expanded_feature_names)}, Contigs: {len(indices)},  Caching: {do_cache}')
         self.batch_size = batch_size
         self.max_len = max_len
 
