@@ -28,9 +28,11 @@ features23="ref_base num_query_A num_query_C num_query_G num_query_T coverage nu
 cmd3="/usr/bin/time python ResMiCo train --binary-data --feature-files-path /scratch/features/ \
       --save-path /cluster/home/ddanciu/tmp --n-procs 8 --log-level info \
       --batch-size 300 --n-fc 1 --num-blocks 4 --fraq-neg 0.1  \
-      --max-len ${MAX_LEN} --cache --gpu-eval-mem-gb=1 --features=${features_small}"
+      --max-len ${MAX_LEN} --cache --gpu-eval-mem-gb=1 --features ${features_small}"
 
 cd "${CODE_PATH}"
+
+echo "Training command is: ${cmd3}"
 
 # submit the job
 bsub -W 2:00 -n 8 -J ResMiCo-n9k -R "span[hosts=1]" -R rusage[mem=50000,ngpus_excl_p=2,scratch=30000] -G ms_raets \
