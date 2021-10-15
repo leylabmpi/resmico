@@ -98,7 +98,7 @@ def parse_args(curr_args=None, subparsers=None):
                         help='Number of parallel processes (default: %(default)s)')
     parser.add_argument('--fraq-neg', default=1., type=float,
                         help='Portion of samples to keep in overrepresented class (default: %(default)s)')
-    parser.add_argument('--features', help='Features to use for training', default=[
+    parser.add_argument('--features', nargs='+', help='Features to use for training', default=[
         'ref_base',
         'num_query_A',
         'num_query_C',
