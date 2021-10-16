@@ -36,4 +36,4 @@ echo "Training command is: ${cmd3}"
 
 # submit the job
 bsub -W 2:00 -n 8 -J ResMiCo-n9k -R "span[hosts=1]" -R rusage[mem=50000,ngpus_excl_p=2,scratch=30000] -G ms_raets \
-     -oo "${lsf_log_file}" "${cmd1}; ${cmd2}; ${cmd3} | tee ${log_file}"
+     -oo "${lsf_log_file}" "${cmd1}; ${cmd2}; ${cmd3} 2>&1 | tee ${log_file}"
