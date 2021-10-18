@@ -147,7 +147,7 @@ def _read_contig_data(input_file, feature_names: list[str]):
         _read_feature(f, data, 'num_orphans_Match', 2 * contig_size, np.uint16, feature_names, 10000)
         _read_feature(f, data, 'num_proper_SNP', 2 * contig_size, np.uint16, feature_names, 10000)
         _read_feature(f, data, 'seq_window_perc_gc', 4 * contig_size, np.float32, feature_names)
-        _read_feature(f, data, 'Extensive_misassembly_by_pos', contig_size, np.uint8, feature_names)
+        data['Extensive_misassembly_by_pos'] = np.frombuffer(f.read(contig_size), dtype=np.uint8)
     return data
 
 
