@@ -203,7 +203,7 @@ class ContigReader:
         file_list = [str(f) for f in list(Path(input_dir).rglob("**/stats"))]
         logging.info(f'Processing {len(file_list)} stats/toc files found in {input_dir} ...')
         if not file_list:
-            logging.info('Noting to do.')
+            logging.info('Nothing to do.')
             exit(0)
 
         self._load_contigs_metadata(input_dir, file_list)
