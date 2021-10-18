@@ -368,7 +368,9 @@ class BinaryDataEval(BinaryDataBase):
 
     def _create_batch_list(self, contig_data: list[ContigInfo], total_memory_bytes: int):
         """ Divide the validation indices into mini-batches of total size < #total_memory_bytes """
-        bytes_per_base = 3 + sum(  # plus 3 because ref_base is one-hot encoded, so it uses 4 bytes
+        # there seems to be an overhead for each position; 10 is just a guess to avoid running out of memory
+        # on the GPU
+        bytes_per_base = 10 + sum(
             [np.dtype(Reader.feature_np_types[Reader.feature_names.index(f)]).itemsize for f in self.feature_names])
         logging.info(f'Using {bytes_per_base} bytes for each contig position')
 
@@ -385,7 +387,7 @@ class BinaryDataEval(BinaryDataBase):
             if contig_len > max_len:
                 max_len = min(self.window, contig_len)
             batch_chunk_count += curr_chunk_count
-            # check if the new contig still fits in memory and create a new batch if not
+            # check if the new contig still fits in memory; create a new batch if not
             if current_indices and batch_chunk_count * max_len * bytes_per_base > total_memory_bytes:
                 logging.debug(f'Added {len(counts)} contigs with {sum(counts)} chunks to evaluation batch')
                 batch_list.append(current_indices)

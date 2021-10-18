@@ -29,7 +29,7 @@ float_feature_tuples = [('min_insert_size_Match', np.uint16, np.float32),
                         ('mean_al_score_Match', np.float32, np.float32),
                         ('stdev_al_score_Match', np.float32, np.float32),
                         ('max_al_score_Match', np.int8, np.float32), ]
-feature_tuples = [('ref_base', np.uint8, np.float32),
+feature_tuples = [('ref_base', np.uint8, np.float32),  # because we use one-hot encoding, so 4 bytes
                   ('coverage', np.uint16, np.uint16),
                   ('num_query_A', np.uint16, np.float32),
                   ('num_query_C', np.uint16, np.float32),
