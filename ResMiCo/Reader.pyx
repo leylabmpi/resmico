@@ -30,16 +30,16 @@ float_feature_tuples = [('min_insert_size_Match', np.uint16),
                         ('max_al_score_Match', np.int8), ]
 feature_tuples = [('ref_base', np.uint8),
                   ('coverage', np.uint16),
-                  ('num_query_A', np.uint16),
-                  ('num_query_C', np.uint16),
-                  ('num_query_G', np.uint16),
-                  ('num_query_T', np.uint16),
-                  ('num_SNPs', np.uint16),
-                  ('num_discordant', np.uint16)] \
+                  ('num_query_A', np.float32), # because they are normalized by coverage
+                  ('num_query_C', np.float32),
+                  ('num_query_G', np.float32),
+                  ('num_query_T', np.float32),
+                  ('num_SNPs', np.float32),
+                  ('num_discordant', np.float32)] \
                 + float_feature_tuples \
-                + [('num_proper_Match', np.uint16),
-                   ('num_orphans_Match', np.uint16),
-                   ('num_proper_SNP', np.uint16),
+                + [('num_proper_Match', np.float32),
+                   ('num_orphans_Match', np.float32),
+                   ('num_proper_SNP', np.float32),
                    ('seq_window_perc_gc', np.float32),
                    ('Extensive_misassembly_by_pos', np.uint8)]
 

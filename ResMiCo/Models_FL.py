@@ -344,7 +344,7 @@ class BinaryDataEval(BinaryDataBase):
                 into smaller pieces at #step intervals
             step - amount by which the sliding window is moved forward through a contig that is longer than #window
             nprocs - number of processes used to load the contig data
-            total_memory_bytes - maximum total length of the contigs in a mini-batch
+            total_memory_bytes - maximum memory desired for contig features in a mini-batch
             cache_results - if True, the generator will cache the transposed features in memory the first time they are
               read from disk (we don't cache the final result, because padding and chunking makes it too big to fit in
               memory; we also cache the transposed features rather than directly the contig data, because transposing
@@ -354,7 +354,7 @@ class BinaryDataEval(BinaryDataBase):
         BinaryDataBase.__init__(self, reader, indices, feature_names)
         self.window = window
         self.step = step
-        # creates batches of contigs such that the total length in each batch is < total_memory_bytes
+        # creates batches of contigs such that the total memory used by features in each batch is < total_memory_bytes
         # chunk_counts[batch_count][idx] represents the number of chunks for the contig number #idx
         # in the batch #batch_count
         self.batch_list, self.chunk_counts = self._create_batch_list(reader.contigs, total_memory_bytes)
@@ -374,9 +374,9 @@ class BinaryDataEval(BinaryDataBase):
 
         current_indices = []
         batch_list = []
-        max_len = 0
-        batch_chunk_count = 0
-        chunk_counts = []
+        max_len = 0  # maximum contig length in current batch
+        batch_chunk_count = 0  # total number of contig chunks in the current batch
+        chunk_counts = []  # number of chunks in each batch
         counts = []
         for idx in self.all_indices:
             contig_len = contig_data[idx].length
