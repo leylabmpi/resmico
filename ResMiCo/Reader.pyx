@@ -50,6 +50,7 @@ feature_names = [f[0] for f in feature_tuples]
 feature_types = [f[1] for f in feature_tuples]
 feature_np_types = [f[2] for f in feature_tuples]
 feature_sizes = [np.dtype(feature_types[i]).itemsize for i in range(N_FEATURES)]
+feature_np_sizes = [np.dtype(feature_types[i]).itemsize for i in range(N_FEATURES)]
 
 bytes_per_base = sum(feature_sizes)
 
@@ -81,7 +82,6 @@ cdef read_contig_cpp(const char* file_name, uint32_t length, uint32_t offset, ui
 
     cdef uint8_t feature_sizes_bytes[N_FEATURES]
     feature_sizes_bytes[:] = feature_sizes
-    cdef uint8_t bytes_per_base = 58 # this must be equal to the sum of feature_size_bytes
 
     read_contig_features(file_name, offset, size, length, N_FEATURES, bytes_per_base, &feature_mask[0],
                          &feature_sizes_bytes[0], &all_data[0])

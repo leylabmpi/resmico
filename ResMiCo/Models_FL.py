@@ -369,7 +369,7 @@ class BinaryDataEval(BinaryDataBase):
     def _create_batch_list(self, contig_data: list[ContigInfo], total_memory_bytes: int):
         """ Divide the validation indices into mini-batches of total size < #total_memory_bytes """
         bytes_per_base = 3 + sum(  # plus 3 because ref_base is one-hot encoded, so it uses 4 bytes
-            [np.dtype(Reader.feature_types[Reader.feature_names.index(f)]).itemsize for f in self.feature_names])
+            [np.dtype(Reader.feature_np_types[Reader.feature_names.index(f)]).itemsize for f in self.feature_names])
         logging.info(f'Using {bytes_per_base} bytes for each contig position')
 
         current_indices = []
