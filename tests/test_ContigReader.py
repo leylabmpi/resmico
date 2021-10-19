@@ -98,8 +98,8 @@ class TestReadContig(unittest.TestCase):
             np.testing.assert_array_equal(np.array([1] * 498 + [0, 0]), result[0]['ref_base_A']))
         self.assertIsNone(
             np.testing.assert_array_equal(np.array([0] * 498 + [1, 1]), result[0]['ref_base_C']))
-        self.assertTrue(not np.any(result[0]['ref_base_G']))
-        self.assertTrue(not np.any(result[0]['ref_base_T']))
+        self.assertFalse(np.any(result[0]['ref_base_G']))
+        self.assertFalse(np.any(result[0]['ref_base_T']))
         coverage = result[0]['coverage']
         for pos in range(0, len(result[0]['ref_base_A'])):
             self.assertEqual(2 if 420 <= pos < 425 or pos < 5 else 0, coverage[pos])
