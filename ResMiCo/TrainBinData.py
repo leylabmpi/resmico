@@ -51,7 +51,7 @@ def main(args):
 
     # create data generators for training data and evaluation data
     train_data = Models.BinaryData(reader, train_idx, args.batch_size, args.features, args.max_len, args.fraq_neg,
-                                   args.cache)
+                                   args.cache, args.log_progress)
 
     # convert the slow Keras train_data of type Sequence to a tf.data object
     # first, we convert the keras sequence into a generator-like object
@@ -75,7 +75,8 @@ def main(args):
 
     np.seterr(all='raise')
     eval_data = Models.BinaryDataEval(reader, eval_idx, args.features, args.max_len, args.max_len // 2,
-                                      int(args.gpu_eval_mem_gb * 1e9 * 0.8), args.cache_validation or args.cache)
+                                      int(args.gpu_eval_mem_gb * 1e9 * 0.8), args.cache_validation or args.cache,
+                                      args.log_progress)
     eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_data.all_indices])
 
     # convert the slow Keras eval_data of type Sequence to a tf.data object
