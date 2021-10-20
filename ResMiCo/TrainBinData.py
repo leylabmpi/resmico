@@ -22,6 +22,7 @@ def main(args):
         os.makedirs(args.save_path)
 
     logging.info('Building Tensorflow model...')
+    logging.info(args)
     strategy = tf.distribute.MirroredStrategy()
 
     with strategy.scope():

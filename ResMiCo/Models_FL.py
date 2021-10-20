@@ -303,7 +303,8 @@ class BinaryData(BinaryDataBase):
         """
         start = timer()
         if self.do_cache and index in self.cache:
-            Utils.update_progress(index + 1, len(self), 'Training: ', '')
+            if self.show_progress:
+                Utils.update_progress(index + 1, len(self), 'Training: ', '')
             return self.cache[self.cache_indices[index]]
         batch_indices = self.indices[self.batch_size * index:  self.batch_size * (index + 1)]
         # files to process
