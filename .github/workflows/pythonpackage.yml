@@ -55,12 +55,12 @@ jobs:
         conda activate /usr/share/miniconda3/envs/resmico
     - name: cython contig reader
       shell: bash -l {0}
-      working-directory: ${{runner.workspace}}/ResMiCo/ResMiCo
+      working-directory: ${{runner.workspace}}/ResMiCo/resmico
       run: |
           python setup.py build_ext --inplace
     - name: test_resmico
       shell: bash -l {0}
-      working-directory: ${{runner.workspace}}/ResMiCo/tests
+      working-directory: ${{runner.workspace}}/resmico/tests
       run: |
         pytest ./test_Models_FL.py ./test_ContigReader.py
 #    - name: pytest
