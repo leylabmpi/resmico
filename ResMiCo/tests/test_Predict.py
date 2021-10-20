@@ -1,13 +1,8 @@
-# import
-## batteries
 import os
-import sys
 import pytest
 import logging
-## 3rd party
-import numpy as np
-## package
-from ResMiCo.Commands import Predict as Predict_CMD
+
+from ..Commands import Predict as Predict_CMD
 
 # test/data dir
 test_dir = os.path.join(os.path.dirname(__file__))

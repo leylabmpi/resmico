@@ -1,7 +1,6 @@
 import argparse
 import logging
 import sys
-# from ResMiCo import Train
 from .. import Train_BigD
 from .. import TrainBinData
 

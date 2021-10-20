@@ -1,17 +1,17 @@
 import numpy as np
 import unittest
 
-from ResMiCo import Models_FL
-from ResMiCo import ContigReader
-from ResMiCo import Reader
+from .. import Models_FL
+from .. import ContigReader
+from .. import Reader
 
-from ResMiCo.ContigReader import ContigInfo
+from ..ContigReader import ContigInfo
 
 
 class TestBinaryData(unittest.TestCase):
     def test_gen_eval_data(self):
         for cached in [False, True]:
-            reader = ContigReader.ContigReader('./data/preprocess/', Reader.feature_names, 1, False)
+            reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
             indices = np.arange(len(reader))
             batch_size = 10
             data_gen = Models_FL.BinaryData(reader, indices, batch_size, Reader.feature_names, 500, 1.0, cached, False)
@@ -44,7 +44,7 @@ class TestBinaryDataEval(unittest.TestCase):
         [np.dtype(ft).itemsize for ft in Reader.feature_np_types])
 
     def test_batching_one_per_batch(self):
-        reader = ContigReader.ContigReader('./data/preprocess/', Reader.feature_names, 1, False)
+        reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
         reader.contigs = [ContigInfo('Contig1', '/tmp/c1', 1000, 0, 0, 0),
                           ContigInfo('Contig2', '/tmp/c2', 1000, 0, 0, 0),
                           ContigInfo('Contig3', '/tmp/c3', 1000, 0, 0, 0)]
@@ -59,10 +59,10 @@ class TestBinaryDataEval(unittest.TestCase):
             self.assertEqual(3, eval_data.chunk_counts[i][0])
 
     def test_batching_multiple_per_batch(self):
-        reader = ContigReader.ContigReader('./data/preprocess/', Reader.feature_names, 1, False)
-        reader.contigs = [ContigInfo('Contig1', './data/preprocess/features_binary', 500, 0, 246, 0),
-                          ContigInfo('Contig2', './data/preprocess/features_binary', 500, 246, 183, 0),
-                          ContigInfo('Contig3', './data/preprocess/features_binary', 500, 0, 246, 0)]
+        reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
+        reader.contigs = [ContigInfo('Contig1', 'data/preprocess/features_binary', 500, 0, 246, 0),
+                          ContigInfo('Contig2', 'data/preprocess/features_binary', 500, 246, 183, 0),
+                          ContigInfo('Contig3', 'data/preprocess/features_binary', 500, 0, 246, 0)]
         indices = np.arange(len(reader))
         gpu_memory_bytes = 1600 * self.bytes_per_base
         eval_data = Models_FL.BinaryDataEval(reader, indices, Reader.feature_names, 250, 200, gpu_memory_bytes, False,
@@ -83,7 +83,7 @@ class TestBinaryDataEval(unittest.TestCase):
 
     def test_gen_eval_data(self):
         for cached in [False, True]:
-            reader = ContigReader.ContigReader('./data/preprocess/', Reader.feature_names, 1, False)
+            reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
             indices = np.arange(len(reader))
             eval_data = Models_FL.BinaryDataEval(reader, indices, Reader.feature_names, 500, 250, 1e6, cached, False)
             self.assertEqual(1, len(eval_data))
@@ -97,7 +97,7 @@ class TestBinaryDataEval(unittest.TestCase):
             self.assertTrue(all(a == b for a, b in zip(eval_data[0][1][5][0:6], [1, 0, 0, 0, 0, 0])))
 
     def test_gen_eval_data_short_window(self):
-        reader = ContigReader.ContigReader('./data/preprocess/', Reader.feature_names, 1, False)
+        reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
         indices = np.arange(len(reader))
         eval_data = Models_FL.BinaryDataEval(reader, indices, Reader.feature_names, 50, 30, 1e6, False, False)
         self.assertEqual(1, len(eval_data))
@@ -111,7 +111,7 @@ class TestBinaryDataEval(unittest.TestCase):
         self.assertTrue(all(a == b for a, b in zip(eval_data[0][16][5][0:6], [1, 0, 0, 0, 0, 0])))
 
     def test_group(self):
-        reader = ContigReader.ContigReader('./data/preprocess/', Reader.feature_names, 1, False)
+        reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
         indices = np.arange(len(reader))
         total_memory_bytes = 1e6
         eval_data = Models_FL.BinaryDataEval(reader, indices, Reader.feature_names, 50, 30, total_memory_bytes, False,
@@ -135,7 +135,7 @@ class TestBinaryDataEval(unittest.TestCase):
             np.testing.assert_array_equal(np.array([1, 1]), eval_data.group(y)))
 
     def test_group_two_batches(self):
-        reader = ContigReader.ContigReader('./data/preprocess/', Reader.feature_names, 1, False)
+        reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
         indices = np.arange(len(reader))
         eval_data = Models_FL.BinaryDataEval(reader, indices, Reader.feature_names, 50, 30, 500, False, False)
 
@@ -160,7 +160,7 @@ class TestBinaryDataEval(unittest.TestCase):
             np.testing.assert_array_equal(np.array([1, 1]), eval_data.group(y)))
 
     def test_gen_eval_data_cached(self):
-        reader = ContigReader.ContigReader('./data/preprocess/', Reader.feature_names, 1, False)
+        reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
         indices = np.arange(len(reader))
         eval_data = Models_FL.BinaryDataEval(reader, indices, Reader.feature_names, 500, 250, 1e6, True, False)
         self.assertEqual(1, len(eval_data))
