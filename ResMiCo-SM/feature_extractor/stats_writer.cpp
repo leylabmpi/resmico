@@ -180,7 +180,7 @@ StatsWriter::StatsWriter(const std::filesystem::path &out_dir,
                          uint32_t breakpoint_offset)
     : out_dir(out_dir),
       chunk_size(chunk_size),
-      random_engine(std::mt19937(12345)),
+      random_engine(std::mt19937(54321)),
       offset_gen(std::uniform_int_distribution<int32_t>(-breakpoint_offset, breakpoint_offset)) {
     std::error_code ec1;
     std::filesystem::create_directories(out_dir, ec1);
@@ -220,7 +220,7 @@ std::string to_string(const std::vector<MisassemblyInfo> &mis, uint32_t start = 
         s << (mi.break_start - start) << '-' << (mi.break_end - start) << ',';
     }
     std::string result = s.str();
-    return result[result.size() - 1] == ',' ? result.substr(result.size() - 1) : "-";
+    return result[result.size() - 1] == ',' ? result.substr(0,result.size() - 1) : "-";
 }
 
 void StatsWriter::write_stats(QueueItem &&item,
@@ -377,7 +377,7 @@ void StatsWriter::write_stats(QueueItem &&item,
             write_data(item.reference, fname, cs, start, stop);
             toc_chunk << item.reference_name + "_" + std::to_string(i) << '\t' << chunk_size
                       << "\t1\t" << std::filesystem::file_size(fname) << '\t'
-                      << to_string(mis, start) << std::endl;
+                      << to_string({mis[i]}, start) << std::endl;
             append_file(binary_chunk_features, fname);
         }
     }
