@@ -126,8 +126,6 @@ def parse_args(curr_args=None, subparsers=None):
                              'files transformed from zipped tsv feature files')
     parser.add_argument('--log-level', default='INFO',
                         help='Logging level, one of [CRITICAL, FATAL, ERROR, WARNING, INFO, DEBUG]')
-    parser.add_argument('--update-progress', action='store_true', default=False,
-                        help='Set true to see the progress')
     parser.add_argument('--chunks', dest='chunks', action='store_true',
                         help='If set, use the toc_chunked/binary_features_chunked data instead of toc/binary_features')
     parser.add_argument('--normalize-stdev', dest='normalize_stdev', action='store_true',
@@ -144,6 +142,9 @@ def parse_args(curr_args=None, subparsers=None):
                              '(about 2x slower, only useful for debugging')
     parser.add_argument('--gpu-eval-mem-gb', default=3.0, type=float,
                         help='Amount of GPU memory used for validation data (amount will be divided per GPU)')
+    parser.add_argument('--log_progress',
+                        help='If enabled, a progressbar will be shown for training/evaluation progress',
+                        dest='log_progress', action='store_true')
 
     # running test args
     if curr_args:

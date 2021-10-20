@@ -14,30 +14,6 @@
 namespace {
 using namespace ::testing;
 
-std::vector<std::string> bin_headers = { "ref_base",
-                                         "num_query_A",
-                                         "num_query_C",
-                                         "num_query_G",
-                                         "num_query_T",
-                                         "num_SNPs",
-                                         "coverage",
-                                         "num_discordant",
-                                         "min_insert_size_Match",
-                                         "mean_insert_size_Match",
-                                         "stdev_insert_size_Match",
-                                         "max_insert_size_Match",
-                                         "min_mapq_Match",
-                                         "mean_mapq_Match",
-                                         "stdev_mapq_Match",
-                                         "max_mapq_Match",
-                                         "min_al_score_Match",
-                                         "mean_al_score_Match",
-                                         "stdev_al_score_Match",
-                                         "max_al_score_Match",
-                                         "num_proper_SNP",
-                                         "seq_window_perc_gc",
-                                         "misassembly_by_pos" };
-
 TEST(WriteData, Empty) {
     QueueItem item;
 
@@ -51,10 +27,11 @@ void check_toc_files() {
     std::ifstream toc_read("/tmp/stats/toc");
     std::string line;
     std::getline(toc_read, line); // skip header
+    std::string breaking_points;
     for (uint32_t i : { 0, 1 }) {
         std::string contig_name;
         uint32_t length, is_missasembly, offset;
-        toc_read >> contig_name >> length >> is_missasembly >> offset;
+        toc_read >> contig_name >> length >> is_missasembly >> offset >> breaking_points;
         ASSERT_EQ("Contig" + std::to_string(i == 0 ? 2 : 1), contig_name);
         ASSERT_EQ(500, length);
         ASSERT_EQ(i == 0 ? 1 : 0, is_missasembly);
@@ -67,7 +44,7 @@ void check_toc_files() {
     for (uint32_t i : { 0, 1 }) {
         std::string contig_name;
         uint32_t is_missasembly, offset, length;
-        toc_read_chunk >> contig_name >> length >> is_missasembly >> offset;
+        toc_read_chunk >> contig_name >> length >> is_missasembly >> offset >> breaking_points;
         ASSERT_EQ(i == 0 ? "Contig2_0" : "Contig1", contig_name);
         ASSERT_EQ(i == 0 ? 1 : 0, is_missasembly);
     }
@@ -81,10 +58,11 @@ void separate_contig_data(const std::string &toc,
     std::string line;
     std::getline(toc_read, line); // skip header
     std::vector<uint32_t> sizes;
+    std::string breaking_points;
     while (toc_read) {
         std::string contig_name;
         uint32_t is_missasembly, len, size;
-        toc_read >> contig_name >> len >> is_missasembly >> size;
+        toc_read >> contig_name >> len >> is_missasembly >> size >> breaking_points;
         sizes.push_back(size);
     }
 
@@ -165,7 +143,7 @@ TEST(WriteData, TwoReads) {
     std::vector<uint16_t> num_proper_snp(len);
     std::vector<float> gc_percent(len);
 
-    std::vector<uint8_t> misassembly_by_pos(len);
+    std::vector<float> entropy(len);
 
     stats2.read(reinterpret_cast<char *>(contig.data()), len);
     stats2.read(reinterpret_cast<char *>(coverage.data()), len * sizeof(coverage[0]));
@@ -200,8 +178,7 @@ TEST(WriteData, TwoReads) {
                 len * sizeof(num_orphans_match[0]));
     stats2.read(reinterpret_cast<char *>(num_proper_snp.data()), len * sizeof(num_proper_snp[0]));
     stats2.read(reinterpret_cast<char *>(gc_percent.data()), len * sizeof(gc_percent[0]));
-    stats2.read(reinterpret_cast<char *>(misassembly_by_pos.data()),
-                len * sizeof(misassembly_by_pos[0]));
+    stats2.read(reinterpret_cast<char *>(entropy.data()), len * sizeof(entropy[0]));
 
     for (uint32_t i = 0; i < 500; ++i) {
         ASSERT_EQ(i < 498 ? 'A' : 'C', contig[i]) << "Position: " << i;
@@ -231,7 +208,13 @@ TEST(WriteData, TwoReads) {
         ASSERT_EQ(max_map_qual[i], i == 0 ? 7 : i < 5 ? 6 : std::numeric_limits<uint8_t>::max());
         ASSERT_TRUE((i >= 5 && std::isnan(mean_map_qual[i]))
                     || mean_map_qual[i] == (i == 0 ? 6.5 : 6));
-        ASSERT_EQ(misassembly_by_pos[i], i >= 20 ? 0 : 1) << "Position " << i;
+        if (i < 498) {
+            ASSERT_EQ(entropy[i], 0) << "Position " << i;
+        } else if (i == 498) {
+            ASSERT_NEAR(0.811278, entropy[i], 1e-4);
+        } else {
+            ASSERT_NEAR(1, entropy[i], 1e-4);
+        }
     }
 
     check_toc_files();
@@ -534,7 +517,7 @@ TEST(WriteData, TwoReadsChunkStats) {
     std::vector<uint16_t> num_proper_snp(len);
     std::vector<float> gc_percent(len);
 
-    std::vector<uint8_t> misassembly_by_pos(len);
+    std::vector<float> entropy(len);
 
     stats2.read(reinterpret_cast<char *>(contig.data()), len);
     stats2.read(reinterpret_cast<char *>(coverage.data()), len * sizeof(coverage[0]));
@@ -569,8 +552,7 @@ TEST(WriteData, TwoReadsChunkStats) {
                 len * sizeof(num_orphans_match[0]));
     stats2.read(reinterpret_cast<char *>(num_proper_snp.data()), len * sizeof(num_proper_snp[0]));
     stats2.read(reinterpret_cast<char *>(gc_percent.data()), len * sizeof(gc_percent[0]));
-    stats2.read(reinterpret_cast<char *>(misassembly_by_pos.data()),
-                len * sizeof(misassembly_by_pos[0]));
+    stats2.read(reinterpret_cast<char *>(entropy.data()), len * sizeof(entropy[0]));
 
     for (uint32_t i = 0; i < len; ++i) {
         ASSERT_EQ('A', contig[i]) << "Position: " << i;
@@ -591,7 +573,7 @@ TEST(WriteData, TwoReadsChunkStats) {
         ASSERT_EQ(std::numeric_limits<uint8_t>::max(), min_map_qual[i]);
         ASSERT_EQ(std::numeric_limits<uint8_t>::max(), max_map_qual[i]);
         ASSERT_TRUE(std::isnan(mean_map_qual[i]));
-        ASSERT_EQ(1, misassembly_by_pos[i]);
+        ASSERT_EQ(0, entropy[i]);
     }
 }
 
