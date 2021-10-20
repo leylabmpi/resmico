@@ -1,11 +1,11 @@
 import numpy as np
 import unittest
 
-from .. import Models_FL
-from .. import ContigReader
-from .. import Reader
+from resmico import Models_FL
+from resmico import ContigReader
+from resmico import Reader
 
-from ..ContigReader import ContigInfo
+from resmico.ContigReader import ContigInfo
 
 
 class TestBinaryData(unittest.TestCase):

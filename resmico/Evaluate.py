@@ -10,8 +10,8 @@ import tensorflow as tf
 from tensorflow.keras.models import load_model
 from sklearn.metrics import average_precision_score
 
-from . import Models_FL as Models  # to use contigs of variable length
-from . import Utils
+from resmico import Models_FL as Models  # to use contigs of variable length
+from resmico import Utils
 
 
 def predict_with_method(model, args):

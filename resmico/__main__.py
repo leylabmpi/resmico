@@ -6,10 +6,10 @@ __version__ = '0.3.1'
 import sys
 import argparse
 
-from .Commands import Train
-from .Commands import Predict
-from .Commands import Evaluate
-from .Commands import Preprocess
+from resmico.Commands import Train
+from resmico.Commands import Predict
+from resmico.Commands import Evaluate
+from resmico.Commands import Preprocess
 
 
 def main(args=None):

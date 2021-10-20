@@ -11,8 +11,8 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras import backend as K
 from sklearn.metrics import recall_score, roc_auc_score, average_precision_score, log_loss
 
-from . import Models_FL as Models
-from . import Utils
+from resmico import Models_FL as Models
+from resmico import Utils
 
 
 class Config(object):

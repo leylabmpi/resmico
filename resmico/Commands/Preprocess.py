@@ -1,7 +1,7 @@
 from __future__ import print_function
 import argparse
 import logging
-from .. import Preprocess
+from resmico import Preprocess
 
 # functions
 def parse_args(test_args=None, subparsers=None):

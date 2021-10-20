@@ -14,10 +14,10 @@ from tensorflow.keras.layers import Conv1D, Dropout, Dense
 from tensorflow.keras.layers import Bidirectional, LSTM
 from toolz import itertoolz
 
-from . import ContigReader
-from .ContigReader import ContigInfo
-from . import Reader
-from . import Utils
+from resmico import ContigReader
+from resmico.ContigReader import ContigInfo
+from resmico import Reader
+from resmico import Utils
 
 
 class Resmico(object):

@@ -13,7 +13,7 @@ import struct
 
 import numpy as np
 
-from . import Reader
+from resmico import Reader
 
 def _replace_with_nan(data, feature_name, v):
     """Replaces all elements in arr that are equal to v with np.nan"""

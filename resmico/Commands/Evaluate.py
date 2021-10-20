@@ -3,7 +3,7 @@ from pkg_resources import resource_filename
 import os
 import argparse
 import logging
-from .. import Evaluate
+from resmico import Evaluate
 
 # functions
 def get_desc():

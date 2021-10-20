@@ -1,8 +1,8 @@
 import argparse
 import logging
 import sys
-from .. import Train_BigD
-from .. import TrainBinData
+from resmico import Train_BigD
+from resmico import TrainBinData
 
 
 # functions

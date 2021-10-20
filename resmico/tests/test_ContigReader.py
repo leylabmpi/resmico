@@ -1,8 +1,8 @@
 import numpy as np
 import unittest
 
-from .. import ContigReader
-from .. import Reader
+from resmico import ContigReader
+from resmico import Reader
 
 class TestReadContig(unittest.TestCase):
     def test_read_from_file(self):

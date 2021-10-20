@@ -10,8 +10,8 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras import backend as K
 from sklearn.metrics import recall_score, average_precision_score
 
-from . import ContigReader
-from . import Models_FL as Models
+from resmico import ContigReader
+from resmico import Models_FL as Models
 
 
 def main(args):
