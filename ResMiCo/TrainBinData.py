@@ -4,6 +4,7 @@ import math
 import time
 
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras import backend as K
@@ -45,9 +46,14 @@ def main(args):
 
     # separate data into 90% for training and 10% for evaluation
     all_idx = np.arange(len(reader))
-    np.random.shuffle(all_idx)
-    train_idx = all_idx[:(9 * len(reader)) // 10]
-    eval_idx = all_idx[(9 * len(reader)) // 10:]
+    if args.val_ind_f:
+        logging.info(f'Split data: using {args.val_ind_f} for validation, for training everything else')
+        eval_idx = list(pd.read_csv(args.val_ind_f)['val_ind'])
+        train_idx = list(set(all_idx) - set(eval_idx))
+    else:
+        np.random.shuffle(all_idx)
+        train_idx = all_idx[:(9 * len(reader)) // 10]
+        eval_idx = all_idx[(9 * len(reader)) // 10:]
     logging.info(f'Using {len(train_idx)} contigs for training, {len(eval_idx)} contigs for evaluation')
 
     # create data generators for training data and evaluation data
