@@ -7,7 +7,7 @@ import logging
 ## 3rd party
 import numpy as np
 ## package
-from ResMiCo.Commands import Evaluate as Evaluate_CMD
+from ..Commands import Evaluate as Evaluate_CMD
 
 # test/data dir
 test_dir = os.path.join(os.path.dirname(__file__))

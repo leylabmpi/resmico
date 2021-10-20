@@ -1,12 +1,7 @@
 from __future__ import print_function
-# import
-## batteries
-import os
-import sys
 import argparse
 import logging
-## application
-from ResMiCo import Preprocess
+from .. import Preprocess
 
 # functions
 def parse_args(test_args=None, subparsers=None):

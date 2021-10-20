@@ -1,13 +1,12 @@
 import numpy as np
 import unittest
 
-from ResMiCo import ContigReader
-from ResMiCo import Reader
-
+from .. import ContigReader
+from .. import Reader
 
 class TestReadContig(unittest.TestCase):
     def test_read_from_file(self):
-        input_file = open('./data/preprocess/features_binary', 'rb')
+        input_file = open('data/preprocess/features_binary', 'rb')
         result = ContigReader._read_contig_data(input_file, Reader.feature_names)
         self.assertEqual(500, len(result['ref_base_A']))
         self.assertIsNone(
@@ -49,10 +48,10 @@ class TestReadContig(unittest.TestCase):
             self.assertEqual(1 if pos < 20 else 0, result['Extensive_misassembly_by_pos'][pos])
 
     def test_normalize_zero_mean_one_stdev(self):
-        input_file = open('./data/preprocess/features_binary', 'rb')
+        input_file = open('data/preprocess/features_binary', 'rb')
         old_result = ContigReader._read_contig_data(input_file, Reader.feature_names)
 
-        reader = ContigReader.ContigReader('./data/preprocess/', Reader.feature_names, 1, False)
+        reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
         for fname in Reader.float_feature_names:
             reader.means[fname] = 0
             reader.stdevs[fname] = 1
@@ -66,10 +65,10 @@ class TestReadContig(unittest.TestCase):
             self.assertIsNone(np.testing.assert_array_equal(old_result[fname], result[fname]))
 
     def test_normalize_zero_mean_two_stdev(self):
-        input_file = open('./data/preprocess/features_binary', 'rb')
+        input_file = open('data/preprocess/features_binary', 'rb')
         old_result = ContigReader._read_contig_data(input_file, Reader.feature_names)
 
-        reader = ContigReader.ContigReader('./data/preprocess/', Reader.feature_names, 1, False)
+        reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
         for fname in Reader.float_feature_names:
             reader.means[fname] = 0
             reader.stdevs[fname] = 2
@@ -83,8 +82,8 @@ class TestReadContig(unittest.TestCase):
             self.assertIsNone(np.testing.assert_array_equal(old_result[fname] / 2, result[fname]))
 
     def test_read_three_features(self):
-        reader = ContigReader.ContigReader('./data/preprocess/', [Reader.feature_names[0], Reader.feature_names[1],
-                                                                  Reader.feature_names[3]], 1, False)
+        reader = ContigReader.ContigReader('data/preprocess/', [Reader.feature_names[0], Reader.feature_names[1],
+                                                                Reader.feature_names[3]], 1, False)
         result = reader.read_contigs(reader.contigs)
 
         # we read 2 contigs in total

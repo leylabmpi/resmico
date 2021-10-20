@@ -1,5 +1,6 @@
 import logging
 import math
+import random
 import time
 from timeit import default_timer as timer
 
@@ -13,10 +14,10 @@ from tensorflow.keras.layers import Conv1D, Dropout, Dense
 from tensorflow.keras.layers import Bidirectional, LSTM
 from toolz import itertoolz
 
-from ResMiCo.ContigReader import ContigInfo
-from ResMiCo import ContigReader
-from ResMiCo import Reader
-from ResMiCo import Utils
+from . import ContigReader
+from .ContigReader import ContigInfo
+from . import Reader
+from . import Utils
 
 
 class Resmico(object):
@@ -280,6 +281,23 @@ class BinaryData(BinaryDataBase):
         self.positive_idx = [i for i, contig in enumerate(reader.contigs) if contig.misassembly > 0]
         self.on_epoch_end()  # select negative samples and shuffle indices
 
+        # determine the position of the num_query_A/C/G/T fields, so that we can apply inversion
+        self.pos_A = self.pos_C = self.pos_G = self.pos_T = -1
+        if 'num_query_A' in self.feature_names and 'num_query_T' in self.feature_names:
+            self.pos_A = self.feature_names.index('num_query_A')
+            self.pos_T = self.feature_names.index('num_query_T')
+            if self.feature_names.index('ref_base') < self.pos_A:
+                self.pos_A += 3
+            if self.feature_names.index('ref_base') < self.pos_T:
+                self.pos_T += 3
+        if 'num_query_G' in self.feature_names and 'num_query_C' in self.feature_names:
+            self.pos_G = self.feature_names.index('num_query_G')
+            self.pos_C = self.feature_names.index('num_query_C')
+            if self.feature_names.index('ref_base') < self.pos_G:
+                self.pos_G += 3
+            if self.feature_names.index('ref_base') < self.pos_C:
+                self.pos_C += 3
+
     def on_epoch_end(self):
         """
         Re-shuffle the training data on each epoch. When data is being cached in memory, the class will always use
@@ -298,6 +316,16 @@ class BinaryData(BinaryDataBase):
         return int(np.ceil(len(self.indices) / self.batch_size))
 
     def __getitem__(self, index):
+        x, y = self._get_data(index)
+        if self.pos_A > 0 and self.pos_T > 0 and random.randint(0, 1) == 1:
+            x[:, [self.pos_A, self.pos_T]] = x[:, [self.pos_T, self.pos_A]]
+            pass
+        if self.pos_G > 0 and self.pos_C > 0 and random.randint(0, 1) == 1:
+            x[:, [self.pos_C, self.pos_G]] = x[:, [self.pos_G, self.pos_C]]
+            pass
+        return x, y
+
+    def _get_data(self, index):
         """
         Return the next mini-batch of size #batch_size
         """
@@ -499,7 +527,7 @@ class BinaryDataEval(BinaryDataBase):
         assert (len(x) == sum(self.chunk_counts[batch_idx])), f'{len(x)} vs {sum(self.chunk_counts[batch_idx])}'
         if self.show_progress:
             Utils.update_progress(batch_idx + 1, self.__len__(), 'Evaluating: ',
-                              f' {(timer() - start):5.2f}s  {stack_time:5.2f}s')
+                                  f' {(timer() - start):5.2f}s  {stack_time:5.2f}s')
         return np.array(x)
 
 

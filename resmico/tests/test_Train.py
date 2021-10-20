@@ -1,13 +1,8 @@
-# import
-## batteries
 import os
-import sys
 import pytest
 import logging
-## 3rd party
-import numpy as np
-## package
-from ResMiCo.Commands import Train as Train_CMD
+
+from ..Commands import Train as Train_CMD
 
 # test/data dir
 test_dir = os.path.join(os.path.dirname(__file__))
