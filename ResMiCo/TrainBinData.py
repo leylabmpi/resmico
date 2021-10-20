@@ -28,10 +28,10 @@ def main(args):
         resmico = Models.Resmico(args)
     resmico.print_summary()
 
-    # save model every epoch
-    model_file = os.path.join(args.save_path, '_'.join(['mc_epoch', "{epoch}", args.save_name, 'model.h5']))
-    logging.info(f'Model will be saved to: {model_file}')
-    mc = ModelCheckpoint(model_file, save_freq="epoch", verbose=1)
+#     # save model every epoch
+#     model_file = os.path.join(args.save_path, '_'.join(['mc_epoch', "{epoch}", args.save_name, 'model.h5']))
+#     logging.info(f'Model will be saved to: {model_file}')
+#     mc = ModelCheckpoint(model_file, save_freq="epoch", verbose=1)
 
     # tensorboard logs
     tb_logs = tf.keras.callbacks.TensorBoard(log_dir=os.path.join(args.save_path, 'logs_final'),
@@ -51,7 +51,7 @@ def main(args):
 
     # create data generators for training data and evaluation data
     train_data = Models.BinaryData(reader, train_idx, args.batch_size, args.features, args.max_len, args.fraq_neg,
-                                   args.cache)
+                                   args.cache, args.update_progress)
 
     # convert the slow Keras train_data of type Sequence to a tf.data object
     # first, we convert the keras sequence into a generator-like object
@@ -75,7 +75,8 @@ def main(args):
 
     np.seterr(all='raise')
     eval_data = Models.BinaryDataEval(reader, eval_idx, args.features, args.max_len, args.max_len // 2,
-                                      int(args.gpu_eval_mem_gb * 1e9 * 0.8), args.cache_validation or args.cache)
+                                      int(args.gpu_eval_mem_gb * 1e9 * 0.8), args.cache_validation or args.cache,
+                                      args.update_progress)
     eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_data.all_indices])
 
     # convert the slow Keras eval_data of type Sequence to a tf.data object
@@ -96,8 +97,8 @@ def main(args):
                         workers=args.n_procs,
                         use_multiprocessing=True,
                         max_queue_size=max(args.n_procs, 10),
-                        callbacks=[mc, tb_logs],
-                        verbose=2)
+                        callbacks=[tb_logs],
+                        verbose=0)
         duration = time.time() - start
         logging.info(f'Fitted {num_epochs} epochs in {duration:.0f}s')
         train_data.on_epoch_end()

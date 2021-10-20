@@ -126,6 +126,8 @@ def parse_args(curr_args=None, subparsers=None):
                              'files transformed from zipped tsv feature files')
     parser.add_argument('--log-level', default='INFO',
                         help='Logging level, one of [CRITICAL, FATAL, ERROR, WARNING, INFO, DEBUG]')
+    parser.add_argument('--update-progress', action='store_true', default=False,
+                        help='Set true to see the progress')
     parser.add_argument('--chunks', dest='chunks', action='store_true',
                         help='If set, use the toc_chunked/binary_features_chunked data instead of toc/binary_features')
     parser.add_argument('--normalize-stdev', dest='normalize_stdev', action='store_true',

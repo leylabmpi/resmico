@@ -248,7 +248,7 @@ class BinaryDataBase(tf.keras.utils.Sequence):
 
 class BinaryData(BinaryDataBase):
     def __init__(self, reader: ContigReader, indices: list[int], batch_size: int, feature_names: list[str],
-                 max_len: int, fraq_neg: float, do_cache: bool):
+                 max_len: int, fraq_neg: float, do_cache: bool, update_progress: bool):
         """
         Arguments:
             - reader: ContigReader instance with all the contig metadata
@@ -267,6 +267,7 @@ class BinaryData(BinaryDataBase):
 
         self.fraq_neg = fraq_neg
         self.do_cache = do_cache
+        self.update_progress = update_progress
         if self.do_cache:
             # the cache maps a batch index to feature_name:feature_data pairs
             self.cache: dict[int, dict[str, np.array]] = {}
@@ -297,7 +298,8 @@ class BinaryData(BinaryDataBase):
         """
         start = timer()
         if self.do_cache and index in self.cache:
-            Utils.update_progress(index + 1, len(self), 'Training: ', f' {(timer() - start):5.2f}s')
+            if self.update_progress:
+                Utils.update_progress(index + 1, len(self), 'Training: ', f' {(timer() - start):5.2f}s')
             return self.cache[self.cache_indices[index]]
         batch_indices = self.indices[self.batch_size * index:  self.batch_size * (index + 1)]
         # files to process
@@ -334,7 +336,7 @@ class BinaryData(BinaryDataBase):
 
 class BinaryDataEval(BinaryDataBase):
     def __init__(self, reader: ContigReader, indices: list[int], feature_names: list[str], window: int, step: int,
-                 total_memory_bytes: int, cache_results: bool):
+                 total_memory_bytes: int, cache_results: bool, update_progress: bool):
         """
         Arguments:
             reader - ContigReader instance used to load data from disk
