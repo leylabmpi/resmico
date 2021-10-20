@@ -165,7 +165,8 @@ void write_data(const std::string &reference,
     bin_stream.write(reinterpret_cast<char *>(cs.gc_percent.data() + start),
                      len * sizeof(cs.gc_percent[0]));
 
-    bin_stream.write(reinterpret_cast<const char *>(cs.entropy.data() + start), len);
+    bin_stream.write(reinterpret_cast<const char *>(cs.entropy.data() + start),
+                     len * sizeof(cs.entropy[0]));
     bin_stream.close();
 }
 
@@ -220,7 +221,7 @@ std::string to_string(const std::vector<MisassemblyInfo> &mis, uint32_t start = 
         s << (mi.break_start - start) << '-' << (mi.break_end - start) << ',';
     }
     std::string result = s.str();
-    return result[result.size() - 1] == ',' ? result.substr(0,result.size() - 1) : "-";
+    return result[result.size() - 1] == ',' ? result.substr(0, result.size() - 1) : "-";
 }
 
 void StatsWriter::write_stats(QueueItem &&item,
@@ -338,6 +339,7 @@ void StatsWriter::write_stats(QueueItem &&item,
     append_file(binary_features, binary_stats_file);
 
     // ----- start selecting a chunk and writing its stats to disk ----
+    offsets.clear(); // only used for testing
     uint32_t start, stop;
     if (mis.empty()) {
         // select a chunk of length chunk_size randomly from the string
@@ -365,6 +367,7 @@ void StatsWriter::write_stats(QueueItem &&item,
                 continue;
             }
             int32_t offset = offset_gen(random_engine);
+            offsets.push_back(offset);
             start = chunk_size / 2 < mid + offset ? mid + offset - chunk_size / 2 : chunk_size / 2;
             stop = start + chunk_size;
             // move the chunk to left if it exceeds contig bounds
@@ -377,7 +380,7 @@ void StatsWriter::write_stats(QueueItem &&item,
             write_data(item.reference, fname, cs, start, stop);
             toc_chunk << item.reference_name + "_" + std::to_string(i) << '\t' << chunk_size
                       << "\t1\t" << std::filesystem::file_size(fname) << '\t'
-                      << to_string({mis[i]}, start) << std::endl;
+                      << to_string({ mis[i] }, start) << std::endl;
             append_file(binary_chunk_features, fname);
         }
     }
