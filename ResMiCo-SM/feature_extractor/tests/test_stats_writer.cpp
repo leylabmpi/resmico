@@ -14,30 +14,6 @@
 namespace {
 using namespace ::testing;
 
-std::vector<std::string> bin_headers = { "ref_base",
-                                         "num_query_A",
-                                         "num_query_C",
-                                         "num_query_G",
-                                         "num_query_T",
-                                         "num_SNPs",
-                                         "coverage",
-                                         "num_discordant",
-                                         "min_insert_size_Match",
-                                         "mean_insert_size_Match",
-                                         "stdev_insert_size_Match",
-                                         "max_insert_size_Match",
-                                         "min_mapq_Match",
-                                         "mean_mapq_Match",
-                                         "stdev_mapq_Match",
-                                         "max_mapq_Match",
-                                         "min_al_score_Match",
-                                         "mean_al_score_Match",
-                                         "stdev_al_score_Match",
-                                         "max_al_score_Match",
-                                         "num_proper_SNP",
-                                         "seq_window_perc_gc",
-                                         "misassembly_by_pos" };
-
 TEST(WriteData, Empty) {
     QueueItem item;
 
