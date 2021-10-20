@@ -15,39 +15,42 @@ from cpython.mem cimport PyMem_Malloc, PyMem_Free
 cdef extern from "Python.h":
     char *PyBytes_AS_STRING(object)
 
+# define the available feature, their size in the feature file, and their size as numpy arrays
 DEF N_FEATURES = 25
-float_feature_tuples = [('min_insert_size_Match', np.uint16),
-                        ('mean_insert_size_Match', np.float32),
-                        ('stdev_insert_size_Match', np.float32),
-                        ('max_insert_size_Match', np.uint16),
-                        ('min_mapq_Match', np.uint8),
-                        ('mean_mapq_Match', np.float32),
-                        ('stdev_mapq_Match', np.float32),
-                        ('max_mapq_Match', np.uint8),
-                        ('min_al_score_Match', np.int8),
-                        ('mean_al_score_Match', np.float32),
-                        ('stdev_al_score_Match', np.float32),
-                        ('max_al_score_Match', np.int8), ]
-feature_tuples = [('ref_base', np.uint8),
-                  ('coverage', np.uint16),
-                  ('num_query_A', np.uint16),
-                  ('num_query_C', np.uint16),
-                  ('num_query_G', np.uint16),
-                  ('num_query_T', np.uint16),
-                  ('num_SNPs', np.uint16),
-                  ('num_discordant', np.uint16)] \
+float_feature_tuples = [('min_insert_size_Match', np.uint16, np.float32),
+                        ('mean_insert_size_Match', np.float32, np.float32),
+                        ('stdev_insert_size_Match', np.float32, np.float32),
+                        ('max_insert_size_Match', np.uint16, np.float32),
+                        ('min_mapq_Match', np.uint8, np.float32),
+                        ('mean_mapq_Match', np.float32, np.float32),
+                        ('stdev_mapq_Match', np.float32, np.float32),
+                        ('max_mapq_Match', np.uint8, np.float32),
+                        ('min_al_score_Match', np.int8, np.float32),
+                        ('mean_al_score_Match', np.float32, np.float32),
+                        ('stdev_al_score_Match', np.float32, np.float32),
+                        ('max_al_score_Match', np.int8, np.float32), ]
+feature_tuples = [('ref_base', np.uint8, np.float32),  # because we use one-hot encoding, so 4 bytes
+                  ('coverage', np.uint16, np.uint16),
+                  ('num_query_A', np.uint16, np.float32),
+                  ('num_query_C', np.uint16, np.float32),
+                  ('num_query_G', np.uint16, np.float32),
+                  ('num_query_T', np.uint16, np.float32),
+                  ('num_SNPs', np.uint16, np.float32),
+                  ('num_discordant', np.uint16, np.float32)] \
                 + float_feature_tuples \
-                + [('num_proper_Match', np.uint16),
-                   ('num_orphans_Match', np.uint16),
-                   ('num_proper_SNP', np.uint16),
-                   ('seq_window_perc_gc', np.float32),
-                   ('Extensive_misassembly_by_pos', np.uint8)]
+                + [('num_proper_Match', np.uint16, np.float32),
+                   ('num_orphans_Match', np.uint16, np.float32),
+                   ('num_proper_SNP', np.uint16, np.float32),
+                   ('seq_window_perc_gc', np.float32, np.float32),
+                   ('Extensive_misassembly_by_pos', np.uint8, np.uint8)]
 
 float_feature_names = [f[0] for f in float_feature_tuples]
 
 feature_names = [f[0] for f in feature_tuples]
 feature_types = [f[1] for f in feature_tuples]
+feature_np_types = [f[2] for f in feature_tuples]
 feature_sizes = [np.dtype(feature_types[i]).itemsize for i in range(N_FEATURES)]
+feature_np_sizes = [np.dtype(feature_types[i]).itemsize for i in range(N_FEATURES)]
 
 bytes_per_base = sum(feature_sizes)
 
@@ -79,7 +82,6 @@ cdef read_contig_cpp(const char* file_name, uint32_t length, uint32_t offset, ui
 
     cdef uint8_t feature_sizes_bytes[N_FEATURES]
     feature_sizes_bytes[:] = feature_sizes
-    cdef uint8_t bytes_per_base = 58 # this must be equal to the sum of feature_size_bytes
 
     read_contig_features(file_name, offset, size, length, N_FEATURES, bytes_per_base, &feature_mask[0],
                          &feature_sizes_bytes[0], &all_data[0])

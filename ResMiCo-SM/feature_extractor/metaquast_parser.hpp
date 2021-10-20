@@ -18,8 +18,12 @@
  * ```
  */
 struct MisassemblyInfo {
+    // the start of the interval that is "bad", i.e. misassembled,  (only used for the
+    // Extensive_misassembly_by_pos field)
     uint32_t start;
     uint32_t end;
+    // the start of the actual breaking point (since metaQUASTs intervals are overlapping a few
+    // bases, the exact position of the breaking point is not usually available
     uint32_t break_start;
     uint32_t break_end;
 
@@ -41,7 +45,7 @@ struct MisassemblyInfo {
         }
     }
 
-    uint8_t type_to_int(Type t) { return 1 << t; }
+    static uint8_t type_to_int(Type t) { return 1 << t; }
 };
 
 std::string type_to_string(uint8_t t);

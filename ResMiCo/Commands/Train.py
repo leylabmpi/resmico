@@ -142,6 +142,9 @@ def parse_args(curr_args=None, subparsers=None):
                              '(about 2x slower, only useful for debugging')
     parser.add_argument('--gpu-eval-mem-gb', default=3.0, type=float,
                         help='Amount of GPU memory used for validation data (amount will be divided per GPU)')
+    parser.add_argument('--log_progress',
+                        help='If enabled, a progressbar will be shown for training/evaluation progress',
+                        dest='log_progress', action='store_true')
 
     # running test args
     if curr_args:

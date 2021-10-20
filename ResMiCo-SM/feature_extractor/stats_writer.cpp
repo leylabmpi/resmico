@@ -99,6 +99,7 @@ void ContigStats::resize(uint32_t size) {
     gc_percent.resize(size);
 
     misassembly_by_pos.resize(size);
+    entropy.resize(size);
 
     for (uint32_t i : { 0, 1, 2, 3 }) {
         n_bases[i].resize(size);
@@ -164,7 +165,8 @@ void write_data(const std::string &reference,
     bin_stream.write(reinterpret_cast<char *>(cs.gc_percent.data() + start),
                      len * sizeof(cs.gc_percent[0]));
 
-    bin_stream.write(reinterpret_cast<const char *>(cs.misassembly_by_pos.data() + start), len);
+    bin_stream.write(reinterpret_cast<const char *>(cs.entropy.data() + start),
+                     len * sizeof(cs.entropy[0]));
     bin_stream.close();
 }
 
@@ -179,8 +181,8 @@ StatsWriter::StatsWriter(const std::filesystem::path &out_dir,
                          uint32_t breakpoint_offset)
     : out_dir(out_dir),
       chunk_size(chunk_size),
-      breakpoint_offset(breakpoint_offset),
-      random_engine(std::mt19937(12345)) {
+      random_engine(std::mt19937(54321)),
+      offset_gen(std::uniform_int_distribution<int32_t>(-breakpoint_offset, breakpoint_offset)) {
     std::error_code ec1;
     std::filesystem::create_directories(out_dir, ec1);
     if (ec1) {
@@ -207,10 +209,19 @@ StatsWriter::StatsWriter(const std::filesystem::path &out_dir,
 
     // write toc header for binary features (entire contig)
     toc << "Contig" << '\t' << "LengthBases" << '\t' << "MisassemblCnt" << '\t' << "SizeBytes"
-        << std::endl;
+        << '\t' << "Breaking_points" << std::endl;
     // write toc header for binary features (contig chunk)
     toc_chunk << "Contig" << '\t' << "LengthBases" << '\t' << "Misassembly" << '\t' << "SizeBytes"
-              << std::endl;
+              << '\t' << "Breaking_points" << std::endl;
+}
+
+std::string to_string(const std::vector<MisassemblyInfo> &mis, uint32_t start = 0) {
+    std::stringstream s;
+    for (const auto &mi : mis) {
+        s << (mi.break_start - start) << '-' << (mi.break_end - start) << ',';
+    }
+    std::string result = s.str();
+    return result[result.size() - 1] == ',' ? result.substr(0, result.size() - 1) : "-";
 }
 
 void StatsWriter::write_stats(QueueItem &&item,
@@ -258,6 +269,7 @@ void StatsWriter::write_stats(QueueItem &&item,
         cs.num_orphans_match[pos] = normalize(s.n_orphan_match, s.coverage);
         cs.num_proper_snp[pos] = normalize(s.n_proper_snp, s.coverage);
         cs.gc_percent[pos] = s.gc_percent * 100;
+        cs.entropy[pos] = s.entropy;
 
         if (!std::isnan(s.mean_i_size)) { // coverage > 0
             count_mean++;
@@ -323,11 +335,11 @@ void StatsWriter::write_stats(QueueItem &&item,
     std::string binary_stats_file = out_dir / (item.reference_name + ".gz");
     write_data(item.reference, binary_stats_file, cs);
     toc << item.reference_name << '\t' << item.stats.size() << '\t' << mis.size() << '\t'
-        << std::filesystem::file_size(binary_stats_file) << std::endl;
+        << std::filesystem::file_size(binary_stats_file) << '\t' << to_string(mis) << std::endl;
     append_file(binary_features, binary_stats_file);
 
     // ----- start selecting a chunk and writing its stats to disk ----
-    offsets.clear();
+    offsets.clear(); // only used for testing
     uint32_t start, stop;
     if (mis.empty()) {
         // select a chunk of length chunk_size randomly from the string
@@ -342,11 +354,9 @@ void StatsWriter::write_stats(QueueItem &&item,
         std::string fname = out_dir / (item.reference_name + ".ok.gz");
         write_data(item.reference, fname, cs, start, stop);
         toc_chunk << item.reference_name << '\t' << chunk_size << "\t0\t"
-                  << std::filesystem::file_size(fname) << std::endl;
+                  << std::filesystem::file_size(fname) << "\t-" << std::endl;
         append_file(binary_chunk_features, fname);
     } else {
-        // select a chunk of size chunk_size around the breaking point
-        std::uniform_int_distribution<int32_t> offset_gen(-breakpoint_offset, breakpoint_offset);
         // create one stats file for each mis-assembly breakpoint
         for (uint32_t i = 0; i < mis.size(); ++i) {
             uint32_t mid = (mis[i].break_start + mis[i].break_end) / 2;
@@ -369,7 +379,8 @@ void StatsWriter::write_stats(QueueItem &&item,
                     = out_dir / (item.reference_name + ".mis" + std::to_string(i) + ".gz");
             write_data(item.reference, fname, cs, start, stop);
             toc_chunk << item.reference_name + "_" + std::to_string(i) << '\t' << chunk_size
-                      << "\t1\t" << std::filesystem::file_size(fname) << std::endl;
+                      << "\t1\t" << std::filesystem::file_size(fname) << '\t'
+                      << to_string({ mis[i] }, start) << std::endl;
             append_file(binary_chunk_features, fname);
         }
     }

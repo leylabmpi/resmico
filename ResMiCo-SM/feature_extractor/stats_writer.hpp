@@ -9,8 +9,6 @@
 #include <random>
 #include <unordered_map>
 
-// the columns that are written to binary files
-extern std::vector<std::string> bin_headers;
 // all columns (including those written to TSV only)
 extern std::vector<std::string> headers;
 
@@ -48,6 +46,8 @@ struct ContigStats {
     std::vector<float> gc_percent;
 
     std::vector<uint8_t> misassembly_by_pos;
+
+    std::vector<float> entropy;
 
     uint32_t size() { return num_snps.size(); }
 };
@@ -111,12 +111,6 @@ class StatsWriter {
      */
     uint32_t chunk_size;
 
-    /**
-     * Number of bases around the actual breakpoint where the center of the misassembled contig
-     * stats will be
-     */
-    int32_t breakpoint_offset;
-
     /** the stream where the tab separated textual data is written (soon deprecated) */
     ogzstream tsv_stream;
 
@@ -147,4 +141,7 @@ class StatsWriter {
 
     /** The sums of squares of all the non-nan position for each of the 12 float metrics */
     std::vector<double> sums2;
+
+    /* Selects a chunk of size chunk_size around the breaking point */
+    std::uniform_int_distribution<int32_t> offset_gen;
 };
