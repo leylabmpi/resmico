@@ -2,8 +2,8 @@ import argparse
 import logging
 import sys
 # from ResMiCo import Train
-from ResMiCo import Train_BigD
-from ResMiCo import TrainBinData
+from .. import Train_BigD
+from .. import TrainBinData
 
 
 # functions

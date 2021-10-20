@@ -1,13 +1,9 @@
 from __future__ import print_function
 from pkg_resources import resource_filename
-# import
-## batteries
 import os
-import sys
 import argparse
 import logging
-## application
-from ResMiCo import Evaluate
+from .. import Evaluate
 
 # functions
 def get_desc():
