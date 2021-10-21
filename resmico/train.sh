@@ -8,6 +8,13 @@ OUT_PATH="/cluster/home/ddanciu/tmp" # replace this with the desired output dire
 MAX_LEN=5000
 SCRATCH_DIR="/scratch/features_${USER}/"
 
+suffix="_chunked" # set to "_chunked" if training on contig chunks, empty ("") otherwise
+if [ "${suffix}" == "_chunked" ]; then
+  echo "Using chunked data, forcing MAX_LEN=500 and adding --chunks to parameter list"
+  MAX_LEN=500
+  additional_params="--chunks"
+fi
+
 current_time=$(date "+%Y-%m-%d_%H-%M-%S")
 log_file="${OUT_PATH}/resmico_${MAX_LEN}_${current_time}.log"
 lsf_log_file="${OUT_PATH}/resmico_${MAX_LEN}_${current_time}.lsf.log"
@@ -20,12 +27,6 @@ python setup.py build_ext --inplace
 echo "ResMiCo training script. Creating job and submitting to bsub..."
 echo "Logging data to ${log_file}"
 
-suffix="_chunked" # set to "_chunked" if training on contig chunks, empty ("") otherwise
-if [ "${suffix}" == "_chunked" ]; then
-  echo "Using chunked data, forcing MAX_LEN=500 and adding --chunks to parameter list"
-  MAX_LEN=500
-  additional_params="--chunks"
-fi
 cmd1="echo Creating scratch directory...; rm -rf ${SCRATCH_DIR}; mkdir ${SCRATCH_DIR}"
 
 cmd2="echo Copying data to local disk...; \

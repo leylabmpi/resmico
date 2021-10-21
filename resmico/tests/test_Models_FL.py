@@ -15,6 +15,8 @@ class TestBinaryData(unittest.TestCase):
             indices = np.arange(len(reader))
             batch_size = 10
             data_gen = Models_FL.BinaryData(reader, indices, batch_size, Reader.feature_names, 500, 1.0, cached, False)
+            # set these to -1 in order to enforce NOT swapping A/T and G/C (for data enhancement)
+            data_gen.pos_A = data_gen.pos_ref = data_gen.pos_C = -1
             # unshuffle the indices, so that we can make assertions about the returned data
             data_gen.indices = [0, 1]
             self.assertEqual(1, len(data_gen))

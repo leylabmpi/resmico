@@ -283,20 +283,16 @@ class BinaryData(BinaryDataBase):
 
         # determine the position of the num_query_A/C/G/T fields, so that we can apply inversion
         self.pos_A = self.pos_C = self.pos_G = self.pos_T = -1
-        if 'num_query_A' in self.feature_names and 'num_query_T' in self.feature_names:
-            self.pos_A = self.feature_names.index('num_query_A')
-            self.pos_T = self.feature_names.index('num_query_T')
-            if self.feature_names.index('ref_base') < self.pos_A:
-                self.pos_A += 3
-            if self.feature_names.index('ref_base') < self.pos_T:
-                self.pos_T += 3
-        if 'num_query_G' in self.feature_names and 'num_query_C' in self.feature_names:
-            self.pos_G = self.feature_names.index('num_query_G')
-            self.pos_C = self.feature_names.index('num_query_C')
-            if self.feature_names.index('ref_base') < self.pos_G:
-                self.pos_G += 3
-            if self.feature_names.index('ref_base') < self.pos_C:
-                self.pos_C += 3
+        self.pos_ref = -1
+        if 'ref_base_A' in self.expanded_feature_names:
+            self.pos_ref = self.expanded_feature_names.index('ref_base_A')
+        if 'num_query_A' in self.expanded_feature_names and 'num_query_T' in self.expanded_feature_names:
+            self.pos_A = self.expanded_feature_names.index('num_query_A')
+            self.pos_T = self.expanded_feature_names.index('num_query_T')
+        if 'num_query_G' in self.expanded_feature_names and 'num_query_C' in self.expanded_feature_names:
+            self.pos_G = self.expanded_feature_names.index('num_query_G')
+            self.pos_C = self.expanded_feature_names.index('num_query_C')
+
 
     def on_epoch_end(self):
         """
@@ -319,9 +315,13 @@ class BinaryData(BinaryDataBase):
         x, y = self._get_data(index)
         if self.pos_A > 0 and self.pos_T > 0 and random.randint(0, 1) == 1:
             x[:, [self.pos_A, self.pos_T]] = x[:, [self.pos_T, self.pos_A]]
+            if self.pos_ref >= 0:
+                x[:, [self.pos_ref, self.pos_ref+3]] = x[:, [self.pos_ref+3, self.pos_ref]]
             pass
         if self.pos_G > 0 and self.pos_C > 0 and random.randint(0, 1) == 1:
             x[:, [self.pos_C, self.pos_G]] = x[:, [self.pos_G, self.pos_C]]
+            if self.pos_ref >= 0:
+                x[:, [self.pos_ref+1, self.pos_ref+2]] = x[:, [self.pos_ref+2, self.pos_ref+1]]
             pass
         return x, y
 
