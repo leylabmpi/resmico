@@ -15,6 +15,7 @@ import numpy as np
 
 from resmico import Reader
 
+
 def _replace_with_nan(data, feature_name, v):
     """Replaces all elements in arr that are equal to v with np.nan"""
     if feature_name not in data:
@@ -155,7 +156,8 @@ class ContigInfo:
     Contains metadata about a single contig.
     """
 
-    def __init__(self, name: str, file_name: str, length: int, offset: int, size_bytes: int, misassembly_count: int):
+    def __init__(self, name: str, file_name: str, length: int, offset: int, size_bytes: int, misassembly_count: int,
+                 breakpoints: list[(int, int)]):
         self.name: str = name
         self.file: str = file_name
         self.length: int = length
@@ -163,6 +165,7 @@ class ContigInfo:
         self.size_bytes: int = size_bytes
         self.misassembly: int = misassembly_count
         self.features: dict[str:np.array] = {}
+        self.breakpoints = breakpoints
 
 
 class ContigReader:
@@ -305,8 +308,17 @@ class ContigReader:
                 next(rd)  # skip CSV header: Assembler, Contig_name, MissassembleCount, ContigLen
                 for row in rd:
                     size_bytes = int(row[3])
-                    # the fields in row are: name, length (bases), misassembly_count, size_bytes
-                    contig_info = ContigInfo(row[0], contig_fname, int(row[1]), offset, size_bytes, int(row[2]))
+                    # the fields in row are: name, length (bases), misassembly_count, size_bytes, breakpoints
+                    breakpoints = []
+                    if len(row) == 5:  # breakpoints is present; TODO: remove this if once all datasets have it
+                        if row[4] != '-':
+                            all_breakpoints = row[4].split(',')
+                            for break_point in all_breakpoints:
+                                start_stop = break_point.split('-')
+                                breakpoints.append((int(start_stop[0]), int(start_stop[1])))
+
+                    contig_info = ContigInfo(row[0], contig_fname, int(row[1]), offset, size_bytes, int(row[2]),
+                                             breakpoints)
                     total_len += contig_info.length
                     self.contigs.append(contig_info)
                     offset += size_bytes

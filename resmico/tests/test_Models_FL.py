@@ -45,11 +45,25 @@ class TestBinaryDataEval(unittest.TestCase):
     bytes_per_base = 10 + sum(  # 10 is the overhead also added in Models_Fl.BinaryDataEval
         [np.dtype(ft).itemsize for ft in Reader.feature_np_types])
 
+    def test_select_intervals(self):
+        contig_data = [ContigInfo('Contig1', '/tmp/c1', 1000, 0, 0, 0, []),
+                       ContigInfo('Contig2', '/tmp/c2', 1000, 0, 0, 0, [(100,100)]),
+                       ContigInfo('Contig3', '/tmp/c3', 1000, 0, 0, 0, [(800, 900)])]
+        max_len = 500
+        for i in range(50):
+            intervals = Models_FL.BinaryData.select_intervals(contig_data, max_len)
+            self.assertTrue(0 <= intervals[0][0] <= 500)
+            self.assertTrue(500 <= intervals[0][1] <= 1000)
+            self.assertTrue(0 <= intervals[1][0] <= 50)
+            self.assertTrue(500 <= intervals[1][1] <= 550)
+            self.assertTrue(450 <= intervals[2][0] <= 500, f'Start is {intervals[2][0]}')
+            self.assertTrue(500 <= intervals[2][1] <= 1000)
+
     def test_batching_one_per_batch(self):
         reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
-        reader.contigs = [ContigInfo('Contig1', '/tmp/c1', 1000, 0, 0, 0),
-                          ContigInfo('Contig2', '/tmp/c2', 1000, 0, 0, 0),
-                          ContigInfo('Contig3', '/tmp/c3', 1000, 0, 0, 0)]
+        reader.contigs = [ContigInfo('Contig1', '/tmp/c1', 1000, 0, 0, 0, []),
+                          ContigInfo('Contig2', '/tmp/c2', 1000, 0, 0, 0, []),
+                          ContigInfo('Contig3', '/tmp/c3', 1000, 0, 0, 0, [])]
         indices = np.arange(len(reader))
 
         gpu_memory_bytes = 1010 * self.bytes_per_base
@@ -62,9 +76,9 @@ class TestBinaryDataEval(unittest.TestCase):
 
     def test_batching_multiple_per_batch(self):
         reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
-        reader.contigs = [ContigInfo('Contig1', 'data/preprocess/features_binary', 500, 0, 246, 0),
-                          ContigInfo('Contig2', 'data/preprocess/features_binary', 500, 246, 183, 0),
-                          ContigInfo('Contig3', 'data/preprocess/features_binary', 500, 0, 246, 0)]
+        reader.contigs = [ContigInfo('Contig1', 'data/preprocess/features_binary', 500, 0, 246, 0, []),
+                          ContigInfo('Contig2', 'data/preprocess/features_binary', 500, 246, 183, 0, []),
+                          ContigInfo('Contig3', 'data/preprocess/features_binary', 500, 0, 246, 0, [])]
         indices = np.arange(len(reader))
         gpu_memory_bytes = 1600 * self.bytes_per_base
         eval_data = Models_FL.BinaryDataEval(reader, indices, Reader.feature_names, 250, 200, gpu_memory_bytes, False,

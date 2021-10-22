@@ -4,9 +4,11 @@ import unittest
 from resmico import ContigReader
 from resmico import Reader
 
+
 class TestReadContig(unittest.TestCase):
     def test_read_from_file(self):
         input_file = open('data/preprocess/features_binary', 'rb')
+
         result = ContigReader._read_contig_data(input_file, Reader.feature_names)
         self.assertEqual(500, len(result['ref_base_A']))
         self.assertIsNone(
@@ -81,9 +83,28 @@ class TestReadContig(unittest.TestCase):
             old_result[fname][nan_pos] = 0
             self.assertIsNone(np.testing.assert_array_equal(old_result[fname] / 2, result[fname]))
 
+    def test_read_toc(self):
+        reader = ContigReader.ContigReader('data/preprocess/', [Reader.feature_names[0], Reader.feature_names[1],
+                                                                Reader.feature_names[3]], process_count=1,
+                                           is_chunked=False)
+
+        self.assertEqual(2, len(reader.contigs))
+
+        self.assertEqual(500, reader.contigs[0].length)
+        self.assertEqual(500, reader.contigs[1].length)
+        self.assertEqual(1, reader.contigs[0].misassembly)
+        self.assertEqual(0, reader.contigs[1].misassembly)
+        self.assertEqual(246, reader.contigs[0].size_bytes)
+        self.assertEqual(183, reader.contigs[1].size_bytes)
+        self.assertEqual([(100,102)], reader.contigs[0].breakpoints)
+        self.assertEqual([(50,55), (250,255)], reader.contigs[1].breakpoints)
+
+
     def test_read_three_features(self):
         reader = ContigReader.ContigReader('data/preprocess/', [Reader.feature_names[0], Reader.feature_names[1],
-                                                                Reader.feature_names[3]], 1, False)
+                                                                Reader.feature_names[3]], process_count=1,
+                                           is_chunked=False)
+
         result = reader.read_contigs(reader.contigs)
 
         # we read 2 contigs in total
