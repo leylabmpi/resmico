@@ -35,14 +35,14 @@ cmd2="echo Copying data to local disk...; \
         | xargs -i cp --parents {} ${SCRATCH_DIR}"
 
 # defining various sets of features
-features_small="ref_base num_query_A num_query_C num_query_G num_query_T num_SNPs num_proper_Match num_orphans_Match mean_al_score_Match seq_window_perc_gc mean_mapq_Match stdev_insert_size_Match"
+features_small="ref_base num_query_A num_query_C num_query_G num_query_T num_SNPs num_proper_Match num_orphans_Match mean_al_score_Match coverage stdev_insert_size_Match mean_mapq_Match seq_window_perc_gc"
 features20="ref_base num_query_A num_query_C num_query_G num_query_T coverage num_proper_Match num_orphans_Match max_insert_size_Match mean_insert_size_Match min_insert_size_Match stdev_insert_size_Match mean_mapq_Match min_mapq_Match stdev_mapq_Match seq_window_perc_gc num_proper_SNP"
 features23="ref_base num_query_A num_query_C num_query_G num_query_T coverage num_proper_Match num_orphans_Match max_insert_size_Match mean_insert_size_Match min_insert_size_Match stdev_insert_size_Match mean_mapq_Match min_mapq_Match stdev_mapq_Match mean_al_score_Match min_al_score_Match stdev_al_score_Match seq_window_perc_gc num_proper_SNP"
 
 cmd3="/usr/bin/time python resmico train --binary-data --feature-files-path ${SCRATCH_DIR} \
       --save-path /cluster/home/ddanciu/tmp --n-procs 8 --log-level info \
-      --batch-size 300 --n-fc 1 --num-blocks 4 --fraq-neg 0.1  ${additional_params}  \
-      --val-ind-f ${DATA_DIR}/val_ind.csv \
+      --batch-size 300 --n-fc 1 --num-blocks 4 --fraq-neg 0.2  ${additional_params}  \
+      --val-ind-f ${DATA_DIR}/val_ind.csv --log-progress \
       --max-len ${MAX_LEN} --cache --gpu-eval-mem-gb=1 --features ${features_small} --n-epochs 60"
 
 cmd4="echo Cleaning scratch directory...; rm -rf ${SCRATCH_DIR}"
@@ -52,5 +52,5 @@ cd "${CODE_PATH}"
 echo "Training command is: ${cmd3}"
 
 # submit the job
-bsub -W 2:00 -n 8 -J resmico-n9k -R "span[hosts=1]" -R rusage[mem=50000,ngpus_excl_p=1,scratch=30000] -G ms_raets \
-     -oo "${lsf_log_file}" "${cmd1}; ${cmd2}; ${cmd3}; ${cmd4} 2>&1 | tee ${log_file}"
+bsub -W 4:00 -n 8 -J resmico-n9k -R "span[hosts=1]" -R rusage[mem=25000,ngpus_excl_p=1,scratch=30000] -G ms_raets \
+     -oo "${lsf_log_file}" "${cmd1}; ${cmd2}; ${cmd3} 2>&1 | tee ${log_file}; ${cmd4}"
