@@ -293,6 +293,8 @@ class BinaryData(BinaryDataBase):
             self.pos_G = self.expanded_feature_names.index('num_query_G')
             self.pos_C = self.expanded_feature_names.index('num_query_C')
 
+        # used for testing; contains the interval selected from each contig that is longer than #self.max_len
+        self.intervals = []
 
     def on_epoch_end(self):
         """
@@ -316,27 +318,54 @@ class BinaryData(BinaryDataBase):
         if self.pos_A > 0 and self.pos_T > 0 and random.randint(0, 1) == 1:
             x[:, [self.pos_A, self.pos_T]] = x[:, [self.pos_T, self.pos_A]]
             if self.pos_ref >= 0:
-                x[:, [self.pos_ref, self.pos_ref+3]] = x[:, [self.pos_ref+3, self.pos_ref]]
-            pass
+                x[:, [self.pos_ref, self.pos_ref + 3]] = x[:, [self.pos_ref + 3, self.pos_ref]]
         if self.pos_G > 0 and self.pos_C > 0 and random.randint(0, 1) == 1:
             x[:, [self.pos_C, self.pos_G]] = x[:, [self.pos_G, self.pos_C]]
             if self.pos_ref >= 0:
-                x[:, [self.pos_ref+1, self.pos_ref+2]] = x[:, [self.pos_ref+2, self.pos_ref+1]]
-            pass
+                x[:, [self.pos_ref + 1, self.pos_ref + 2]] = x[:, [self.pos_ref + 2, self.pos_ref + 1]]
         return x, y
+
+    def select_intervals(contig_data: list[ContigInfo], max_len:int):
+        """
+        Selects intervals from contigs such that the breakpoints are within the interval.
+        For contigs shorter than #max_len, the entire contig is selected.
+        For contigs with no mis-assemblies, a random interval is selected.
+        For contigs with mis-assemblies, an interval is selected such that the first breakpoint is within the interval.
+        Returns: a list of intervals, one per contig
+        """
+        result = []
+        for cd in contig_data:
+            start_idx = 0
+            end_idx = cd.length
+            if cd.length > max_len:
+                # when no breakpoints are present, we can choose any segment within the contig
+                # however, if the contig contains a breakpoint, we must choose a segment that includes the breakpoint
+                if not cd.breakpoints:
+                    start_idx = np.random.randint(cd.length - max_len + 1)
+                else:  # select an interval that contains the first breakpoint
+                    # TODO: add one item for each breakpoint
+                    lo,hi = cd.breakpoints[0]
+                    min_padding = 50  # minimum amount of bases to keep around the breakpoint
+                    start_lo = max(0, hi - max_len + min_padding)
+                    start_hi = min(cd.length - max_len, lo - min_padding)
+                    start_idx = np.random.randint(start_lo, start_hi)
+                end_idx = start_idx + max_len
+            result.append((start_idx, end_idx))
+        return result
 
     def _get_data(self, index):
         """
         Return the next mini-batch of size #batch_size
         """
         start = timer()
+        self.intervals.clear()
         if self.do_cache and index in self.cache:
             if self.show_progress:
                 Utils.update_progress(index + 1, len(self), 'Training: ', '')
             return self.cache[self.cache_indices[index]]
         batch_indices = self.indices[self.batch_size * index:  self.batch_size * (index + 1)]
         # files to process
-        contig_data = [self.reader.contigs[i] for i in batch_indices]
+        contig_data: list[ContigInfo] = [self.reader.contigs[i] for i in batch_indices]
         y = np.zeros(self.batch_size)
         for i, idx in enumerate(batch_indices):
             y[i] = 0 if self.reader.contigs[idx].misassembly == 0 else 1
@@ -347,19 +376,15 @@ class BinaryData(BinaryDataBase):
         # Create the numpy array storing all the features for all the contigs in #batch_indices
         x = np.zeros((self.batch_size, max_len, len(features_data[0])))
 
+        contig_intervals = BinaryData.select_intervals(contig_data, max_len)
         for i, contig_features in enumerate(features_data):
             to_merge = [None] * len(self.expanded_feature_names)
-            contig_len = len(contig_features[self.expanded_feature_names[0]])
-            start_idx = 0
-            end_idx = contig_len
-            if contig_len > self.max_len:
-                start_idx = np.random.randint(contig_len - self.max_len + 1)
-                end_idx = start_idx + self.max_len
-                contig_len = self.max_len
+            start_idx, end_idx = contig_intervals[i]
+            len = end_idx - start_idx
             for j, feature_name in enumerate(self.expanded_feature_names):
                 to_merge[j] = contig_features[feature_name][start_idx:end_idx]
             stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
-            x[i][:contig_len, :] = stacked_features
+            x[i][:len, :] = stacked_features
 
         if self.do_cache:
             self.cache[index] = (x, np.array(y))
