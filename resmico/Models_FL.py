@@ -380,11 +380,11 @@ class BinaryData(BinaryDataBase):
         for i, contig_features in enumerate(features_data):
             to_merge = [None] * len(self.expanded_feature_names)
             start_idx, end_idx = contig_intervals[i]
-            len = end_idx - start_idx
+            length = end_idx - start_idx
             for j, feature_name in enumerate(self.expanded_feature_names):
                 to_merge[j] = contig_features[feature_name][start_idx:end_idx]
             stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
-            x[i][:len, :] = stacked_features
+            x[i][:length, :] = stacked_features
 
         if self.do_cache:
             self.cache[index] = (x, np.array(y))
