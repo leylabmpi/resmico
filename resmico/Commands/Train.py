@@ -144,6 +144,9 @@ def parse_args(curr_args=None, subparsers=None):
     parser.add_argument('--log-progress', default=False,
                         help='If enabled, a progressbar will be shown for training/evaluation progress',
                         dest='log_progress', action='store_true')
+    parser.add_argument('--num-translations', default=1, type=int,
+                        help='How many variations to select around the breaking point for positive samples '
+                             '(i.e. misassembled contigs) that are longer than max-len')
 
     # running test args
     if curr_args:

@@ -30,10 +30,10 @@ def main(args):
         resmico = Models.Resmico(args)
     resmico.print_summary()
 
-#     # save model every epoch
-#     model_file = os.path.join(args.save_path, '_'.join(['mc_epoch', "{epoch}", args.save_name, 'model.h5']))
-#     logging.info(f'Model will be saved to: {model_file}')
-#     mc = ModelCheckpoint(model_file, save_freq="epoch", verbose=1)
+    #     # save model every epoch
+    #     model_file = os.path.join(args.save_path, '_'.join(['mc_epoch', "{epoch}", args.save_name, 'model.h5']))
+    #     logging.info(f'Model will be saved to: {model_file}')
+    #     mc = ModelCheckpoint(model_file, save_freq="epoch", verbose=1)
 
     # tensorboard logs
     tb_logs = tf.keras.callbacks.TensorBoard(log_dir=os.path.join(args.save_path, 'logs_final'),
@@ -57,8 +57,8 @@ def main(args):
     logging.info(f'Using {len(train_idx)} contigs for training, {len(eval_idx)} contigs for evaluation')
 
     # create data generators for training data and evaluation data
-    train_data = Models.BinaryData(reader, train_idx, args.batch_size, args.features, args.max_len, args.fraq_neg,
-                                   args.cache, args.log_progress)
+    train_data = Models.BinaryData(reader, train_idx, args.batch_size, args.features, args.max_len,
+                                   args.num_translations, args.fraq_neg, args.cache, args.log_progress)
     # convert the slow Keras train_data of type Sequence to a tf.data object
     # first, we convert the keras sequence into a generator-like object
     data_iter = lambda: (s for s in train_data)
@@ -105,7 +105,7 @@ def main(args):
                         use_multiprocessing=True,
                         max_queue_size=max(args.n_procs, 10),
                         callbacks=[tb_logs],
-                        verbose=0)
+                        verbose=1)
         duration = time.time() - start
         logging.info(f'Fitted {num_epochs} epochs in {duration:.0f}s')
         train_data.on_epoch_end()

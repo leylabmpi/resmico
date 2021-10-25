@@ -14,7 +14,9 @@ class TestBinaryData(unittest.TestCase):
             reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
             indices = np.arange(len(reader))
             batch_size = 10
-            data_gen = Models_FL.BinaryData(reader, indices, batch_size, Reader.feature_names, 500, 1.0, cached, False)
+            num_translations = 1
+            data_gen = Models_FL.BinaryData(reader, indices, batch_size, Reader.feature_names, 500, num_translations,
+                                            1.0, cached, False)
             # set these to -1 in order to enforce NOT swapping A/T and G/C (for data enhancement)
             data_gen.pos_A = data_gen.pos_ref = data_gen.pos_C = -1
             # unshuffle the indices, so that we can make assertions about the returned data
@@ -47,7 +49,7 @@ class TestBinaryDataEval(unittest.TestCase):
 
     def test_select_intervals(self):
         contig_data = [ContigInfo('Contig1', '/tmp/c1', 1000, 0, 0, 0, []),
-                       ContigInfo('Contig2', '/tmp/c2', 1000, 0, 0, 0, [(100,100)]),
+                       ContigInfo('Contig2', '/tmp/c2', 1000, 0, 0, 0, [(100, 100)]),
                        ContigInfo('Contig3', '/tmp/c3', 1000, 0, 0, 0, [(800, 900)])]
         max_len = 500
         for i in range(50):
