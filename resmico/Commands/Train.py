@@ -118,7 +118,6 @@ def parse_args(curr_args=None, subparsers=None):
         'stdev_al_score_Match',
         'seq_window_perc_gc',
         'num_proper_SNP',
-        # 'Extensive_misassembly_by_pos',
     ])
     parser.add_argument('--binary-data', dest='binary_data', action='store_true',
                         help='If present, train on binary data rather than (deprecated) h5 '

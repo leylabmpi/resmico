@@ -47,7 +47,8 @@ class TestReadContig(unittest.TestCase):
                                                             result['mean_mapq_Match'][pos]))
             self.assertEqual(0.5 if 0 < pos < 5 else 1 if 420 <= pos < 425 else 0, result['num_proper_SNP'][pos])
             self.assertEqual(0 if pos < 498 else 25 if pos == 498 else 50, result['seq_window_perc_gc'][pos])
-            self.assertEqual(1 if pos < 20 else 0, result['Extensive_misassembly_by_pos'][pos])
+            self.assertAlmostEqual(0 if pos < 498 else 0.811278 if pos == 498 else 1, result['entropy'][pos],
+                                   delta=1e-4)
 
     def test_normalize_zero_mean_one_stdev(self):
         input_file = open('data/preprocess/features_binary', 'rb')
@@ -94,11 +95,10 @@ class TestReadContig(unittest.TestCase):
         self.assertEqual(500, reader.contigs[1].length)
         self.assertEqual(1, reader.contigs[0].misassembly)
         self.assertEqual(0, reader.contigs[1].misassembly)
-        self.assertEqual(246, reader.contigs[0].size_bytes)
-        self.assertEqual(183, reader.contigs[1].size_bytes)
-        self.assertEqual([(100,102)], reader.contigs[0].breakpoints)
-        self.assertEqual([(50,55), (250,255)], reader.contigs[1].breakpoints)
-
+        self.assertEqual(256, reader.contigs[0].size_bytes)
+        self.assertEqual(196, reader.contigs[1].size_bytes)
+        self.assertEqual([(100, 102)], reader.contigs[0].breakpoints)
+        self.assertEqual([(50, 55), (250, 255)], reader.contigs[1].breakpoints)
 
     def test_read_three_features(self):
         reader = ContigReader.ContigReader('data/preprocess/', [Reader.feature_names[0], Reader.feature_names[1],

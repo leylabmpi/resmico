@@ -577,7 +577,8 @@ TEST(WriteData, TwoReadsChunkStats) {
     }
 }
 
-// Make sure that the chunks stats (data around breaking points are correct
+// Make sure that the chunks stats (data around breaking points) are correct when selecting
+// an offset
 TEST(WriteData, TwoReadsChunkStatsWithOffset) {
     std::unordered_map<std::string, std::vector<MisassemblyInfo>> mi_info
             = parse_misassembly_info("data/test.mis_contigs.info");

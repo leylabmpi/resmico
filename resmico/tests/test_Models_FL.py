@@ -9,7 +9,7 @@ from resmico.ContigReader import ContigInfo
 
 
 class TestBinaryData(unittest.TestCase):
-    def test_gen_eval_data(self):
+    def test_gen_train_data(self):
         for cached in [False, True]:
             reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
             indices = np.arange(len(reader))

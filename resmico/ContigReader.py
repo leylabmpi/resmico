@@ -29,6 +29,7 @@ def _read_feature(file: gzip.GzipFile, data, feature_name: str, bytes: int, dtyp
     if feature_name not in feature_names:
         file.seek(bytes, os.SEEK_CUR)
         return
+    # the astype is needed even if dtype already is np.float32, otherwise the array is read-only
     data[feature_name] = np.frombuffer(file.read(bytes), dtype=dtype).astype(np.float32)
     if normalize_by != 1:
         data[feature_name] /= normalize_by
@@ -87,7 +88,7 @@ def _post_process_features(features):
         'mean_al_score_Match',
         'stdev_al_score_Match',
         'seq_window_perc_gc',
-        'Extensive_misassembly_by_pos'])
+        'entropy'])
 
     return result
 
@@ -147,7 +148,7 @@ def _read_contig_data(input_file, feature_names: list[str]):
         _read_feature(f, data, 'num_orphans_Match', 2 * contig_size, np.uint16, feature_names, 10000)
         _read_feature(f, data, 'num_proper_SNP', 2 * contig_size, np.uint16, feature_names, 10000)
         _read_feature(f, data, 'seq_window_perc_gc', 4 * contig_size, np.float32, feature_names)
-        data['Extensive_misassembly_by_pos'] = np.frombuffer(f.read(contig_size), dtype=np.uint8)
+        _read_feature(f, data, 'entropy', 4 * contig_size, np.float32, feature_names)
     return data
 
 
