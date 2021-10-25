@@ -230,12 +230,16 @@ class Generator(tf.keras.utils.Sequence):
         return x_mb, y_mb
 
 
-class BinaryDataBase(tf.keras.utils.Sequence):
-    def __init__(self, reader: ContigReader, indices: list[int], feature_names: list[str]):
+class BinaryDataset(tf.keras.utils.Sequence):
+    """
+    Base class for resmico binary datasets, i.e. datasets reading data from binary files
+    (as opposed to the old CSV files)
+    """
+
+    def __init__(self, reader: ContigReader, feature_names: list[str]):
         """
        Arguments:
            - reader: ContigReader instance with all the contig metadata
-           - indices: positions of the contigs in #reader that will be used
            - feature_names: the names of the features to read and use for training
         """
         self.reader = reader
@@ -246,7 +250,7 @@ class BinaryDataBase(tf.keras.utils.Sequence):
             self.expanded_feature_names[pos: pos + 1] = ['ref_base_A', 'ref_base_C', 'ref_base_G', 'ref_base_T']
 
 
-class BinaryData(BinaryDataBase):
+class BinaryDatasetTrain(BinaryDataset):
     def __init__(self, reader: ContigReader, indices: list[int], batch_size: int, feature_names: list[str],
                  max_len: int, num_translations: int, fraq_neg: float, do_cache: bool, show_progress: bool):
 
@@ -263,7 +267,7 @@ class BinaryData(BinaryDataBase):
               read from disk
             - show_progress - if true, a progress bar will show the evaluation progress
         """
-        BinaryDataBase.__init__(self, reader, indices, feature_names)
+        BinaryDataset.__init__(self, reader, feature_names)
         logging.info(
             f'Creating training data generator. Batch size: {batch_size}, Max length: {max_len} Frac neg: {fraq_neg}, '
             f'Features: {len(self.expanded_feature_names)}, Contigs: {len(indices)},  Caching: {do_cache}')
@@ -379,7 +383,7 @@ class BinaryData(BinaryDataBase):
         # Create the numpy array storing all the features for all the contigs in #batch_indices
         x = np.zeros((self.batch_size, max_len, len(features_data[0])))
 
-        contig_intervals = BinaryData.select_intervals(contig_data, max_len)
+        contig_intervals = BinaryDatasetTrain.select_intervals(contig_data, max_len)
         for i, contig_features in enumerate(features_data):
             to_merge = [None] * len(self.expanded_feature_names)
             start_idx, end_idx = contig_intervals[i]
@@ -396,7 +400,7 @@ class BinaryData(BinaryDataBase):
         return x, np.array(y)
 
 
-class BinaryDataEval(BinaryDataBase):
+class BinaryDatasetEval(BinaryDataset):
     def __init__(self, reader: ContigReader, indices: list[int], feature_names: list[str], window: int, step: int,
                  total_memory_bytes: int, cache_results: bool, show_progress: bool):
 
@@ -414,7 +418,7 @@ class BinaryDataEval(BinaryDataBase):
             show_progress - if true, a progress bar will show the evaluation progress
         """
         logging.info(f'Creating evaluation data generator. Window: {window}, Step: {step}, Caching: {cache_results}')
-        BinaryDataBase.__init__(self, reader, indices, feature_names)
+        BinaryDataset.__init__(self, reader, feature_names)
         self.all_indices = indices
         self.window = window
         self.step = step
