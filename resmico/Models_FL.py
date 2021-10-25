@@ -1,5 +1,6 @@
 import logging
 import math
+import random
 import time
 from timeit import default_timer as timer
 
@@ -13,10 +14,10 @@ from tensorflow.keras.layers import Conv1D, Dropout, Dense
 from tensorflow.keras.layers import Bidirectional, LSTM
 from toolz import itertoolz
 
-from ResMiCo.ContigReader import ContigInfo
-from ResMiCo import ContigReader
-from ResMiCo import Reader
-from ResMiCo import Utils
+from resmico import ContigReader
+from resmico.ContigReader import ContigInfo
+from resmico import Reader
+from resmico import Utils
 
 
 class Resmico(object):
@@ -239,7 +240,6 @@ class BinaryDataBase(tf.keras.utils.Sequence):
         """
         self.reader = reader
         self.feature_names = feature_names
-        self.all_indices = indices
         self.expanded_feature_names = feature_names.copy()
         if 'ref_base' in self.expanded_feature_names:
             pos = self.expanded_feature_names.index('ref_base')
@@ -248,15 +248,16 @@ class BinaryDataBase(tf.keras.utils.Sequence):
 
 class BinaryData(BinaryDataBase):
     def __init__(self, reader: ContigReader, indices: list[int], batch_size: int, feature_names: list[str],
-                 max_len: int, fraq_neg: float, do_cache: bool, show_progress: bool):
+                 max_len: int, num_translations: int, fraq_neg: float, do_cache: bool, show_progress: bool):
 
         """
         Arguments:
             - reader: ContigReader instance with all the contig metadata
-            - indices: positions of the contigs in #reader that will be used
+            - indices: positions of the contigs in #reader that will be used for training
             - batch_size: training batch size
             - feature_names: the names of the features to read and use for training
             - max_len: maximum acceptable length for a contig. Longer contigs are clipped at a random position
+            - num_translations: how many variations to select around the breaking point for positive samples
             - fraq_neg: fraction of samples to keep in the overrepresented class (contigs with no misassembly)
             - do_cahe: if True, the generator will cache the features in memory the first time they are
               read from disk
@@ -266,9 +267,10 @@ class BinaryData(BinaryDataBase):
         logging.info(
             f'Creating training data generator. Batch size: {batch_size}, Max length: {max_len} Frac neg: {fraq_neg}, '
             f'Features: {len(self.expanded_feature_names)}, Contigs: {len(indices)},  Caching: {do_cache}')
+
         self.batch_size = batch_size
         self.max_len = max_len
-
+        self.num_translations = num_translations
         self.fraq_neg = fraq_neg
         self.do_cache = do_cache
         self.show_progress = show_progress
@@ -276,9 +278,26 @@ class BinaryData(BinaryDataBase):
         if self.do_cache:
             # the cache maps a batch index to feature_name:feature_data pairs
             self.cache: dict[int, dict[str, np.array]] = {}
-        self.negative_idx = [i for i, contig in enumerate(reader.contigs) if contig.misassembly == 0]
-        self.positive_idx = [i for i, contig in enumerate(reader.contigs) if contig.misassembly > 0]
-        self.on_epoch_end()  # select negative samples and shuffle indices
+        self.negative_idx = [i for i in indices if reader.contigs[i].misassembly == 0]
+        self.positive_idx = [i for i in indices if reader.contigs[i].misassembly == 1]
+        for _ in range(self.num_translations - 1):
+            self.positive_idx += self.positive_idx
+        self.on_epoch_end()  # select negative samples, multiply positive samples, and shuffle indices
+
+        # determine the position of the num_query_A/C/G/T fields, so that we can apply inversion
+        self.pos_A = self.pos_C = self.pos_G = self.pos_T = -1
+        self.pos_ref = -1
+        if 'ref_base_A' in self.expanded_feature_names:
+            self.pos_ref = self.expanded_feature_names.index('ref_base_A')
+        if 'num_query_A' in self.expanded_feature_names and 'num_query_T' in self.expanded_feature_names:
+            self.pos_A = self.expanded_feature_names.index('num_query_A')
+            self.pos_T = self.expanded_feature_names.index('num_query_T')
+        if 'num_query_G' in self.expanded_feature_names and 'num_query_C' in self.expanded_feature_names:
+            self.pos_G = self.expanded_feature_names.index('num_query_G')
+            self.pos_C = self.expanded_feature_names.index('num_query_C')
+
+        # used for testing; contains the interval selected from each contig longer than #self.max_len
+        self.intervals = []
 
     def on_epoch_end(self):
         """
@@ -298,17 +317,58 @@ class BinaryData(BinaryDataBase):
         return int(np.ceil(len(self.indices) / self.batch_size))
 
     def __getitem__(self, index):
+        x, y = self._get_data(index)
+        if self.pos_A > 0 and self.pos_T > 0 and random.randint(0, 1) == 1:
+            x[:, [self.pos_A, self.pos_T]] = x[:, [self.pos_T, self.pos_A]]
+            if self.pos_ref >= 0:
+                x[:, [self.pos_ref, self.pos_ref + 3]] = x[:, [self.pos_ref + 3, self.pos_ref]]
+        if self.pos_G > 0 and self.pos_C > 0 and random.randint(0, 1) == 1:
+            x[:, [self.pos_C, self.pos_G]] = x[:, [self.pos_G, self.pos_C]]
+            if self.pos_ref >= 0:
+                x[:, [self.pos_ref + 1, self.pos_ref + 2]] = x[:, [self.pos_ref + 2, self.pos_ref + 1]]
+        return x, y
+
+    def select_intervals(contig_data: list[ContigInfo], max_len: int):
+        """
+        Selects intervals from contigs such that the breakpoints are within the interval.
+        For contigs shorter than #max_len, the entire contig is selected.
+        For contigs with no mis-assemblies, a random interval is selected.
+        For contigs with mis-assemblies, an interval is selected such that the first breakpoint is within the interval.
+        Returns: a list of intervals, one per contig
+        """
+        result = []
+        for cd in contig_data:
+            start_idx = 0
+            end_idx = cd.length
+            if cd.length > max_len:
+                # when no breakpoints are present, we can choose any segment within the contig
+                # however, if the contig contains a breakpoint, we must choose a segment that includes the breakpoint
+                if not cd.breakpoints:
+                    start_idx = np.random.randint(cd.length - max_len + 1)
+                else:  # select an interval that contains the first breakpoint
+                    # TODO: add one item for each breakpoint
+                    lo, hi = cd.breakpoints[0]
+                    min_padding = 50  # minimum amount of bases to keep around the breakpoint
+                    start_lo = max(0, hi - max_len + min_padding)
+                    start_hi = min(cd.length - max_len, lo - min_padding)
+                    start_idx = np.random.randint(start_lo, start_hi)
+                end_idx = start_idx + max_len
+            result.append((start_idx, end_idx))
+        return result
+
+    def _get_data(self, index):
         """
         Return the next mini-batch of size #batch_size
         """
         start = timer()
+        self.intervals.clear()
         if self.do_cache and index in self.cache:
             if self.show_progress:
                 Utils.update_progress(index + 1, len(self), 'Training: ', '')
             return self.cache[self.cache_indices[index]]
         batch_indices = self.indices[self.batch_size * index:  self.batch_size * (index + 1)]
         # files to process
-        contig_data = [self.reader.contigs[i] for i in batch_indices]
+        contig_data: list[ContigInfo] = [self.reader.contigs[i] for i in batch_indices]
         y = np.zeros(self.batch_size)
         for i, idx in enumerate(batch_indices):
             y[i] = 0 if self.reader.contigs[idx].misassembly == 0 else 1
@@ -319,19 +379,15 @@ class BinaryData(BinaryDataBase):
         # Create the numpy array storing all the features for all the contigs in #batch_indices
         x = np.zeros((self.batch_size, max_len, len(features_data[0])))
 
+        contig_intervals = BinaryData.select_intervals(contig_data, max_len)
         for i, contig_features in enumerate(features_data):
             to_merge = [None] * len(self.expanded_feature_names)
-            contig_len = len(contig_features[self.expanded_feature_names[0]])
-            start_idx = 0
-            end_idx = contig_len
-            if contig_len > self.max_len:
-                start_idx = np.random.randint(contig_len - self.max_len + 1)
-                end_idx = start_idx + self.max_len
-                contig_len = self.max_len
+            start_idx, end_idx = contig_intervals[i]
+            length = end_idx - start_idx
             for j, feature_name in enumerate(self.expanded_feature_names):
                 to_merge[j] = contig_features[feature_name][start_idx:end_idx]
             stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
-            x[i][:contig_len, :] = stacked_features
+            x[i][:length, :] = stacked_features
 
         if self.do_cache:
             self.cache[index] = (x, np.array(y))
@@ -359,6 +415,7 @@ class BinaryDataEval(BinaryDataBase):
         """
         logging.info(f'Creating evaluation data generator. Window: {window}, Step: {step}, Caching: {cache_results}')
         BinaryDataBase.__init__(self, reader, indices, feature_names)
+        self.all_indices = indices
         self.window = window
         self.step = step
         # creates batches of contigs such that the total memory used by features in each batch is < total_memory_bytes
@@ -499,7 +556,7 @@ class BinaryDataEval(BinaryDataBase):
         assert (len(x) == sum(self.chunk_counts[batch_idx])), f'{len(x)} vs {sum(self.chunk_counts[batch_idx])}'
         if self.show_progress:
             Utils.update_progress(batch_idx + 1, self.__len__(), 'Evaluating: ',
-                              f' {(timer() - start):5.2f}s  {stack_time:5.2f}s')
+                                  f' {(timer() - start):5.2f}s  {stack_time:5.2f}s')
         return np.array(x)
 
 

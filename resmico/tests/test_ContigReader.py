@@ -1,13 +1,14 @@
 import numpy as np
 import unittest
 
-from ResMiCo import ContigReader
-from ResMiCo import Reader
+from resmico import ContigReader
+from resmico import Reader
 
 
 class TestReadContig(unittest.TestCase):
     def test_read_from_file(self):
-        input_file = open('./data/preprocess/features_binary', 'rb')
+        input_file = open('data/preprocess/features_binary', 'rb')
+
         result = ContigReader._read_contig_data(input_file, Reader.feature_names)
         self.assertEqual(500, len(result['ref_base_A']))
         self.assertIsNone(
@@ -46,13 +47,14 @@ class TestReadContig(unittest.TestCase):
                                                             result['mean_mapq_Match'][pos]))
             self.assertEqual(0.5 if 0 < pos < 5 else 1 if 420 <= pos < 425 else 0, result['num_proper_SNP'][pos])
             self.assertEqual(0 if pos < 498 else 25 if pos == 498 else 50, result['seq_window_perc_gc'][pos])
-            self.assertEqual(1 if pos < 20 else 0, result['Extensive_misassembly_by_pos'][pos])
+            self.assertAlmostEqual(0 if pos < 498 else 0.811278 if pos == 498 else 1, result['entropy'][pos],
+                                   delta=1e-4)
 
     def test_normalize_zero_mean_one_stdev(self):
-        input_file = open('./data/preprocess/features_binary', 'rb')
+        input_file = open('data/preprocess/features_binary', 'rb')
         old_result = ContigReader._read_contig_data(input_file, Reader.feature_names)
 
-        reader = ContigReader.ContigReader('./data/preprocess/', Reader.feature_names, 1, False)
+        reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
         for fname in Reader.float_feature_names:
             reader.means[fname] = 0
             reader.stdevs[fname] = 1
@@ -66,10 +68,10 @@ class TestReadContig(unittest.TestCase):
             self.assertIsNone(np.testing.assert_array_equal(old_result[fname], result[fname]))
 
     def test_normalize_zero_mean_two_stdev(self):
-        input_file = open('./data/preprocess/features_binary', 'rb')
+        input_file = open('data/preprocess/features_binary', 'rb')
         old_result = ContigReader._read_contig_data(input_file, Reader.feature_names)
 
-        reader = ContigReader.ContigReader('./data/preprocess/', Reader.feature_names, 1, False)
+        reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
         for fname in Reader.float_feature_names:
             reader.means[fname] = 0
             reader.stdevs[fname] = 2
@@ -82,9 +84,27 @@ class TestReadContig(unittest.TestCase):
             old_result[fname][nan_pos] = 0
             self.assertIsNone(np.testing.assert_array_equal(old_result[fname] / 2, result[fname]))
 
+    def test_read_toc(self):
+        reader = ContigReader.ContigReader('data/preprocess/', [Reader.feature_names[0], Reader.feature_names[1],
+                                                                Reader.feature_names[3]], process_count=1,
+                                           is_chunked=False)
+
+        self.assertEqual(2, len(reader.contigs))
+
+        self.assertEqual(500, reader.contigs[0].length)
+        self.assertEqual(500, reader.contigs[1].length)
+        self.assertEqual(1, reader.contigs[0].misassembly)
+        self.assertEqual(0, reader.contigs[1].misassembly)
+        self.assertEqual(256, reader.contigs[0].size_bytes)
+        self.assertEqual(196, reader.contigs[1].size_bytes)
+        self.assertEqual([(100, 102)], reader.contigs[0].breakpoints)
+        self.assertEqual([(50, 55), (250, 255)], reader.contigs[1].breakpoints)
+
     def test_read_three_features(self):
-        reader = ContigReader.ContigReader('./data/preprocess/', [Reader.feature_names[0], Reader.feature_names[1],
-                                                                  Reader.feature_names[3]], 1, False)
+        reader = ContigReader.ContigReader('data/preprocess/', [Reader.feature_names[0], Reader.feature_names[1],
+                                                                Reader.feature_names[3]], process_count=1,
+                                           is_chunked=False)
+
         result = reader.read_contigs(reader.contigs)
 
         # we read 2 contigs in total

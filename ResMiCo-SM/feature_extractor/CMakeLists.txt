@@ -1,11 +1,16 @@
 cmake_minimum_required(VERSION 3.13)
-project(SomaticVariantCalling)
+project(FeatureExtractor)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 
 # no warnings
-string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra -Wfatal-errors -msse4 ${OpenMP_CXX_FLAGS}")
+string(APPEND CMAKE_CXX_FLAGS " -Wall -Wextra -Wfatal-errors ${OpenMP_CXX_FLAGS}")
+
+# only use sse4 on x86 processor (i.e. not on ARM-based M1 Macs)
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
+  string(APPEND CMAKE_CXX_FLAGS " -msse4")
+endif ()
 
 find_package(OpenMP REQUIRED)
 find_package(ZLIB REQUIRED)

@@ -8,12 +8,12 @@ tmp/
 ._.DS_Store
 .envrc
 ._*
-tests/output*/
-tests/old_models/
+resmico/tests/output*/
+resmico/tests/old_models/
 tests/data/*.rick
 tests/data/*/*/*/*/*.pkl
-tests/data/*/model/predictions/
-tests/data/*/model/logs_final/
+resmico/tests/data/*/model/predictions/
+resmico/tests/data/*/model/logs_final/
 ResMiCo-SM/bin/misc_r_functions/
 ResMiCo-SM/bin/scripts/gridmap/dist
 ResMiCo-SM/bin/scripts/gridmap/build
@@ -101,5 +101,5 @@ cmake-build-release/
 venv/
 .idea/
 # Cython generated files
-ResMiCo/Reader.cpp
-ResMiCo/Reader.html
+resmico/Reader.cpp
+resmico/Reader.html

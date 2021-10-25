@@ -1,9 +1,8 @@
 import argparse
 import logging
 import sys
-# from ResMiCo import Train
-from ResMiCo import Train_BigD
-from ResMiCo import TrainBinData
+from resmico import Train_BigD
+from resmico import TrainBinData
 
 
 # functions
@@ -119,7 +118,6 @@ def parse_args(curr_args=None, subparsers=None):
         'stdev_al_score_Match',
         'seq_window_perc_gc',
         'num_proper_SNP',
-        # 'Extensive_misassembly_by_pos',
     ])
     parser.add_argument('--binary-data', dest='binary_data', action='store_true',
                         help='If present, train on binary data rather than (deprecated) h5 '
@@ -135,16 +133,19 @@ def parse_args(curr_args=None, subparsers=None):
     parser.set_defaults(normalize_stdev=True)
     parser.add_argument('--cache', dest='cache', action='store_true',
                         help='If set, all contig features will be cached in memory for faster training/validation')
-    parser.add_argument('--cache_validation', dest='cache_validation', action='store_true',
+    parser.add_argument('--cache-validation', dest='cache_validation', action='store_true',
                         help='If set, the validation data will be cached in memory for quicker access time')
     parser.add_argument('--no-cython', dest='no_cython', action='store_true',
                         help='If set, data is read using pure Python rather than using the Cython bindings '
                              '(about 2x slower, only useful for debugging')
     parser.add_argument('--gpu-eval-mem-gb', default=3.0, type=float,
                         help='Amount of GPU memory used for validation data (amount will be divided per GPU)')
-    parser.add_argument('--log_progress', default=False,
+    parser.add_argument('--log-progress', default=False,
                         help='If enabled, a progressbar will be shown for training/evaluation progress',
                         dest='log_progress', action='store_true')
+    parser.add_argument('--num-translations', default=1, type=int,
+                        help='How many variations to select around the breaking point for positive samples '
+                             '(i.e. misassembled contigs) that are longer than max-len')
 
     # running test args
     if curr_args:

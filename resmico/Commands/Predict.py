@@ -1,13 +1,9 @@
 from __future__ import print_function
 from pkg_resources import resource_filename
-# import
-## batteries
 import os
-import sys
 import argparse
 import logging
-## application
-from ResMiCo import Predict
+from resmico import Predict
 
 # functions
 def get_desc():
@@ -33,8 +29,8 @@ def parse_args(test_args=None, subparsers=None):
         parser = argparse.ArgumentParser(description=desc, epilog=epi,
                                          formatter_class=argparse.RawTextHelpFormatter)
     #default trained model
-    pkg_model = resource_filename('ResMiCo','Model/fl_all_model.h5')
-    pkg_mstd = resource_filename('ResMiCo','Model/fl_all_mean_std.pkl')
+    pkg_model = resource_filename('resmico','Model/fl_all_model.h5')
+    pkg_mstd = resource_filename('resmico','Model/fl_all_mean_std.pkl')
     pkg_path, pkg_model = os.path.split(pkg_model)
     _, pkg_mstd  = os.path.split(pkg_mstd)
     # args
