@@ -96,7 +96,7 @@ def main(args):
 
     logging.info('Training network...')
     num_epochs = 2  # todo: last run monitor more often
-    auc_val_best = 0.5
+    auc_val_best = 0.57
     for epoch in range(math.ceil(args.n_epochs / num_epochs)):
         start = time.time()
         resmico.net.fit(x=train_data_tf,
