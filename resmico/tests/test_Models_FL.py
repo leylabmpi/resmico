@@ -8,7 +8,31 @@ from resmico import Reader
 from resmico.ContigReader import ContigInfo
 
 
-class TestBinaryData(unittest.TestCase):
+class TestBinaryDatasetTrain(unittest.TestCase):
+    def test_select_intervals(self):
+        contig_data = [ContigInfo('Contig1', '/tmp/c1', 1000, 0, 0, 0, []),
+                       ContigInfo('Contig2', '/tmp/c2', 1000, 0, 0, 0, [(100, 100)]),
+                       ContigInfo('Contig3', '/tmp/c3', 1000, 0, 0, 0, [(800, 900)])]
+        max_len = 500
+        for i in range(50):
+            intervals = Models_FL.BinaryDatasetTrain.select_intervals(contig_data, max_len, True)
+            self.assertTrue(0 <= intervals[0][0] <= 500)
+            self.assertTrue(500 <= intervals[0][1] <= 1000)
+            self.assertTrue(0 <= intervals[1][0] <= 50)
+            self.assertTrue(500 <= intervals[1][1] <= 550)
+            self.assertTrue(450 <= intervals[2][0] <= 500, f'Start is {intervals[2][0]}')
+            self.assertTrue(500 <= intervals[2][1] <= 1000)
+
+    def test_select_intervals_translate_short(self):
+        contig_data = [
+            ContigInfo('Contig1', '/tmp/c1', 300, 0, 0, 0, [(100, 100)]),
+        ]
+        max_len = 500
+        for i in range(50):
+            intervals = Models_FL.BinaryDatasetTrain.select_intervals(contig_data, max_len, True)
+            self.assertTrue(0 <= intervals[0][0] <= 50)
+            self.assertEqual(300, intervals[0][1])
+
     def test_gen_train_data(self):
         for cached in [False, True]:
             reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
@@ -17,6 +41,7 @@ class TestBinaryData(unittest.TestCase):
             num_translations = 1
             data_gen = Models_FL.BinaryDatasetTrain(reader, indices, batch_size, Reader.feature_names, 500,
                                                     num_translations, 1.0, cached, False)
+            data_gen.translate_short_contigs = False  # so that we know which interval is selected
             # set these to -1 in order to enforce NOT swapping A/T and G/C (for data enhancement)
             data_gen.pos_A = data_gen.pos_ref = data_gen.pos_C = -1
             # unshuffle the indices, so that we can make assertions about the returned data
@@ -43,23 +68,9 @@ class TestBinaryData(unittest.TestCase):
                 np.testing.assert_array_equal(train_data[1][5][0:6], np.array([1, 0, 0, 0, 0, 0])))
 
 
-class TestBinaryDataEval(unittest.TestCase):
+class TestBinaryDatasetEval(unittest.TestCase):
     bytes_per_base = 10 + sum(  # 10 is the overhead also added in Models_Fl.BinaryDataEval
         [np.dtype(ft).itemsize for ft in Reader.feature_np_types])
-
-    def test_select_intervals(self):
-        contig_data = [ContigInfo('Contig1', '/tmp/c1', 1000, 0, 0, 0, []),
-                       ContigInfo('Contig2', '/tmp/c2', 1000, 0, 0, 0, [(100, 100)]),
-                       ContigInfo('Contig3', '/tmp/c3', 1000, 0, 0, 0, [(800, 900)])]
-        max_len = 500
-        for i in range(50):
-            intervals = Models_FL.BinaryDatasetTrain.select_intervals(contig_data, max_len)
-            self.assertTrue(0 <= intervals[0][0] <= 500)
-            self.assertTrue(500 <= intervals[0][1] <= 1000)
-            self.assertTrue(0 <= intervals[1][0] <= 50)
-            self.assertTrue(500 <= intervals[1][1] <= 550)
-            self.assertTrue(450 <= intervals[2][0] <= 500, f'Start is {intervals[2][0]}')
-            self.assertTrue(500 <= intervals[2][1] <= 1000)
 
     def test_batching_one_per_batch(self):
         reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)

@@ -302,6 +302,9 @@ class BinaryDatasetTrain(BinaryDataset):
 
         # used for testing; contains the interval selected from each contig longer than #self.max_len
         self.intervals = []
+        # used for testing; tests set this to false in order to make the interval predictible for contigs
+        # shorter than max_len
+        self.translate_short_contigs = True
 
     def on_epoch_end(self):
         """
@@ -322,17 +325,17 @@ class BinaryDatasetTrain(BinaryDataset):
 
     def __getitem__(self, index):
         x, y = self._get_data(index)
-        if self.pos_A > 0 and self.pos_T > 0 and random.randint(0, 1) == 1:
-            x[:, [self.pos_A, self.pos_T]] = x[:, [self.pos_T, self.pos_A]]
-            if self.pos_ref >= 0:
-                x[:, [self.pos_ref, self.pos_ref + 3]] = x[:, [self.pos_ref + 3, self.pos_ref]]
-        if self.pos_G > 0 and self.pos_C > 0 and random.randint(0, 1) == 1:
-            x[:, [self.pos_C, self.pos_G]] = x[:, [self.pos_G, self.pos_C]]
-            if self.pos_ref >= 0:
-                x[:, [self.pos_ref + 1, self.pos_ref + 2]] = x[:, [self.pos_ref + 2, self.pos_ref + 1]]
+        # if self.pos_A > 0 and self.pos_T > 0 and random.randint(0, 1) == 1:
+        #     x[:, [self.pos_A, self.pos_T]] = x[:, [self.pos_T, self.pos_A]]
+        #     if self.pos_ref >= 0:
+        #         x[:, [self.pos_ref, self.pos_ref + 3]] = x[:, [self.pos_ref + 3, self.pos_ref]]
+        # if self.pos_G > 0 and self.pos_C > 0 and random.randint(0, 1) == 1:
+        #     x[:, [self.pos_C, self.pos_G]] = x[:, [self.pos_G, self.pos_C]]
+        #     if self.pos_ref >= 0:
+        #         x[:, [self.pos_ref + 1, self.pos_ref + 2]] = x[:, [self.pos_ref + 2, self.pos_ref + 1]]
         return x, y
 
-    def select_intervals(contig_data: list[ContigInfo], max_len: int):
+    def select_intervals(contig_data: list[ContigInfo], max_len: int, translate_short_contigs: bool):
         """
         Selects intervals from contigs such that the breakpoints are within the interval.
         For contigs shorter than #max_len, the entire contig is selected.
@@ -344,6 +347,7 @@ class BinaryDatasetTrain(BinaryDataset):
         for cd in contig_data:
             start_idx = 0
             end_idx = cd.length
+            min_padding = 50  # minimum amount of bases to keep around the breakpoint
             if cd.length > max_len:
                 # when no breakpoints are present, we can choose any segment within the contig
                 # however, if the contig contains a breakpoint, we must choose a segment that includes the breakpoint
@@ -352,11 +356,16 @@ class BinaryDatasetTrain(BinaryDataset):
                 else:  # select an interval that contains the first breakpoint
                     # TODO: add one item for each breakpoint
                     lo, hi = cd.breakpoints[0]
-                    min_padding = 50  # minimum amount of bases to keep around the breakpoint
                     start_lo = max(0, hi - max_len + min_padding)
                     start_hi = min(cd.length - max_len, lo - min_padding)
                     start_idx = np.random.randint(start_lo, start_hi)
                 end_idx = start_idx + max_len
+            elif translate_short_contigs and cd.breakpoints:
+                # we have a mis-assembled contig shorter than max_len; pick a random starting point
+                # before the breaking point to enforce some translation invariance
+                lo, hi = cd.breakpoints[0]
+                start_idx = np.random.randint(0, max(1, lo - min_padding))
+                end_idx = cd.length
             result.append((start_idx, end_idx))
         return result
 
@@ -383,7 +392,7 @@ class BinaryDatasetTrain(BinaryDataset):
         # Create the numpy array storing all the features for all the contigs in #batch_indices
         x = np.zeros((self.batch_size, max_len, len(features_data[0])))
 
-        contig_intervals = BinaryDatasetTrain.select_intervals(contig_data, max_len)
+        contig_intervals = BinaryDatasetTrain.select_intervals(contig_data, max_len, self.translate_short_contigs)
         for i, contig_features in enumerate(features_data):
             to_merge = [None] * len(self.expanded_feature_names)
             start_idx, end_idx = contig_intervals[i]
