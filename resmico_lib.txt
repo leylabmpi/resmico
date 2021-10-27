@@ -15,6 +15,7 @@
 /cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/ResMiCo-0.3.1-py3.9.egg/ResMiCo/Utils.py
 /cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/ResMiCo-0.3.1-py3.9.egg/ResMiCo/__init__.py
 /cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/ResMiCo-0.3.1-py3.9.egg/ResMiCo/__main__.py
+/cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/ResMiCo-0.3.1-py3.9.egg/ResMiCo/setup.py
 /cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/ResMiCo-0.3.1-py3.9.egg/ResMiCo/Commands/Evaluate.py
 /cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/ResMiCo-0.3.1-py3.9.egg/ResMiCo/Commands/Predict.py
 /cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/ResMiCo-0.3.1-py3.9.egg/ResMiCo/Commands/Preprocess.py
@@ -37,6 +38,7 @@
 /cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/ResMiCo-0.3.1-py3.9.egg/ResMiCo/__pycache__/Utils.cpython-39.pyc
 /cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/ResMiCo-0.3.1-py3.9.egg/ResMiCo/__pycache__/__init__.cpython-39.pyc
 /cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/ResMiCo-0.3.1-py3.9.egg/ResMiCo/__pycache__/__main__.cpython-39.pyc
+/cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/ResMiCo-0.3.1-py3.9.egg/ResMiCo/__pycache__/setup.cpython-39.pyc
 /cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/ResMiCo-0.3.1-py3.9.egg/tests/__init__.py
 /cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/ResMiCo-0.3.1-py3.9.egg/tests/test_ContigReader.py
 /cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/ResMiCo-0.3.1-py3.9.egg/tests/test_Evaluate.py
@@ -63,8 +65,8 @@
 /cluster/home/omineeva/software/anaconda/envs/resmico/bin/f2py3.9
 /cluster/home/omineeva/software/anaconda/envs/resmico/bin/tensorboard
 /cluster/home/omineeva/software/anaconda/envs/resmico/bin/wheel
-/cluster/home/omineeva/software/anaconda/envs/resmico/bin/markdown_py
 /cluster/home/omineeva/software/anaconda/envs/resmico/bin/google-oauthlib-tool
+/cluster/home/omineeva/software/anaconda/envs/resmico/bin/markdown_py
 /cluster/home/omineeva/software/anaconda/envs/resmico/bin/pyrsa-decrypt
 /cluster/home/omineeva/software/anaconda/envs/resmico/bin/pyrsa-encrypt
 /cluster/home/omineeva/software/anaconda/envs/resmico/bin/pyrsa-keygen

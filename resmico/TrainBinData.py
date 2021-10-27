@@ -4,13 +4,14 @@ import math
 import time
 
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras import backend as K
 from sklearn.metrics import recall_score, average_precision_score
 
-from ResMiCo import ContigReader
-from ResMiCo import Models_FL as Models
+from resmico import ContigReader
+from resmico import Models_FL as Models
 
 
 def main(args):
@@ -22,16 +23,17 @@ def main(args):
         os.makedirs(args.save_path)
 
     logging.info('Building Tensorflow model...')
+    logging.info(args)
     strategy = tf.distribute.MirroredStrategy()
 
     with strategy.scope():
         resmico = Models.Resmico(args)
     resmico.print_summary()
 
-    # save model every epoch
-    model_file = os.path.join(args.save_path, '_'.join(['mc_epoch', "{epoch}", args.save_name, 'model.h5']))
-    logging.info(f'Model will be saved to: {model_file}')
-    mc = ModelCheckpoint(model_file, save_freq="epoch", verbose=1)
+    #     # save model every epoch
+    #     model_file = os.path.join(args.save_path, '_'.join(['mc_epoch', "{epoch}", args.save_name, 'model.h5']))
+    #     logging.info(f'Model will be saved to: {model_file}')
+    #     mc = ModelCheckpoint(model_file, save_freq="epoch", verbose=1)
 
     # tensorboard logs
     tb_logs = tf.keras.callbacks.TensorBoard(log_dir=os.path.join(args.save_path, 'logs_final'),
@@ -44,15 +46,20 @@ def main(args):
 
     # separate data into 90% for training and 10% for evaluation
     all_idx = np.arange(len(reader))
-    np.random.shuffle(all_idx)
-    train_idx = all_idx[:(9 * len(reader)) // 10]
-    eval_idx = all_idx[(9 * len(reader)) // 10:]
+    if args.val_ind_f:
+        logging.info(f'Split data: using {args.val_ind_f} for validation, for training everything else')
+        eval_idx = list(pd.read_csv(args.val_ind_f)['val_ind'])
+        train_idx = list(set(all_idx) - set(eval_idx))
+    else:
+        np.random.shuffle(all_idx)
+        train_idx = all_idx[:(9 * len(reader)) // 10]
+        eval_idx = all_idx[(9 * len(reader)) // 10:]
     logging.info(f'Using {len(train_idx)} contigs for training, {len(eval_idx)} contigs for evaluation')
 
     # create data generators for training data and evaluation data
-    train_data = Models.BinaryData(reader, train_idx, args.batch_size, args.features, args.max_len, args.fraq_neg,
-                                   args.cache, args.log_progress)
-
+    train_data = Models.BinaryDatasetTrain(reader, train_idx, args.batch_size, args.features, args.max_len,
+                                           args.num_translations, args.fraq_neg, args.cache_train or args.cache,
+                                           args.log_progress)
     # convert the slow Keras train_data of type Sequence to a tf.data object
     # first, we convert the keras sequence into a generator-like object
     data_iter = lambda: (s for s in train_data)
@@ -74,9 +81,10 @@ def main(args):
     train_data_tf = train_data_tf.with_options(options)
 
     np.seterr(all='raise')
-    eval_data = Models.BinaryDataEval(reader, eval_idx, args.features, args.max_len, args.max_len // 2,
-                                      int(args.gpu_eval_mem_gb * 1e9 * 0.8), args.cache_validation or args.cache,
-                                      args.log_progress)
+    eval_data = Models.BinaryDatasetEval(reader, eval_idx, args.features, args.max_len, args.max_len // 2,
+                                         int(args.gpu_eval_mem_gb * 1e9 * 0.8), args.cache_validation or args.cache,
+                                         args.log_progress)
+
     eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_data.all_indices])
 
     # convert the slow Keras eval_data of type Sequence to a tf.data object
@@ -97,7 +105,7 @@ def main(args):
                         workers=args.n_procs,
                         use_multiprocessing=True,
                         max_queue_size=max(args.n_procs, 10),
-                        callbacks=[mc, tb_logs],
+                        callbacks=[tb_logs],
                         verbose=2)
         duration = time.time() - start
         logging.info(f'Fitted {num_epochs} epochs in {duration:.0f}s')
@@ -108,7 +116,8 @@ def main(args):
         eval_data_flat_y = resmico.predict(x=eval_data_tf,
                                            workers=args.n_procs,
                                            use_multiprocessing=True,
-                                           max_queue_size=max(args.n_procs, 10))
+                                           max_queue_size=max(args.n_procs, 10),
+                                           verbose=2)
         eval_data_predicted_y = eval_data.group(eval_data_flat_y)
 
         auc_val = average_precision_score(eval_data_y, eval_data_predicted_y)

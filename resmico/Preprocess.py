@@ -1,4 +1,4 @@
-from ResMiCo import Utils
+from resmico import Utils
 
 
 def main(args):

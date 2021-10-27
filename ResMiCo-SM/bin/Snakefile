@@ -69,15 +69,16 @@ def all_which_input(wildcards):
                config['sim_params'])
     
     ## metaquast
-    if not skipped(config['params']['asmbl_errors']['metaquast']):
+    if not skipped(config['params']['asmbl_errors']['metaquast']):        
         F += Expand(J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
                       '{read_depth}', '{assembler}', 'metaquast.done'),
-                    config['sim_params'])        
-        F += Expand(J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}',
-                      'metaquast_cleanup.done'),
                     config['sim_params'])
-        if config['reads_tbl'] is None:
-            F.append(genomes_dir + 'genomes_rm.done')
+        if not is_true(config['params']['asmbl_errors']['keep_genomes']):
+            F += Expand(J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}',
+                          'metaquast_cleanup.done'),
+                        config['sim_params'])
+            if config['reads_tbl'] is None:
+                F.append(genomes_dir + 'genomes_rm.done')
         
     # read mapping to contigs
     if not skipped(config['params']['map']['samtools']):
@@ -85,7 +86,6 @@ def all_which_input(wildcards):
             F += Expand(J(map_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
                           '{read_depth}', '{assembler}.bam'),
                         config['sim_params']) 
-
         # feature table
         if not skipped(config['params']['feature_table']['make']):   
             F.append(features_dir + 'feature_files.tsv')

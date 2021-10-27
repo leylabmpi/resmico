@@ -7,7 +7,7 @@ import pickle
 from tensorflow.keras.models import load_model
 from sklearn.linear_model import LogisticRegression
 
-from ResMiCo import Utils
+from resmico import Utils
 
 
 def main(args):

@@ -6,10 +6,10 @@ __version__ = '0.3.1'
 import sys
 import argparse
 
-from ResMiCo.Commands import Train
-from ResMiCo.Commands import Predict
-from ResMiCo.Commands import Evaluate
-from ResMiCo.Commands import Preprocess
+from resmico.Commands import Train
+from resmico.Commands import Predict
+from resmico.Commands import Evaluate
+from resmico.Commands import Preprocess
 
 
 def main(args=None):
@@ -20,10 +20,10 @@ def main(args=None):
 
     desc = 'ResMiCo: increasing the quality of metagenome-assembledgenomes with deep learning'
     epi = """DESCRIPTION:
-    Usage: ResMiCo <subcommand> <subcommand_params>
-    Example: ResMiCo train -h
+    Usage: resmico <subcommand> <subcommand_params>
+    Example: resmico train -h
 
-    For general info, see https://github.com/leylabmpi/ResMiCo/
+    For general info, see https://github.com/leylabmpi/resmico/
     """
     parser = argparse.ArgumentParser(description=desc,
                                      epilog=epi,

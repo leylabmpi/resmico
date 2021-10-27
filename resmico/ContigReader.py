@@ -13,8 +13,8 @@ import struct
 
 import numpy as np
 
-from ResMiCo import Utils
-from ResMiCo import Reader
+from resmico import Reader
+
 
 def _replace_with_nan(data, feature_name, v):
     """Replaces all elements in arr that are equal to v with np.nan"""
@@ -29,6 +29,7 @@ def _read_feature(file: gzip.GzipFile, data, feature_name: str, bytes: int, dtyp
     if feature_name not in feature_names:
         file.seek(bytes, os.SEEK_CUR)
         return
+    # the astype is needed even if dtype already is np.float32, otherwise the array is read-only
     data[feature_name] = np.frombuffer(file.read(bytes), dtype=dtype).astype(np.float32)
     if normalize_by != 1:
         data[feature_name] /= normalize_by
@@ -87,7 +88,7 @@ def _post_process_features(features):
         'mean_al_score_Match',
         'stdev_al_score_Match',
         'seq_window_perc_gc',
-        'Extensive_misassembly_by_pos'])
+        'entropy'])
 
     return result
 
@@ -147,7 +148,7 @@ def _read_contig_data(input_file, feature_names: list[str]):
         _read_feature(f, data, 'num_orphans_Match', 2 * contig_size, np.uint16, feature_names, 10000)
         _read_feature(f, data, 'num_proper_SNP', 2 * contig_size, np.uint16, feature_names, 10000)
         _read_feature(f, data, 'seq_window_perc_gc', 4 * contig_size, np.float32, feature_names)
-        data['Extensive_misassembly_by_pos'] = np.frombuffer(f.read(contig_size), dtype=np.uint8)
+        _read_feature(f, data, 'entropy', 4 * contig_size, np.float32, feature_names)
     return data
 
 
@@ -156,7 +157,8 @@ class ContigInfo:
     Contains metadata about a single contig.
     """
 
-    def __init__(self, name: str, file_name: str, length: int, offset: int, size_bytes: int, misassembly_count: int):
+    def __init__(self, name: str, file_name: str, length: int, offset: int, size_bytes: int, misassembly_count: int,
+                 breakpoints: list[(int, int)]):
         self.name: str = name
         self.file: str = file_name
         self.length: int = length
@@ -164,6 +166,7 @@ class ContigInfo:
         self.size_bytes: int = size_bytes
         self.misassembly: int = misassembly_count
         self.features: dict[str:np.array] = {}
+        self.breakpoints = breakpoints
 
 
 class ContigReader:
@@ -306,8 +309,17 @@ class ContigReader:
                 next(rd)  # skip CSV header: Assembler, Contig_name, MissassembleCount, ContigLen
                 for row in rd:
                     size_bytes = int(row[3])
-                    # the fields in row are: name, length (bases), misassembly_count, size_bytes
-                    contig_info = ContigInfo(row[0], contig_fname, int(row[1]), offset, size_bytes, int(row[2]))
+                    # the fields in row are: name, length (bases), misassembly_count, size_bytes, breakpoints
+                    breakpoints = []
+                    if len(row) == 5:  # breakpoints is present; TODO: remove this if once all datasets have it
+                        if row[4] != '-':
+                            all_breakpoints = row[4].split(',')
+                            for break_point in all_breakpoints:
+                                start_stop = break_point.split('-')
+                                breakpoints.append((int(start_stop[0]), int(start_stop[1])))
+
+                    contig_info = ContigInfo(row[0], contig_fname, int(row[1]), offset, size_bytes, int(row[2]),
+                                             breakpoints)
                     total_len += contig_info.length
                     self.contigs.append(contig_info)
                     offset += size_bytes

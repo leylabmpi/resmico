@@ -12,6 +12,11 @@ import itertools
 
 def skipped(x):
     return str(x).strip().lower().startswith('skip')
+def is_true(x):
+    if x is None:
+        return False
+    else:
+        return str(x).strip().lower() == 'true'
 def J(*args):
     return os.path.join(*args)
 
