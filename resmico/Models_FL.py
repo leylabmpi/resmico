@@ -446,13 +446,14 @@ class BinaryDatasetEval(BinaryDataset):
         """
         logging.info(f'Creating evaluation data generator. Window: {window}, Step: {step}, Caching: {cache_results}')
         BinaryDataset.__init__(self, reader, feature_names)
-        self.all_indices = indices
+        indices = sorted(indices, key=lambda x: reader.contigs[x].length)
+        self.indices = indices
         self.window = window
         self.step = step
         # creates batches of contigs such that the total memory used by features in each batch is < total_memory_bytes
         # chunk_counts[batch_count][idx] represents the number of chunks for the contig number #idx
         # in the batch #batch_count
-        self.batch_list, self.chunk_counts = self._create_batch_list(reader.contigs, total_memory_bytes)
+        self.batch_list, self.chunk_counts = self._create_batch_list(reader.contigs, indices, total_memory_bytes)
 
         # flattened ground truth for each eval contig
         self.y = [0 if self.reader.contigs[i].misassembly == 0 else 1 for b in self.batch_list for i in b]
@@ -462,7 +463,7 @@ class BinaryDatasetEval(BinaryDataset):
         if cache_results:
             self.data = [None] * len(self.batch_list)
 
-    def _create_batch_list(self, contig_data: list[ContigInfo], total_memory_bytes: int):
+    def _create_batch_list(self, contig_data: list[ContigInfo], indices: list[int], total_memory_bytes: int):
         """ Divide the validation indices into mini-batches of total size < #total_memory_bytes """
         # there seems to be an overhead for each position; 10 is just a guess to avoid running out of memory
         # on the GPU
@@ -476,7 +477,7 @@ class BinaryDatasetEval(BinaryDataset):
         batch_chunk_count = 0  # total number of contig chunks in the current batch
         chunk_counts = []  # number of chunks in each batch
         counts = []
-        for idx in self.all_indices:
+        for idx in indices:
             contig_len = contig_data[idx].length
             # number of chunks for the current contig
             curr_chunk_count = 1 + max(0, math.ceil((contig_len - self.window) / self.step))
@@ -516,9 +517,9 @@ class BinaryDatasetEval(BinaryDataset):
             total_len += sum(batch)
             grouped_y_size += len(batch)
         assert len(y) == total_len, f'y has length {len(y)}, chunk_counts total length is {total_len}'
-        assert grouped_y_size == len(self.all_indices), \
-            f'Index map has {grouped_y_size} elements, while indices has {len(self.all_indices)} elements'
-        grouped_y = np.zeros(len(self.all_indices))
+        assert grouped_y_size == len(self.indices), \
+            f'Index map has {grouped_y_size} elements, while indices has {len(self.indices)} elements'
+        grouped_y = np.zeros(len(self.indices))
         i = 0
         j = 0
         for batch in self.chunk_counts:
