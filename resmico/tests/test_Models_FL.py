@@ -25,13 +25,17 @@ class TestBinaryDatasetTrain(unittest.TestCase):
 
     def test_select_intervals_translate_short(self):
         contig_data = [
-            ContigInfo('Contig1', '/tmp/c1', 300, 0, 0, 0, [(100, 100)]),
+            ContigInfo('Contig1', '/tmp/c1', 300, 0, 0, 0, [(200, 210)]),
         ]
-        max_len = 500
+        max_len = 350
         for i in range(50):
             intervals = Models_FL.BinaryDatasetTrain.select_intervals(contig_data, max_len, True)
-            self.assertTrue(0 <= intervals[0][0] <= 50)
-            self.assertEqual(300, intervals[0][1])
+            if intervals[0][1] - intervals[0][0] < 300:  # contig was truncated to left
+                self.assertTrue(0 <= intervals[0][0] <= 150)
+                self.assertEqual(300, intervals[0][1])
+            else:  # contig will be shifted to left
+                self.assertTrue(0 <= intervals[0][0] <= 50)
+                self.assertEqual(300 + intervals[0][0], intervals[0][1])
 
     def test_gen_train_data(self):
         for cached in [False, True]:

@@ -348,6 +348,7 @@ class BinaryDatasetTrain(BinaryDataset):
             start_idx = 0
             end_idx = cd.length
             min_padding = 50  # minimum amount of bases to keep around the breakpoint
+
             if cd.length > max_len:
                 # when no breakpoints are present, we can choose any segment within the contig
                 # however, if the contig contains a breakpoint, we must choose a segment that includes the breakpoint
@@ -356,16 +357,26 @@ class BinaryDatasetTrain(BinaryDataset):
                 else:  # select an interval that contains the first breakpoint
                     # TODO: add one item for each breakpoint
                     lo, hi = cd.breakpoints[0]
-                    start_lo = max(0, hi - max_len + min_padding)
-                    start_hi = min(cd.length - max_len, lo - min_padding)
-                    start_idx = np.random.randint(start_lo, start_hi)
+                    if max_len >= min_padding + (hi - lo):
+                        start_lo = max(0, hi - max_len + min_padding)
+                        start_hi = min(cd.length - max_len, lo - min_padding)
+                        start_idx = np.random.randint(start_lo, start_hi)
+                    else:
+                        pass  # corner case for tiny tiny max-len, probably never reached
                 end_idx = start_idx + max_len
             elif translate_short_contigs and cd.breakpoints:
-                # we have a mis-assembled contig shorter than max_len; pick a random starting point
-                # before the breaking point to enforce some translation invariance
+                # we have a mis-assembled contig which is shorter than max_len; pick a random starting point
+                # before the breaking point or shift the contig to the right to enforce some translation invariance
                 lo, hi = cd.breakpoints[0]
-                start_idx = np.random.randint(0, max(1, lo - min_padding))
-                end_idx = cd.length
+                if np.random.randint(0, 2) == 0:  # flip a coin
+                    # in this case, the contig will be left-truncated
+                    start_idx = np.random.randint(0, max(1, lo - min_padding))
+                else:
+                    # end_idx will be larger than cd.length, which signals that the contig needs to be padded with
+                    # start_idx zeros to the left
+                    start_idx = np.random.randint(0, min(max(1, lo - min_padding), max_len - cd.length))
+                    end_idx = start_idx + cd.length
+
             result.append((start_idx, end_idx))
         return result
 
@@ -394,14 +405,21 @@ class BinaryDatasetTrain(BinaryDataset):
 
         contig_intervals = BinaryDatasetTrain.select_intervals(contig_data, max_len, self.translate_short_contigs)
         for i, contig_features in enumerate(features_data):
+            contig_len = contig_data[i].length
             to_merge = [None] * len(self.expanded_feature_names)
             start_idx, end_idx = contig_intervals[i]
             length = end_idx - start_idx
             for j, feature_name in enumerate(self.expanded_feature_names):
-                to_merge[j] = contig_features[feature_name][start_idx:end_idx]
+                if end_idx <= contig_len:
+                    to_merge[j] = contig_features[feature_name][start_idx:end_idx]
+                else:  # contig will be left-padded with zeros
+                    assert (contig_len == end_idx - start_idx)
+                    to_merge[j] = contig_features[feature_name][0:end_idx - start_idx]
             stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
-            x[i][:length, :] = stacked_features
-
+            if end_idx <= contig_len:
+                x[i][:length, :] = stacked_features
+            else:
+                x[i][start_idx:end_idx, :] = stacked_features
         if self.do_cache:
             self.cache[index] = (x, np.array(y))
         if self.show_progress:
