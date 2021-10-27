@@ -85,7 +85,7 @@ def main(args):
                                          int(args.gpu_eval_mem_gb * 1e9 * 0.8), args.cache_validation or args.cache,
                                          args.log_progress)
 
-    eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_data.all_indices])
+    eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_data.indices])
 
     # convert the slow Keras eval_data of type Sequence to a tf.data object
     data_iter = lambda: (s for s in eval_data)

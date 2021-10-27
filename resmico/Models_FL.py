@@ -374,7 +374,7 @@ class BinaryDatasetTrain(BinaryDataset):
                 else:
                     # end_idx will be larger than cd.length, which signals that the contig needs to be padded with
                     # start_idx zeros to the left
-                    start_idx = np.random.randint(0, min(max(1, lo - min_padding), max_len - cd.length))
+                    start_idx = np.random.randint(0, max(1, min(lo - min_padding, max_len - cd.length)))
                     end_idx = start_idx + cd.length
 
             result.append((start_idx, end_idx))
@@ -537,12 +537,12 @@ class BinaryDatasetEval(BinaryDataset):
         start = timer()
         # files to process
         indices = self.batch_list[batch_idx]
-        contig_data: list[ContigInfo] = [self.reader.contigs[i] for i in indices]
 
         stack_time = 0
         if self.cache_results and self.data[batch_idx] is not None:
             all_stacked_features = self.data[batch_idx]
         else:
+            contig_data: list[ContigInfo] = [self.reader.contigs[i] for i in indices]
             all_stacked_features = [None] * len(contig_data)
             features_data = self.reader.read_contigs(contig_data)
             assert len(features_data) == len(contig_data)
