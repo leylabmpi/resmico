@@ -42,7 +42,7 @@ features23="ref_base num_query_A num_query_C num_query_G num_query_T coverage nu
 cmd3="/usr/bin/time python resmico train --binary-data --feature-files-path ${SCRATCH_DIR} \
       --save-path /cluster/home/ddanciu/tmp --n-procs 8 --log-level info \
       --batch-size 300 --n-fc 1 --num-blocks 4 --fraq-neg 0.2  ${additional_params}  \
-      --max-len ${MAX_LEN} --cache-validation --gpu-eval-mem-gb=1 --features ${features_small} --n-epochs 60 \
+      --max-len ${MAX_LEN} --cache-validation --gpu-eval-mem-gb=8 --features ${features_small} --n-epochs 60 \
       --num-translations 3"
 #       --val-ind-f ${DATA_DIR}/val_ind.csv --log-progress \
 cmd4="echo Cleaning scratch directory...; rm -rf ${SCRATCH_DIR}"
