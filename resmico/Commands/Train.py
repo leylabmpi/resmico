@@ -132,9 +132,11 @@ def parse_args(curr_args=None, subparsers=None):
                         help='If set, the standard deviation of floating point value features won\'t be normalized')
     parser.set_defaults(normalize_stdev=True)
     parser.add_argument('--cache', dest='cache', action='store_true',
-                        help='If set, all contig features will be cached in memory for faster training/validation')
+                        help='If set, train+validation data be cached in memory')
     parser.add_argument('--cache-validation', dest='cache_validation', action='store_true',
                         help='If set, the validation data will be cached in memory for quicker access time')
+    parser.add_argument('--cache-train', dest='cache_train', action='store_true',
+                        help='If set, the train data will be cached in memory for quicker access time')
     parser.add_argument('--no-cython', dest='no_cython', action='store_true',
                         help='If set, data is read using pure Python rather than using the Cython bindings '
                              '(about 2x slower, only useful for debugging')

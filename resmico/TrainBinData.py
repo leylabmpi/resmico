@@ -58,7 +58,8 @@ def main(args):
 
     # create data generators for training data and evaluation data
     train_data = Models.BinaryDatasetTrain(reader, train_idx, args.batch_size, args.features, args.max_len,
-                                           args.num_translations, args.fraq_neg, args.cache, args.log_progress)
+                                           args.num_translations, args.fraq_neg, args.cache_train or args.cache,
+                                           args.log_progress)
     # convert the slow Keras train_data of type Sequence to a tf.data object
     # first, we convert the keras sequence into a generator-like object
     data_iter = lambda: (s for s in train_data)
