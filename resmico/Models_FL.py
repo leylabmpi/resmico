@@ -376,19 +376,24 @@ class BinaryDatasetTrain(BinaryDataset):
                     else:
                         pass  # corner case for tiny tiny max-len, probably never reached
                 end_idx = start_idx + max_len
-            elif translate_short_contigs and cd.breakpoints:
-                # we have a mis-assembled contig which is shorter than max_len; pick a random starting point
-                # before the breaking point or shift the contig to the right to enforce some translation invariance
-                lo, hi = cd.breakpoints[0]
-                if np.random.randint(0, 2) == 0:  # flip a coin
-                    # in this case, the contig will be left-truncated
-                    start_idx = np.random.randint(0, max(1, lo - min_padding))
+            elif translate_short_contigs:
+                if cd.breakpoints:
+                    # we have a mis-assembled contig which is shorter than max_len; pick a random starting point
+                    # before the breaking point or shift the contig to the right to enforce some translation invariance
+                    lo, hi = cd.breakpoints[0]
+                    if np.random.randint(0, 2) == 0:  # flip a coin
+                        # in this case, the contig will be left-truncated
+                        start_idx = np.random.randint(0, max(1, lo - min_padding))
+                    else:
+                        # end_idx will be larger than cd.length, which signals that the contig needs to be padded with
+                        # start_idx zeros to the left
+                        start_idx = np.random.randint(0, max(1, min(lo - min_padding, max_len - cd.length)))
+                        end_idx = start_idx + cd.length
+                # we need to also shift negative samples, otherwise the network learns that samples starting with zero
+                # are the positive samples and reach perfect training scores and horrible validation scores
                 else:
-                    # end_idx will be larger than cd.length, which signals that the contig needs to be padded with
-                    # start_idx zeros to the left
-                    start_idx = np.random.randint(0, max(1, min(lo - min_padding, max_len - cd.length)))
+                    start_idx = np.random.randint(0, max(1, cd.length-250))
                     end_idx = start_idx + cd.length
-
             result.append((start_idx, end_idx))
         return result
 
