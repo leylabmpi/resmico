@@ -216,8 +216,8 @@ class ContigReader:
 
     def read_contigs(self, contig_infos: list[ContigInfo]):
         """
-        Reads the features from the given contig feature files and returns the result in a list of len(contig_files)
-        arrays of shape (contig_len, num_features).
+        Reads the features for the given contig_infos from file and returns the result in a list of len(contig_infos)
+        dictionaries of {'feature_name', feature_data}
         """
         start = timer()
         self.normalize_time = 0

@@ -283,9 +283,10 @@ class BinaryDatasetTrain(BinaryDataset):
             # the cache maps a batch index to feature_name:feature_data pairs
             self.cache: dict[int, dict[str, np.array]] = {}
         self.negative_idx = [i for i in indices if reader.contigs[i].misassembly == 0]
-        self.positive_idx = [i for i in indices if reader.contigs[i].misassembly == 1]
-        for _ in range(self.num_translations - 1):
-            self.positive_idx += self.positive_idx
+        positive_idx = [i for i in indices if reader.contigs[i].misassembly == 1]
+        self.positive_idx = []
+        for _ in range(self.num_translations):
+            self.positive_idx += positive_idx
         self.on_epoch_end()  # select negative samples, multiply positive samples, and shuffle indices
 
         # determine the position of the num_query_A/C/G/T fields, so that we can apply inversion
@@ -413,7 +414,8 @@ class BinaryDatasetTrain(BinaryDataset):
                 if end_idx <= contig_len:
                     to_merge[j] = contig_features[feature_name][start_idx:end_idx]
                 else:  # contig will be left-padded with zeros
-                    assert (contig_len == end_idx - start_idx)
+                    assert (
+                    contig_len == end_idx - start_idx, f'Contig len is {contig_len}, st-end are {start_idx}-{end_idx}')
                     to_merge[j] = contig_features[feature_name][0:end_idx - start_idx]
             stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
             if end_idx <= contig_len:

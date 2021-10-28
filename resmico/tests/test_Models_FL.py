@@ -1,5 +1,6 @@
 import numpy as np
 import unittest
+from unittest.mock import MagicMock
 
 from resmico import Models_FL
 from resmico import ContigReader
@@ -36,6 +37,111 @@ class TestBinaryDatasetTrain(unittest.TestCase):
             else:  # contig will be shifted to left
                 self.assertTrue(0 <= intervals[0][0] <= 50)
                 self.assertEqual(300 + intervals[0][0], intervals[0][1])
+
+    def test_contig_selection(self):
+        """
+        Make sure that the returned contig features (when using translations) are correct.
+
+        The test mocks reader.read_contigs and BinaryDatasetTrain.select_intervals, and checks if the returned
+        (x,y) tuple of BinaryDatasetTrain.__get_item__() is correct.
+        """
+        for use_cython in [False, True]:
+            for cached in [False, True]:
+                features = ['num_query_A', 'coverage', 'num_SNPs']
+                reader = ContigReader.ContigReader('data/preprocess/', features, 1, use_cython)
+                c1 = ContigInfo('Contig1', '/tmp/c1', 500, 0, 0, 0, [])
+                c2 = ContigInfo('Contig2', '/tmp/c2', 300, 0, 0, 1, [(100, 100)])
+                c3 = ContigInfo('Contig3', '/tmp/c3', 1000, 0, 0, 1, [(800, 900)])
+                reader.contigs = [c1, c2, c3]
+
+                contigs_data = []
+                st = 0
+                for c in reader.contigs:
+                    contig_data = {}
+                    for f in features:
+                        feature_data = np.arange(start=st, stop=st + c.length, dtype=float)
+                        contig_data[f] = feature_data
+                        st += c.length
+                    contigs_data.append(contig_data)
+                reader.read_contigs = MagicMock(
+                    return_value=[contigs_data[0], contigs_data[1], contigs_data[1], contigs_data[1], contigs_data[2],
+                                  contigs_data[2], contigs_data[2]])
+
+                indices = np.arange(len(reader))
+                batch_size = 10
+                num_translations = 3
+                max_len = 500
+                data_gen = Models_FL.BinaryDatasetTrain(reader, indices, batch_size, features, max_len,
+                                                        num_translations, 1.0, cached, False)
+                data_gen.indices.sort()  # indices will now be 0,1,1,1,2,2,2
+                self.assertEqual(7, len(data_gen.indices))
+                Models_FL.BinaryDatasetTrain.select_intervals = MagicMock(
+                    return_value=[(0, 500),  # 1st contig
+                                  (0, 300), (50, 300), (40, 340),  # 2nd contig
+                                  (500, 1000), (450, 950), (440, 940)  # 3rd contig
+                                  ])
+
+                x, y = data_gen.__getitem__(0)
+                self.assertEqual((batch_size, max_len, len(features)), x.shape)
+                self.assertIsNone(np.testing.assert_array_equal([0, 1, 1, 1, 1, 1, 1, 0, 0, 0], y))
+
+                # first contig
+                for i in range(500):
+                    self.assertEqual(i, x[0][i][0])
+                    self.assertEqual(500 + i, x[0][i][1])
+                    self.assertEqual(1000 + i, x[0][i][2])
+                # 2nd contig 1st translation
+                for i in range(300):
+                    self.assertEqual(1500 + i, x[1][i][0])
+                    self.assertEqual(1800 + i, x[1][i][1])
+                    self.assertEqual(2100 + i, x[1][i][2])
+                for i in range(300, 500):
+                    for j in range(3):
+                        self.assertEqual(0, x[1][i][j])
+
+                # 2nd contig 2nd translation (truncate 50 bases from the left)
+                for i in range(250):
+                    self.assertEqual(1550 + i, x[2][i][0])
+                    self.assertEqual(1850 + i, x[2][i][1])
+                    self.assertEqual(2150 + i, x[2][i][2])
+                for i in range(250, 500):
+                    for j in range(3):
+                        self.assertEqual(0, x[2][i][j])
+
+                # 2nd contig 3rd translation (shift 40 bases to the right)
+                for i in range(40):  # first 40 positions are zero
+                    for j in range(3):
+                        self.assertEqual(0, x[3][i][j])
+                for i in range(300):  # positions 40-340 contain the actual contig data
+                    self.assertEqual(1500 + i, x[3][40 + i][0])
+                    self.assertEqual(1800 + i, x[3][40 + i][1])
+                    self.assertEqual(2100 + i, x[3][40 + i][2])
+                for i in range(340, 500):  # positions 340+ are again zero
+                    for j in range(3):
+                        self.assertEqual(0, x[3][i][j])
+
+                # 3rd contig 1st translation (last 500 bases of contig 3)
+                for i in range(500):
+                    self.assertEqual(2900 + i, x[4][i][0])
+                    self.assertEqual(3900 + i, x[4][i][1])
+                    self.assertEqual(4900 + i, x[4][i][2])
+
+                # 3rd contig 2nd translation (bases 450 to 950 of contig 3)
+                for i in range(500):
+                    self.assertEqual(2850 + i, x[5][i][0])
+                    self.assertEqual(3850 + i, x[5][i][1])
+                    self.assertEqual(4850 + i, x[5][i][2])
+
+                # 3rd contig 3rd translation (bases 440 to 940 of contig 3)
+                for i in range(500):
+                    self.assertEqual(2840 + i, x[6][i][0])
+                    self.assertEqual(3840 + i, x[6][i][1])
+                    self.assertEqual(4840 + i, x[6][i][2])
+
+                for idx in range(7, 10):
+                    for i in range(500):
+                        for j in range(3):
+                            self.assertEqual(0, x[idx][i][j])
 
     def test_gen_train_data(self):
         for cached in [False, True]:
