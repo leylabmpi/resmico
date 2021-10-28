@@ -249,6 +249,10 @@ class BinaryDataset(tf.keras.utils.Sequence):
             pos = self.expanded_feature_names.index('ref_base')
             self.expanded_feature_names[pos: pos + 1] = ['ref_base_A', 'ref_base_C', 'ref_base_G', 'ref_base_T']
 
+    def get_bytes_per_base(self):
+        return sum(
+            [np.dtype(Reader.feature_np_types[Reader.feature_names.index(f)]).itemsize for f in self.feature_names])
+
 
 class BinaryDatasetTrain(BinaryDataset):
     def __init__(self, reader: ContigReader, indices: list[int], batch_size: int, feature_names: list[str],
@@ -288,6 +292,12 @@ class BinaryDatasetTrain(BinaryDataset):
         for _ in range(self.num_translations):
             self.positive_idx += positive_idx
         self.on_epoch_end()  # select negative samples, multiply positive samples, and shuffle indices
+
+        total_length = sum([self.reader.contigs[i].length for i in self.indices])
+        mem_gb = total_length * self.get_bytes_per_base() / 1e9;
+        logging.info(f'Positive samples: {len(self.positive_idx)}. Negative samples: {len(self.negative_idx)}. '
+                     f'Total length: {total_length}. Bytes per base: {self.get_bytes_per_base()}. '
+                     f'Memory required {mem_gb:.2f}GB')
 
         # determine the position of the num_query_A/C/G/T fields, so that we can apply inversion
         self.pos_A = self.pos_C = self.pos_G = self.pos_T = -1
@@ -415,7 +425,8 @@ class BinaryDatasetTrain(BinaryDataset):
                     to_merge[j] = contig_features[feature_name][start_idx:end_idx]
                 else:  # contig will be left-padded with zeros
                     assert (
-                    contig_len == end_idx - start_idx, f'Contig len is {contig_len}, st-end are {start_idx}-{end_idx}')
+                        contig_len == end_idx - start_idx,
+                        f'Contig len is {contig_len}, st-end are {start_idx}-{end_idx}')
                     to_merge[j] = contig_features[feature_name][0:end_idx - start_idx]
             stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
             if end_idx <= contig_len:
@@ -469,9 +480,7 @@ class BinaryDatasetEval(BinaryDataset):
         """ Divide the validation indices into mini-batches of total size < #total_memory_bytes """
         # there seems to be an overhead for each position; 10 is just a guess to avoid running out of memory
         # on the GPU
-        bytes_per_base = 10 + sum(
-            [np.dtype(Reader.feature_np_types[Reader.feature_names.index(f)]).itemsize for f in self.feature_names])
-        logging.info(f'Using {bytes_per_base} bytes for each contig position')
+        bytes_per_base = 10 + self.get_bytes_per_base()
 
         current_indices = []
         batch_list = []
