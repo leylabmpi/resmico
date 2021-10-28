@@ -102,7 +102,7 @@ def main(args):
         start = time.time()
         resmico.net.fit(x=train_data_tf,
                         epochs=num_epochs,
-                        steps_per_epoch=len(eval_data),
+                        steps_per_epoch=len(train_data),
                         workers=args.n_procs,
                         use_multiprocessing=True,
                         max_queue_size=max(args.n_procs, 10),
