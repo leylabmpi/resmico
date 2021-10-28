@@ -1,6 +1,6 @@
 import numpy as np
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import patch, MagicMock
 
 from resmico import Models_FL
 from resmico import ContigReader
@@ -36,9 +36,11 @@ class TestBinaryDatasetTrain(unittest.TestCase):
                 self.assertEqual(300, intervals[0][1])
             else:  # contig will be shifted to left
                 self.assertTrue(0 <= intervals[0][0] <= 50)
-                self.assertEqual(300 + intervals[0][0], intervals[0][1])
+                self.assertEqual(300 + intervals[0][0], intervals[0][1],
+                                 f'Intervals are: {intervals[0][0]}  {intervals[0][1]}')
 
-    def test_contig_selection(self):
+    @patch('resmico.Models_FL.BinaryDatasetTrain.select_intervals')
+    def test_contig_selection(self, mock_intervals):
         """
         Make sure that the returned contig features (when using translations) are correct.
 
@@ -75,11 +77,10 @@ class TestBinaryDatasetTrain(unittest.TestCase):
                                                         num_translations, 1.0, cached, False)
                 data_gen.indices.sort()  # indices will now be 0,1,1,1,2,2,2
                 self.assertEqual(7, len(data_gen.indices))
-                Models_FL.BinaryDatasetTrain.select_intervals = MagicMock(
-                    return_value=[(0, 500),  # 1st contig
-                                  (0, 300), (50, 300), (40, 340),  # 2nd contig
-                                  (500, 1000), (450, 950), (440, 940)  # 3rd contig
-                                  ])
+                mock_intervals.return_value = [(0, 500),  # 1st contig
+                                               (0, 300), (50, 300), (40, 340),  # 2nd contig
+                                               (500, 1000), (450, 950), (440, 940)  # 3rd contig
+                                               ]
 
                 x, y = data_gen.__getitem__(0)
                 self.assertEqual((batch_size, max_len, len(features)), x.shape)
