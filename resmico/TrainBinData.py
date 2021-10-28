@@ -98,7 +98,7 @@ def main(args):
 
     logging.info('Training network...')
     num_epochs = 2
-    eval_data_tf = eval_data_tf.repeat(num_epochs)
+    train_data_tf = train_data_tf.repeat(num_epochs)
     auc_val_best = 0.5
     for epoch in range(math.ceil(args.n_epochs / num_epochs)):
         start = time.time()
