@@ -297,7 +297,7 @@ class BinaryDatasetTrain(BinaryDataset):
         mem_gb = total_length * self.get_bytes_per_base() / 1e9
         logging.info(f'Batch count: {int(np.ceil(len(self.indices) / self.batch_size))}')
         logging.info(
-            f'Positive samples: {len(self.positive_idx)}. Negative samples: {len(self.negative_idx) * self.fraq_neg}. '
+            f'Pos samples: {len(self.positive_idx)}. Neg samples: {len(self.negative_idx) * self.fraq_neg:.0f}. '
             f'Total length: {total_length}. Bytes per base: {self.get_bytes_per_base()}. Req memory: {mem_gb:.2f}GB')
 
         # determine the position of the num_query_A/C/G/T fields, so that we can apply inversion
@@ -392,7 +392,7 @@ class BinaryDatasetTrain(BinaryDataset):
                 # we need to also shift negative samples, otherwise the network learns that samples starting with zero
                 # are the positive samples and reach perfect training scores and horrible validation scores
                 else:
-                    start_idx = np.random.randint(0, max(1, cd.length-250))
+                    start_idx = np.random.randint(0, max(1, cd.length - 250))
                     end_idx = start_idx + cd.length
             result.append((start_idx, end_idx))
         return result

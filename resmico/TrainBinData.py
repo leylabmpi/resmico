@@ -95,8 +95,10 @@ def main(args):
     eval_data_tf = eval_data_tf.prefetch(4 * strategy.num_replicas_in_sync)
     eval_data_tf = eval_data_tf.with_options(options)  # avoids Tensorflow ugly console barf
 
+
     logging.info('Training network...')
-    num_epochs = 2  # todo: last run monitor more often
+    num_epochs = 2
+    eval_data_tf = eval_data_tf.repeat(num_epochs)
     auc_val_best = 0.5
     for epoch in range(math.ceil(args.n_epochs / num_epochs)):
         start = time.time()
