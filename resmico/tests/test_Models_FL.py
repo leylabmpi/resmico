@@ -77,7 +77,7 @@ class TestBinaryDatasetTrain(unittest.TestCase):
                                                         num_translations, 1.0, cached, False)
                 data_gen.indices.sort()  # indices will now be 0,1,1,1,2,2,2
                 self.assertEqual(7, len(data_gen.indices))
-                mock_intervals.return_value = [(0, 500),  # 1st contig
+                mock_intervals.return_value = [(200, 700),  # 1st contig, shifted to right 200 positions
                                                (0, 300), (50, 300), (40, 340),  # 2nd contig
                                                (500, 1000), (450, 950), (440, 940)  # 3rd contig
                                                ]
@@ -87,10 +87,13 @@ class TestBinaryDatasetTrain(unittest.TestCase):
                 self.assertIsNone(np.testing.assert_array_equal([0, 1, 1, 1, 1, 1, 1, 0, 0, 0], y))
 
                 # first contig
-                for i in range(500):
-                    self.assertEqual(i, x[0][i][0])
-                    self.assertEqual(500 + i, x[0][i][1])
-                    self.assertEqual(1000 + i, x[0][i][2])
+                for i in range(300):
+                    self.assertEqual(i, x[0][i+200][0])
+                    self.assertEqual(500 + i, x[0][i+200][1])
+                    self.assertEqual(1000 + i, x[0][i+200][2])
+                for i in range(200):
+                    for j in range(3):
+                        self.assertEqual(0, x[0][i][j])
                 # 2nd contig 1st translation
                 for i in range(300):
                     self.assertEqual(1500 + i, x[1][i][0])

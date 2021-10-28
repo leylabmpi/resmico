@@ -433,12 +433,12 @@ class BinaryDatasetTrain(BinaryDataset):
                     assert (
                         contig_len == end_idx - start_idx,
                         f'Contig len is {contig_len}, st-end are {start_idx}-{end_idx}')
-                    to_merge[j] = contig_features[feature_name][0:end_idx - start_idx]
+                    to_merge[j] = contig_features[feature_name][0:min(max_len - start_idx, contig_len)]
             stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
             if end_idx <= contig_len:
                 x[i][:length, :] = stacked_features
             else:
-                x[i][start_idx:end_idx, :] = stacked_features
+                x[i][start_idx:min(max_len, end_idx), :] = stacked_features
         if self.do_cache:
             self.cache[index] = (x, np.array(y))
         if self.show_progress:
