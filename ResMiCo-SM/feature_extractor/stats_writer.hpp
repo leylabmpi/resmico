@@ -67,14 +67,14 @@ struct QueueItem {
 class StatsWriter {
   public:
     /**
-     * @param out_dir directory where output files (features.tsv.gz, stats, toc, etc. will be written
+     * @param out_dir directory where output files (features.tsv.gz, stats, toc, etc. will be
+     * written
      * @param chunk_size size of contig chunks created around breakpoints
-     * @param breakpoint_offset maximum (random) offset around the breakpoint for the middle of the
-     * chunk
+     * @param breakpoint_margin how close to the contig edge can a breakpoint be
      */
     StatsWriter(const std::filesystem::path &out_dir,
                 uint32_t chunk_size,
-                uint32_t breakpoint_offset);
+                uint32_t breakpoint_margin);
 
     ~StatsWriter() {
         tsv_stream.close();
@@ -95,9 +95,9 @@ class StatsWriter {
 
     void write_summary();
 
-  public:
-    // exposing some information for testing
-    std::vector<int32_t> offsets;
+  public: // Visible for testing
+    std::pair<uint32_t, uint32_t> get_chunk_interval(const MisassemblyInfo &mis,
+                                                     uint32_t contig_len);
 
   private:
     ContigStats contig_stats;
@@ -142,6 +142,6 @@ class StatsWriter {
     /** The sums of squares of all the non-nan position for each of the 12 float metrics */
     std::vector<double> sums2;
 
-    /* Selects a chunk of size chunk_size around the breaking point */
-    std::uniform_int_distribution<int32_t> offset_gen;
+    /* Selects the position of the breakpoint in the contig chunk */
+    std::uniform_int_distribution<uint32_t> breakpoint_gen;
 };

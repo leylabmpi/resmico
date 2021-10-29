@@ -164,7 +164,7 @@ TEST(ParseMisassemblyInfo, File) {
 TEST(ParseMisassemblyInfo, FileDifferentFormat) {
     std::unordered_map<std::string, std::vector<MisassemblyInfo>> mi_info
             = parse_misassembly_info("data/metaQUAST.mis_contigs2.info");
-    ASSERT_EQ(3, mi_info.size());
+    ASSERT_EQ(4, mi_info.size());
 
     auto contig1 = mi_info.find("NODE_3_length_359076_cov_40.230120");
     ASSERT_EQ("NODE_3_length_359076_cov_40.230120", contig1->first);
@@ -208,6 +208,20 @@ TEST(ParseMisassemblyInfo, FileDifferentFormat) {
     ASSERT_EQ(1763, mi3.break_end);
 
     ASSERT_EQ(MisassemblyInfo::INTERSPECIES_TRANSLOCATION, mi3.type);
+
+    auto contig4 = mi_info.find("k141_92042");
+    ASSERT_EQ("k141_92042", contig4->first);
+    std::vector<MisassemblyInfo> mis4 = contig4->second;
+    ASSERT_EQ(1, mis4.size());
+
+    MisassemblyInfo mi4 = mis4[0];
+    ASSERT_EQ(5, mi4.start);
+    ASSERT_EQ(1074, mi4.end);
+
+    ASSERT_EQ(241, mi4.break_start);
+    ASSERT_EQ(255, mi4.break_end);
+
+    ASSERT_EQ(MisassemblyInfo::INTERSPECIES_TRANSLOCATION, mi4.type);
 }
 
 } // namespace
