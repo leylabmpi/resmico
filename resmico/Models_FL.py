@@ -383,7 +383,7 @@ class BinaryDatasetTrain(BinaryDataset):
                     lo, hi = cd.breakpoints[0]
                     if True:  # np.random.randint(0, 2) == 0:  # flip a coin
                         # in this case, the contig will be left-truncated
-                        max_translation = 30
+                        max_translation = 1
                         start_idx = np.random.randint(0, min(max_translation, max(1, lo - min_padding)))
                     else:
                         # end_idx will be larger than cd.length, which signals that the contig needs to be padded with
