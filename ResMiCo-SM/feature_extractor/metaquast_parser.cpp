@@ -131,17 +131,6 @@ std::vector<MisassemblyInfo> parse_line(const std::string &line) {
     }
 }
 
-/**
- * Converting metaQUAST extensive misassembly report file to an interval tree.
- * Metaquast special encodings:
- *      (relocation, inconsistency = 278087)
- *      (relocation, inconsistency = -129 [linear representation of circular genome])
- * @param report_file the name of the metaQuast report file
- * @param contig_lens maps misassembled contig name to contig length
- * @return {contigID : itree}, where itree[start:end] : [misassembly_type, inverted_positions?, pos1
- * or pos2?]
- * @note MetaQUAST position info is 1-indexed
- */
 std::unordered_map<std::string, std::vector<MisassemblyInfo>>
 parse_misassembly_info(const std::string &report_file) {
     std::unordered_map<std::string, std::vector<MisassemblyInfo>> contig_to_misassembly;
