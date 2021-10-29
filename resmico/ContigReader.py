@@ -318,6 +318,8 @@ class ContigReader:
                             for break_point in all_breakpoints:
                                 start_stop = break_point.split('-')
                                 breakpoints.append((int(start_stop[0]), int(start_stop[1])))
+                                if (int(start_stop[0]) + int(start_stop[1])) // 200 > 10:
+                                    print(f'Weird contig {toc_file}, {start_stop[0]}-{start_stop[1]}')
                                 breakpoint_hist[min(49,(int(start_stop[0]) + int(start_stop[1])) // 200)] += 1
 
                     contig_info = ContigInfo(row[0], contig_fname, int(row[1]), offset, size_bytes, int(row[2]),
