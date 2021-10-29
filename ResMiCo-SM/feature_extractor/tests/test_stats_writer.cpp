@@ -466,7 +466,6 @@ TEST(StatsWriter, get_chunk_interval) {
     for (uint32_t trial = 0; trial < 50; ++trial) {
         std::tie(start, stop) = under_test.get_chunk_interval(mis, contig_len);
         ASSERT_EQ(chunk_size, stop - start);
-        ASSERT_TRUE(0 <= start);
         ASSERT_TRUE(stop <= contig_len);
         ASSERT_TRUE(start <= mis.break_start);
         uint32_t mid = (mis.break_start + mis.break_end) / 2;
