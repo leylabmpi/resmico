@@ -109,7 +109,7 @@ def main(args):
                         use_multiprocessing=True,
                         max_queue_size=max(args.n_procs, 10),
                         callbacks=[tb_logs],
-                        verbose=2)
+                        verbose=1)
         duration = time.time() - start
         logging.info(f'Fitted {num_epochs} epochs in {duration:.0f}s')
         train_data.on_epoch_end()
@@ -120,7 +120,7 @@ def main(args):
                                            workers=args.n_procs,
                                            use_multiprocessing=True,
                                            max_queue_size=max(args.n_procs, 10),
-                                           verbose=2)
+                                           verbose=1)
         eval_data_predicted_y = eval_data.group(eval_data_flat_y)
 
         auc_val = average_precision_score(eval_data_y, eval_data_predicted_y)
