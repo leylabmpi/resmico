@@ -492,7 +492,7 @@ class BinaryDatasetEval(BinaryDataset):
         """ Divide the validation indices into mini-batches of total size < #total_memory_bytes """
         # there seems to be an overhead for each position; 10 is just a guess to avoid running out of memory
         # on the GPU
-        bytes_per_base = 10 + self.get_bytes_per_base()
+        bytes_per_base = 10 + 4 * len(self.feature_names)  # assume each feature is a 4-byte float
 
         current_indices = []
         batch_list = []
