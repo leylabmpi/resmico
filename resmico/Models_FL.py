@@ -287,11 +287,9 @@ class BinaryDatasetTrain(BinaryDataset):
             # the cache maps a batch index to feature_name:feature_data pairs
             self.cache: dict[int, dict[str, np.array]] = {}
         self.negative_idx = [i for i in indices if reader.contigs[i].misassembly == 0]
-        positive_idx = [i for i in indices if reader.contigs[i].misassembly == 1]
-        self.positive_idx = []
-        for _ in range(self.num_translations):
-            self.positive_idx += positive_idx
-        self.on_epoch_end()  # select negative samples, multiply positive samples, and shuffle indices
+        self.positive_idx = [i for i in indices if reader.contigs[i].misassembly == 1]
+
+        self.on_epoch_end()  # select negative samples and shuffle indices
 
         total_length = sum([self.reader.contigs[i].length for i in self.indices])
         mem_gb = total_length * self.get_bytes_per_base() / 1e9
@@ -314,7 +312,7 @@ class BinaryDatasetTrain(BinaryDataset):
 
         # used for testing; contains the interval selected from each contig longer than #self.max_len
         self.intervals = []
-        # used for testing; tests set this to false in order to make the interval predictible for contigs
+        # used for testing; tests set this to false in order to make the interval predictable for contigs
         # shorter than max_len
         self.translate_short_contigs = True
 
@@ -326,7 +324,12 @@ class BinaryDatasetTrain(BinaryDataset):
         """
         np.random.shuffle(self.negative_idx)
         negative_count = int(self.fraq_neg * len(self.negative_idx))
-        self.indices = self.positive_idx + self.negative_idx[:negative_count]
+        negative_idx = self.negative_idx[:negative_count]
+        self.indices = []
+        for _ in range(self.num_translations):
+            self.indices += self.positive_idx
+            self.indices += negative_idx
+
         np.random.shuffle(self.indices)
         if self.do_cache:
             self.cache_indices = np.arange(len(self))
@@ -377,7 +380,7 @@ class BinaryDatasetTrain(BinaryDataset):
                         pass  # corner case for tiny tiny max-len, probably never reached
                 end_idx = start_idx + max_len
             elif translate_short_contigs:
-                max_translation = 5
+                max_translation = 30
                 if cd.breakpoints:
                     # we have a mis-assembled contig which is shorter than max_len; pick a random starting point
                     # before the breaking point or shift the contig to the right to enforce some translation invariance

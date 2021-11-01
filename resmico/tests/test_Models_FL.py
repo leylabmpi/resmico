@@ -66,8 +66,8 @@ class TestBinaryDatasetTrain(unittest.TestCase):
                         st += c.length
                     contigs_data.append(contig_data)
                 reader.read_contigs = MagicMock(
-                    return_value=[contigs_data[0], contigs_data[1], contigs_data[1], contigs_data[1], contigs_data[2],
-                                  contigs_data[2], contigs_data[2]])
+                    return_value=[contigs_data[0], contigs_data[0], contigs_data[0], contigs_data[1], contigs_data[1],
+                                  contigs_data[1], contigs_data[2], contigs_data[2], contigs_data[2]])
 
                 indices = np.arange(len(reader))
                 batch_size = 10
@@ -75,77 +75,95 @@ class TestBinaryDatasetTrain(unittest.TestCase):
                 max_len = 500
                 data_gen = Models_FL.BinaryDatasetTrain(reader, indices, batch_size, features, max_len,
                                                         num_translations, 1.0, cached, False)
-                data_gen.indices.sort()  # indices will now be 0,1,1,1,2,2,2
-                self.assertEqual(7, len(data_gen.indices))
-                mock_intervals.return_value = [(200, 700),  # 1st contig, shifted to right 200 positions
-                                               (0, 300), (50, 300), (40, 340),  # 2nd contig
-                                               (500, 1000), (450, 950), (440, 940)  # 3rd contig
-                                               ]
+                data_gen.indices.sort()  # indices will now be 0,0,0,1,1,1,2,2,2
+                self.assertEqual(9, len(data_gen.indices))  # we have 3 contigs, each translated 3 times
+                self.assertEqual([0,0,0,1,1,1,2,2,2], data_gen.indices)
+                mock_intervals.return_value = [
+                    # 1st contig: full contig, shifted to left 100, shifted to right 200
+                    (0, 500), (100, 500), (200, 700),
+                    (0, 300), (50, 300), (40, 340),  # 2nd contig
+                    (500, 1000), (450, 950), (440, 940)  # 3rd contig
+                ]
 
                 x, y = data_gen.__getitem__(0)
                 self.assertEqual((batch_size, max_len, len(features)), x.shape)
-                self.assertIsNone(np.testing.assert_array_equal([0, 1, 1, 1, 1, 1, 1, 0, 0, 0], y))
+                # the last zero is just padding
+                self.assertIsNone(np.testing.assert_array_equal([0, 0, 0, 1, 1, 1, 1, 1, 1, 0], y))
 
-                # first contig
-                for i in range(300):
-                    self.assertEqual(i, x[0][i+200][0])
-                    self.assertEqual(500 + i, x[0][i+200][1])
-                    self.assertEqual(1000 + i, x[0][i+200][2])
-                for i in range(200):
-                    for j in range(3):
-                        self.assertEqual(0, x[0][i][j])
-                # 2nd contig 1st translation
-                for i in range(300):
-                    self.assertEqual(1500 + i, x[1][i][0])
-                    self.assertEqual(1800 + i, x[1][i][1])
-                    self.assertEqual(2100 + i, x[1][i][2])
-                for i in range(300, 500):
+                # first contig, 1st translation (no translation, full contig)
+                for i in range(500):
+                    self.assertEqual(i, x[0][i][0])
+                    self.assertEqual(500 + i, x[0][i][1])
+                    self.assertEqual(1000 + i, x[0][i][2])
+                # first contig, 2nd translation (shift 100 to left)
+                for i in range(400):
+                    self.assertEqual(100 + i, x[1][i][0])
+                    self.assertEqual(600 + i, x[1][i][1])
+                    self.assertEqual(1100 + i, x[1][i][2])
+                for i in range(400,500):
                     for j in range(3):
                         self.assertEqual(0, x[1][i][j])
+                # first contig, 3rd translation (shift 200 to right)
+                for i in range(300):
+                    self.assertEqual(i, x[2][i+200][0])
+                    self.assertEqual(500 + i, x[2][i+200][1])
+                    self.assertEqual(1000 + i, x[2][i+200][2])
+                for i in range(200):
+                    for j in range(3):
+                        self.assertEqual(0, x[2][i][j])
+
+                # 2nd contig 1st translation
+                for i in range(300):
+                    self.assertEqual(1500 + i, x[3][i][0])
+                    self.assertEqual(1800 + i, x[3][i][1])
+                    self.assertEqual(2100 + i, x[3][i][2])
+                for i in range(300, 500):
+                    for j in range(3):
+                        self.assertEqual(0, x[3][i][j])
 
                 # 2nd contig 2nd translation (truncate 50 bases from the left)
                 for i in range(250):
-                    self.assertEqual(1550 + i, x[2][i][0])
-                    self.assertEqual(1850 + i, x[2][i][1])
-                    self.assertEqual(2150 + i, x[2][i][2])
+                    self.assertEqual(1550 + i, x[4][i][0])
+                    self.assertEqual(1850 + i, x[4][i][1])
+                    self.assertEqual(2150 + i, x[4][i][2])
                 for i in range(250, 500):
                     for j in range(3):
-                        self.assertEqual(0, x[2][i][j])
+                        self.assertEqual(0, x[4][i][j])
 
                 # 2nd contig 3rd translation (shift 40 bases to the right)
                 for i in range(40):  # first 40 positions are zero
                     for j in range(3):
-                        self.assertEqual(0, x[3][i][j])
+                        self.assertEqual(0, x[5][i][j])
                 for i in range(300):  # positions 40-340 contain the actual contig data
-                    self.assertEqual(1500 + i, x[3][40 + i][0])
-                    self.assertEqual(1800 + i, x[3][40 + i][1])
-                    self.assertEqual(2100 + i, x[3][40 + i][2])
+                    self.assertEqual(1500 + i, x[5][40 + i][0])
+                    self.assertEqual(1800 + i, x[5][40 + i][1])
+                    self.assertEqual(2100 + i, x[5][40 + i][2])
                 for i in range(340, 500):  # positions 340+ are again zero
                     for j in range(3):
-                        self.assertEqual(0, x[3][i][j])
+                        self.assertEqual(0, x[5][i][j])
 
                 # 3rd contig 1st translation (last 500 bases of contig 3)
                 for i in range(500):
-                    self.assertEqual(2900 + i, x[4][i][0])
-                    self.assertEqual(3900 + i, x[4][i][1])
-                    self.assertEqual(4900 + i, x[4][i][2])
+                    self.assertEqual(2900 + i, x[6][i][0])
+                    self.assertEqual(3900 + i, x[6][i][1])
+                    self.assertEqual(4900 + i, x[6][i][2])
 
                 # 3rd contig 2nd translation (bases 450 to 950 of contig 3)
                 for i in range(500):
-                    self.assertEqual(2850 + i, x[5][i][0])
-                    self.assertEqual(3850 + i, x[5][i][1])
-                    self.assertEqual(4850 + i, x[5][i][2])
+                    self.assertEqual(2850 + i, x[7][i][0])
+                    self.assertEqual(3850 + i, x[7][i][1])
+                    self.assertEqual(4850 + i, x[7][i][2])
 
                 # 3rd contig 3rd translation (bases 440 to 940 of contig 3)
                 for i in range(500):
-                    self.assertEqual(2840 + i, x[6][i][0])
-                    self.assertEqual(3840 + i, x[6][i][1])
-                    self.assertEqual(4840 + i, x[6][i][2])
+                    self.assertEqual(2840 + i, x[8][i][0])
+                    self.assertEqual(3840 + i, x[8][i][1])
+                    self.assertEqual(4840 + i, x[8][i][2])
 
-                for idx in range(7, 10):
-                    for i in range(500):
-                        for j in range(3):
-                            self.assertEqual(0, x[idx][i][j])
+                # padding
+                for i in range(500):
+                    for j in range(3):
+                        self.assertEqual(0, x[9][i][j])
 
     def test_gen_train_data(self):
         for cached in [False, True]:
