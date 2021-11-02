@@ -18,7 +18,7 @@
  * ```
  */
 struct MisassemblyInfo {
-    // the start of the interval that is "bad", i.e. misassembled,  (only used for the
+    // the start of the interval that is "bad", i.e. mis-assembled,  (only used for the
     // Extensive_misassembly_by_pos field)
     uint32_t start;
     uint32_t end;

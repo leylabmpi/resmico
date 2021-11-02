@@ -230,12 +230,16 @@ class Generator(tf.keras.utils.Sequence):
         return x_mb, y_mb
 
 
-class BinaryDataBase(tf.keras.utils.Sequence):
-    def __init__(self, reader: ContigReader, indices: list[int], feature_names: list[str]):
+class BinaryDataset(tf.keras.utils.Sequence):
+    """
+    Base class for resmico binary datasets, i.e. datasets reading data from binary files
+    (as opposed to the old CSV files)
+    """
+
+    def __init__(self, reader: ContigReader, feature_names: list[str]):
         """
        Arguments:
            - reader: ContigReader instance with all the contig metadata
-           - indices: positions of the contigs in #reader that will be used
            - feature_names: the names of the features to read and use for training
         """
         self.reader = reader
@@ -246,7 +250,7 @@ class BinaryDataBase(tf.keras.utils.Sequence):
             self.expanded_feature_names[pos: pos + 1] = ['ref_base_A', 'ref_base_C', 'ref_base_G', 'ref_base_T']
 
 
-class BinaryData(BinaryDataBase):
+class BinaryDatasetTrain(BinaryDataset):
     def __init__(self, reader: ContigReader, indices: list[int], batch_size: int, feature_names: list[str],
                  max_len: int, num_translations: int, fraq_neg: float, do_cache: bool, show_progress: bool):
 
@@ -263,7 +267,7 @@ class BinaryData(BinaryDataBase):
               read from disk
             - show_progress - if true, a progress bar will show the evaluation progress
         """
-        BinaryDataBase.__init__(self, reader, indices, feature_names)
+        BinaryDataset.__init__(self, reader, feature_names)
         logging.info(
             f'Creating training data generator. Batch size: {batch_size}, Max length: {max_len} Frac neg: {fraq_neg}, '
             f'Features: {len(self.expanded_feature_names)}, Contigs: {len(indices)},  Caching: {do_cache}')
@@ -298,6 +302,9 @@ class BinaryData(BinaryDataBase):
 
         # used for testing; contains the interval selected from each contig longer than #self.max_len
         self.intervals = []
+        # used for testing; tests set this to false in order to make the interval predictible for contigs
+        # shorter than max_len
+        self.translate_short_contigs = True
 
     def on_epoch_end(self):
         """
@@ -318,17 +325,17 @@ class BinaryData(BinaryDataBase):
 
     def __getitem__(self, index):
         x, y = self._get_data(index)
-        if self.pos_A > 0 and self.pos_T > 0 and random.randint(0, 1) == 1:
-            x[:, [self.pos_A, self.pos_T]] = x[:, [self.pos_T, self.pos_A]]
-            if self.pos_ref >= 0:
-                x[:, [self.pos_ref, self.pos_ref + 3]] = x[:, [self.pos_ref + 3, self.pos_ref]]
-        if self.pos_G > 0 and self.pos_C > 0 and random.randint(0, 1) == 1:
-            x[:, [self.pos_C, self.pos_G]] = x[:, [self.pos_G, self.pos_C]]
-            if self.pos_ref >= 0:
-                x[:, [self.pos_ref + 1, self.pos_ref + 2]] = x[:, [self.pos_ref + 2, self.pos_ref + 1]]
+        # if self.pos_A > 0 and self.pos_T > 0 and random.randint(0, 1) == 1:
+        #     x[:, [self.pos_A, self.pos_T]] = x[:, [self.pos_T, self.pos_A]]
+        #     if self.pos_ref >= 0:
+        #         x[:, [self.pos_ref, self.pos_ref + 3]] = x[:, [self.pos_ref + 3, self.pos_ref]]
+        # if self.pos_G > 0 and self.pos_C > 0 and random.randint(0, 1) == 1:
+        #     x[:, [self.pos_C, self.pos_G]] = x[:, [self.pos_G, self.pos_C]]
+        #     if self.pos_ref >= 0:
+        #         x[:, [self.pos_ref + 1, self.pos_ref + 2]] = x[:, [self.pos_ref + 2, self.pos_ref + 1]]
         return x, y
 
-    def select_intervals(contig_data: list[ContigInfo], max_len: int):
+    def select_intervals(contig_data: list[ContigInfo], max_len: int, translate_short_contigs: bool):
         """
         Selects intervals from contigs such that the breakpoints are within the interval.
         For contigs shorter than #max_len, the entire contig is selected.
@@ -340,6 +347,8 @@ class BinaryData(BinaryDataBase):
         for cd in contig_data:
             start_idx = 0
             end_idx = cd.length
+            min_padding = 50  # minimum amount of bases to keep around the breakpoint
+
             if cd.length > max_len:
                 # when no breakpoints are present, we can choose any segment within the contig
                 # however, if the contig contains a breakpoint, we must choose a segment that includes the breakpoint
@@ -348,11 +357,26 @@ class BinaryData(BinaryDataBase):
                 else:  # select an interval that contains the first breakpoint
                     # TODO: add one item for each breakpoint
                     lo, hi = cd.breakpoints[0]
-                    min_padding = 50  # minimum amount of bases to keep around the breakpoint
-                    start_lo = max(0, hi - max_len + min_padding)
-                    start_hi = min(cd.length - max_len, lo - min_padding)
-                    start_idx = np.random.randint(start_lo, start_hi)
+                    if max_len >= min_padding + (hi - lo):
+                        start_lo = max(0, hi - max_len + min_padding)
+                        start_hi = min(cd.length - max_len, lo - min_padding)
+                        start_idx = np.random.randint(start_lo, start_hi)
+                    else:
+                        pass  # corner case for tiny tiny max-len, probably never reached
                 end_idx = start_idx + max_len
+            elif translate_short_contigs and cd.breakpoints:
+                # we have a mis-assembled contig which is shorter than max_len; pick a random starting point
+                # before the breaking point or shift the contig to the right to enforce some translation invariance
+                lo, hi = cd.breakpoints[0]
+                if np.random.randint(0, 2) == 0:  # flip a coin
+                    # in this case, the contig will be left-truncated
+                    start_idx = np.random.randint(0, max(1, lo - min_padding))
+                else:
+                    # end_idx will be larger than cd.length, which signals that the contig needs to be padded with
+                    # start_idx zeros to the left
+                    start_idx = np.random.randint(0, min(max(1, lo - min_padding), max_len - cd.length))
+                    end_idx = start_idx + cd.length
+
             result.append((start_idx, end_idx))
         return result
 
@@ -379,16 +403,23 @@ class BinaryData(BinaryDataBase):
         # Create the numpy array storing all the features for all the contigs in #batch_indices
         x = np.zeros((self.batch_size, max_len, len(features_data[0])))
 
-        contig_intervals = BinaryData.select_intervals(contig_data, max_len)
+        contig_intervals = BinaryDatasetTrain.select_intervals(contig_data, max_len, self.translate_short_contigs)
         for i, contig_features in enumerate(features_data):
+            contig_len = contig_data[i].length
             to_merge = [None] * len(self.expanded_feature_names)
             start_idx, end_idx = contig_intervals[i]
             length = end_idx - start_idx
             for j, feature_name in enumerate(self.expanded_feature_names):
-                to_merge[j] = contig_features[feature_name][start_idx:end_idx]
+                if end_idx <= contig_len:
+                    to_merge[j] = contig_features[feature_name][start_idx:end_idx]
+                else:  # contig will be left-padded with zeros
+                    assert (contig_len == end_idx - start_idx)
+                    to_merge[j] = contig_features[feature_name][0:end_idx - start_idx]
             stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
-            x[i][:length, :] = stacked_features
-
+            if end_idx <= contig_len:
+                x[i][:length, :] = stacked_features
+            else:
+                x[i][start_idx:end_idx, :] = stacked_features
         if self.do_cache:
             self.cache[index] = (x, np.array(y))
         if self.show_progress:
@@ -396,7 +427,7 @@ class BinaryData(BinaryDataBase):
         return x, np.array(y)
 
 
-class BinaryDataEval(BinaryDataBase):
+class BinaryDatasetEval(BinaryDataset):
     def __init__(self, reader: ContigReader, indices: list[int], feature_names: list[str], window: int, step: int,
                  total_memory_bytes: int, cache_results: bool, show_progress: bool):
 
@@ -414,14 +445,15 @@ class BinaryDataEval(BinaryDataBase):
             show_progress - if true, a progress bar will show the evaluation progress
         """
         logging.info(f'Creating evaluation data generator. Window: {window}, Step: {step}, Caching: {cache_results}')
-        BinaryDataBase.__init__(self, reader, indices, feature_names)
-        self.all_indices = indices
+        BinaryDataset.__init__(self, reader, feature_names)
+        indices = sorted(indices, key=lambda x: reader.contigs[x].length)
+        self.indices = indices
         self.window = window
         self.step = step
         # creates batches of contigs such that the total memory used by features in each batch is < total_memory_bytes
         # chunk_counts[batch_count][idx] represents the number of chunks for the contig number #idx
         # in the batch #batch_count
-        self.batch_list, self.chunk_counts = self._create_batch_list(reader.contigs, total_memory_bytes)
+        self.batch_list, self.chunk_counts = self._create_batch_list(reader.contigs, indices, total_memory_bytes)
 
         # flattened ground truth for each eval contig
         self.y = [0 if self.reader.contigs[i].misassembly == 0 else 1 for b in self.batch_list for i in b]
@@ -431,7 +463,7 @@ class BinaryDataEval(BinaryDataBase):
         if cache_results:
             self.data = [None] * len(self.batch_list)
 
-    def _create_batch_list(self, contig_data: list[ContigInfo], total_memory_bytes: int):
+    def _create_batch_list(self, contig_data: list[ContigInfo], indices: list[int], total_memory_bytes: int):
         """ Divide the validation indices into mini-batches of total size < #total_memory_bytes """
         # there seems to be an overhead for each position; 10 is just a guess to avoid running out of memory
         # on the GPU
@@ -445,7 +477,7 @@ class BinaryDataEval(BinaryDataBase):
         batch_chunk_count = 0  # total number of contig chunks in the current batch
         chunk_counts = []  # number of chunks in each batch
         counts = []
-        for idx in self.all_indices:
+        for idx in indices:
             contig_len = contig_data[idx].length
             # number of chunks for the current contig
             curr_chunk_count = 1 + max(0, math.ceil((contig_len - self.window) / self.step))
@@ -485,9 +517,9 @@ class BinaryDataEval(BinaryDataBase):
             total_len += sum(batch)
             grouped_y_size += len(batch)
         assert len(y) == total_len, f'y has length {len(y)}, chunk_counts total length is {total_len}'
-        assert grouped_y_size == len(self.all_indices), \
-            f'Index map has {grouped_y_size} elements, while indices has {len(self.all_indices)} elements'
-        grouped_y = np.zeros(len(self.all_indices))
+        assert grouped_y_size == len(self.indices), \
+            f'Index map has {grouped_y_size} elements, while indices has {len(self.indices)} elements'
+        grouped_y = np.zeros(len(self.indices))
         i = 0
         j = 0
         for batch in self.chunk_counts:

@@ -57,6 +57,7 @@ params:
   asmbl_errors:
     metaquast: --max-ref-number 0 --min-contig 1000 --min-identity 95 --extensive-mis-size 100
                --no-html --no-plots --no-icarus --no-gc --no-snps --no-sv
+    keep_genomes: False
   # mapping reads to contigs
   map:
     samtools: ""

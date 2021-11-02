@@ -57,8 +57,9 @@ def main(args):
     logging.info(f'Using {len(train_idx)} contigs for training, {len(eval_idx)} contigs for evaluation')
 
     # create data generators for training data and evaluation data
-    train_data = Models.BinaryData(reader, train_idx, args.batch_size, args.features, args.max_len,
-                                   args.num_translations, args.fraq_neg, args.cache, args.log_progress)
+    train_data = Models.BinaryDatasetTrain(reader, train_idx, args.batch_size, args.features, args.max_len,
+                                           args.num_translations, args.fraq_neg, args.cache_train or args.cache,
+                                           args.log_progress)
     # convert the slow Keras train_data of type Sequence to a tf.data object
     # first, we convert the keras sequence into a generator-like object
     data_iter = lambda: (s for s in train_data)
@@ -80,9 +81,9 @@ def main(args):
     train_data_tf = train_data_tf.with_options(options)
 
     np.seterr(all='raise')
-    eval_data = Models.BinaryDataEval(reader, eval_idx, args.features, args.max_len, args.max_len // 2,
-                                      int(args.gpu_eval_mem_gb * 1e9 * 0.8), args.cache_validation or args.cache,
-                                      args.log_progress)
+    eval_data = Models.BinaryDatasetEval(reader, eval_idx, args.features, args.max_len, args.max_len // 2,
+                                         int(args.gpu_eval_mem_gb * 1e9 * 0.8), args.cache_validation or args.cache,
+                                         args.log_progress)
 
     eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_data.all_indices])
 
@@ -106,6 +107,7 @@ def main(args):
                         max_queue_size=max(args.n_procs, 10),
                         callbacks=[tb_logs],
                         verbose=0)
+
         duration = time.time() - start
         logging.info(f'Fitted {num_epochs} epochs in {duration:.0f}s')
         train_data.on_epoch_end()
@@ -115,7 +117,8 @@ def main(args):
         eval_data_flat_y = resmico.predict(x=eval_data_tf,
                                            workers=args.n_procs,
                                            use_multiprocessing=True,
-                                           max_queue_size=max(args.n_procs, 10))
+                                           max_queue_size=max(args.n_procs, 10),
+                                           verbose=2)
         eval_data_predicted_y = eval_data.group(eval_data_flat_y)
 
         auc_val = average_precision_score(eval_data_y, eval_data_predicted_y)

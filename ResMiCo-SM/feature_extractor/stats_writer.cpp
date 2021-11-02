@@ -178,11 +178,12 @@ void write_data(const std::string &reference,
 
 StatsWriter::StatsWriter(const std::filesystem::path &out_dir,
                          uint32_t chunk_size,
-                         uint32_t breakpoint_offset)
+                         uint32_t breakpoint_margin)
     : out_dir(out_dir),
       chunk_size(chunk_size),
       random_engine(std::mt19937(54321)),
-      offset_gen(std::uniform_int_distribution<int32_t>(-breakpoint_offset, breakpoint_offset)) {
+      breakpoint_gen(std::uniform_int_distribution<uint32_t>(breakpoint_margin,
+                                                             chunk_size - breakpoint_margin)) {
     std::error_code ec1;
     std::filesystem::create_directories(out_dir, ec1);
     if (ec1) {
@@ -222,6 +223,29 @@ std::string to_string(const std::vector<MisassemblyInfo> &mis, uint32_t start = 
     }
     std::string result = s.str();
     return result[result.size() - 1] == ',' ? result.substr(0, result.size() - 1) : "-";
+}
+
+
+std::pair<uint32_t, uint32_t> StatsWriter::get_chunk_interval(const MisassemblyInfo &mis,
+                                                              uint32_t contig_len) {
+    uint32_t mid = (mis.break_start + mis.break_end) / 2;
+    uint32_t start, stop;
+    if (contig_len < chunk_size) {
+        start = 0;
+        stop = contig_len;
+    } else {
+        uint32_t breakpoint_pos = breakpoint_gen(random_engine);
+        start = std::max(0, static_cast<int32_t>(mid - breakpoint_pos));
+        if (start > mis.break_start) { // unlikely, but may happen if break_start << break_end
+            start = mis.break_start;
+        }
+        stop = start + chunk_size;
+        if (stop > contig_len) {
+            start -= (stop - contig_len);
+            stop -= (stop - contig_len);
+        }
+    }
+    return { start, stop };
 }
 
 void StatsWriter::write_stats(QueueItem &&item,
@@ -339,7 +363,6 @@ void StatsWriter::write_stats(QueueItem &&item,
     append_file(binary_features, binary_stats_file);
 
     // ----- start selecting a chunk and writing its stats to disk ----
-    offsets.clear(); // only used for testing
     uint32_t start, stop;
     if (mis.empty()) {
         // select a chunk of length chunk_size randomly from the string
@@ -359,22 +382,10 @@ void StatsWriter::write_stats(QueueItem &&item,
     } else {
         // create one stats file for each mis-assembly breakpoint
         for (uint32_t i = 0; i < mis.size(); ++i) {
-            uint32_t mid = (mis[i].break_start + mis[i].break_end) / 2;
-            if (mis[i].break_end < chunk_size / 2
-                || mis[i].break_start + chunk_size / 2 > contig_len) {
-                logger()->info("Dismissed breaking point {}/{} for contig {}. Too close to edge.",
-                               mis[i].break_start, mis[i].break_end, item.reference_name);
-                continue;
-            }
-            int32_t offset = offset_gen(random_engine);
-            offsets.push_back(offset);
-            start = chunk_size / 2 < mid + offset ? mid + offset - chunk_size / 2 : chunk_size / 2;
-            stop = start + chunk_size;
-            // move the chunk to left if it exceeds contig bounds
-            if (stop > contig_len) {
-                start = contig_len - chunk_size;
-                stop = contig_len;
-            }
+            std::tie(start, stop) = get_chunk_interval(mis[i], contig_len);
+
+            assert(mis[i].break_start >= start);
+
             std::string fname
                     = out_dir / (item.reference_name + ".mis" + std::to_string(i) + ".gz");
             write_data(item.reference, fname, cs, start, stop);

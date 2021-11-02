@@ -148,6 +148,7 @@ rule MGSIM_reads:
         export PATH=$CONDA_PREFIX/bin:$PATH
         OUTDIR=`dirname {output.read1}`
         OUTDIR=`dirname $OUTDIR`
+        OUTDIR=`dirname $OUTDIR`
         TMPDIR=$OUTDIR"_tmp"
         mkdir -p $OUTDIR 2> {log}
         rm -rf $TMPDIR 2>> {log}

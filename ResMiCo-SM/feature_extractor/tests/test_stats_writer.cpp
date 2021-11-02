@@ -456,6 +456,40 @@ TEST(WriteData, TwoReadsFeaturesAndStats) {
     ASSERT_NEAR(j["al_score"]["sum2"]["stdev"], std_dev_al_score_sum2, 1e-5);
 }
 
+TEST(StatsWriter, get_chunk_interval) {
+    uint32_t chunk_size = 500;
+    uint32_t breakpoint_margin = 50;
+    StatsWriter under_test("/tmp/bla", chunk_size, breakpoint_margin);
+    uint32_t start, stop;
+    MisassemblyInfo mis = { 500, 1500, 510, 515, MisassemblyInfo::Type::RELOCATION };
+    uint32_t contig_len = 2000;
+    for (uint32_t trial = 0; trial < 50; ++trial) {
+        std::tie(start, stop) = under_test.get_chunk_interval(mis, contig_len);
+        ASSERT_EQ(chunk_size, stop - start);
+        ASSERT_TRUE(stop <= contig_len);
+        ASSERT_TRUE(start <= mis.break_start);
+        uint32_t mid = (mis.break_start + mis.break_end) / 2;
+        ASSERT_TRUE(static_cast<int32_t>(start)
+                    >= static_cast<int32_t>(mid + breakpoint_margin - chunk_size));
+    }
+}
+
+TEST(StatsWriter, get_chunk_interval_contig_short) {
+    uint32_t chunk_size = 500;
+    uint32_t breakpoint_margin = 50;
+    StatsWriter under_test("/tmp/bla", chunk_size, breakpoint_margin);
+    uint32_t start, stop;
+    MisassemblyInfo mis = { 300, 400, 210, 215, MisassemblyInfo::Type::RELOCATION };
+    for (uint32_t contig_len : { 500, 450 }) {
+        for (uint32_t trial = 0; trial < 50; ++trial) {
+            std::tie(start, stop) = under_test.get_chunk_interval(mis, contig_len);
+            ASSERT_EQ(0, start);
+            ASSERT_EQ(contig_len, stop);
+        }
+    }
+}
+
+
 // Make sure that the chunks stats (data around breaking points) are correct
 TEST(WriteData, TwoReadsChunkStats) {
     std::unordered_map<std::string, std::vector<MisassemblyInfo>> mi_info
@@ -616,13 +650,6 @@ TEST(WriteData, TwoReadsChunkStatsWithOffset) {
                     = contig_stats(contig_names[i], reference_seq, bam_files[i], 4, false);
             QueueItem item = { std::move(stats), contig_names[i], reference_seq };
             stats_writer.write_stats(std::move(item), "metaSpades", mi_info[contig_names[i]]);
-            if (i == 0) {
-                offset = stats_writer.offsets[0];
-                ASSERT_EQ(1, stats_writer.offsets.size());
-                ASSERT_TRUE(offset >= -5 && offset <= 5);
-            } else {
-                ASSERT_EQ(0, stats_writer.offsets.size());
-            }
         }
         stats_writer.write_summary();
 
