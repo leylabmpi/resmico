@@ -105,7 +105,7 @@ def main(args):
                         use_multiprocessing=True,
                         max_queue_size=max(args.n_procs, 10),
                         callbacks=[tb_logs],
-                        verbose=1)
+                        verbose=0)
         duration = time.time() - start
         logging.info(f'Fitted {num_epochs} epochs in {duration:.0f}s')
         train_data.on_epoch_end()
