@@ -436,9 +436,8 @@ class BinaryDatasetTrain(BinaryDataset):
                 if end_idx <= contig_len:
                     to_merge[j] = contig_features[feature_name][start_idx:end_idx]
                 else:  # contig will be left-padded with zeros
-                    assert (
-                        contig_len == end_idx - start_idx,
-                        f'Contig len is {contig_len}, st-end are {start_idx}-{end_idx}')
+                    assert contig_len == end_idx - start_idx, f'Contig len is {contig_len}, ' \
+                                                              f'st-end are {start_idx}-{end_idx}'
                     to_merge[j] = contig_features[feature_name][0:min(max_len - start_idx, contig_len)]
             stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
             if end_idx <= contig_len:
@@ -520,7 +519,7 @@ class BinaryDatasetEval(BinaryDataset):
 
         return batch_list, chunk_counts
 
-    def group(self, y):
+    def group(self, y, method=max):
         """
         Groups results for contigs chunked into multiple windows (because they were too long)
         by selecting the maximum value for each window
@@ -543,7 +542,7 @@ class BinaryDatasetEval(BinaryDataset):
         j = 0
         for batch in self.chunk_counts:
             for chunk_count in batch:
-                grouped_y[i] = max(y[j:j + chunk_count])
+                grouped_y[i] = method(y[j:j + chunk_count])
                 i += 1
                 j += chunk_count
         return grouped_y

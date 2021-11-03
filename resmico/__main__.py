@@ -18,9 +18,10 @@ def main(args=None):
     if args is None:
         args = sys.argv[1:]
 
-    desc = 'ResMiCo: increasing the quality of metagenome-assembledgenomes with deep learning'
+    desc = 'ResMiCo: mis-assembly detection with deep learning'
     epi = """DESCRIPTION:
     Usage: resmico <subcommand> <subcommand_params>
+    subcommand is one of: train, predict, evaluate
     Example: resmico train -h
 
     For general info, see https://github.com/leylabmpi/resmico/
