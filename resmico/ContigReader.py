@@ -216,8 +216,8 @@ class ContigReader:
 
     def read_contigs(self, contig_infos: list[ContigInfo]):
         """
-        Reads the features from the given contig feature files and returns the result in a list of len(contig_files)
-        arrays of shape (contig_len, num_features).
+        Reads the features for the given contig_infos from file and returns the result in a list of len(contig_infos)
+        dictionaries of {'feature_name', feature_data}
         """
         start = timer()
         self.normalize_time = 0
@@ -297,6 +297,7 @@ class ContigReader:
 
         contig_count = 0
         total_len = 0
+        breakpoint_hist = np.zeros(50)
         for fname in file_list:
             toc_file = fname[:-len('stats')] + 'toc'
             contig_fname = fname[:-len('stats')] + 'features_binary'
@@ -317,6 +318,9 @@ class ContigReader:
                             for break_point in all_breakpoints:
                                 start_stop = break_point.split('-')
                                 breakpoints.append((int(start_stop[0]), int(start_stop[1])))
+                                if (int(start_stop[0]) + int(start_stop[1])) // 200 > 10:
+                                    print(f'Weird contig {toc_file}, {start_stop[0]}-{start_stop[1]}')
+                                breakpoint_hist[min(49,(int(start_stop[0]) + int(start_stop[1])) // 200)] += 1
 
                     contig_info = ContigInfo(row[0], contig_fname, int(row[1]), offset, size_bytes, int(row[2]),
                                              breakpoints)
@@ -328,6 +332,7 @@ class ContigReader:
         logging.info(
             f'Found {contig_count} contigs, {total_len} total length, '
             f'memory needed (assuming fraq-neg=1) {total_len * Reader.bytes_per_base / 1e9:6.2f}GB')
+        logging.info(f'Breakpoint location histogram: {breakpoint_hist}')
 
     def read_file(self, fname):
         toc_file = fname[:-len('stats')] + 'toc'

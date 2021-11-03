@@ -85,7 +85,7 @@ def main(args):
                                          int(args.gpu_eval_mem_gb * 1e9 * 0.8), args.cache_validation or args.cache,
                                          args.log_progress)
 
-    eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_data.all_indices])
+    eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_data.indices])
 
     # convert the slow Keras eval_data of type Sequence to a tf.data object
     data_iter = lambda: (s for s in eval_data)
@@ -95,18 +95,21 @@ def main(args):
     eval_data_tf = eval_data_tf.prefetch(4 * strategy.num_replicas_in_sync)
     eval_data_tf = eval_data_tf.with_options(options)  # avoids Tensorflow ugly console barf
 
+
     logging.info('Training network...')
-    num_epochs = 2  # todo: last run monitor more often
+    num_epochs = 2
+    train_data_tf = train_data_tf.repeat(num_epochs)
     auc_val_best = 0.57
     for epoch in range(math.ceil(args.n_epochs / num_epochs)):
         start = time.time()
         resmico.net.fit(x=train_data_tf,
                         epochs=num_epochs,
+                        steps_per_epoch=len(train_data),
                         workers=args.n_procs,
                         use_multiprocessing=True,
                         max_queue_size=max(args.n_procs, 10),
                         callbacks=[tb_logs],
-                        verbose=0)
+                        verbose=2)
 
         duration = time.time() - start
         logging.info(f'Fitted {num_epochs} epochs in {duration:.0f}s')
