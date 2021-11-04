@@ -3,9 +3,9 @@ import logging
 import sys
 from resmico import Train_BigD
 from resmico import TrainBinData
+from resmico.Commands import arguments
 
 
-# functions
 def parse_args(curr_args=None, subparsers=None):
     desc = 'Train model'
     epi = """DESCRIPTION:
@@ -45,23 +45,8 @@ def parse_args(curr_args=None, subparsers=None):
         parser = argparse.ArgumentParser(description=desc, epilog=epi,
                                          formatter_class=argparse.RawTextHelpFormatter)
 
-    # args
-    parser.add_argument('--big-data', action='store_true', default=False,
-                        help='True if working with large datasets in h5 format')
-    parser.add_argument('--feature-files-path', default='', type=str,
-                        help='Path to h5 feature files')
-    parser.add_argument('--feature-file-table', default='', type=str,
-                        help='Table listing feature table files (see DESCRIPTION)')
-    parser.add_argument('--technology', default='all-asmbl', type=str,
-                        help='Assembler name in the data_path. "all-asmbl" will use all assemblers (default: %(default)s)')
-    parser.add_argument('--save-path', default='model', type=str,
-                        help='Where to save training weights and logs (default: %(default)s)')
-    parser.add_argument('--save-name', default='deepmased', type=str,
-                        help='Prefix for name in the save-path (default: %(default)s)')
     parser.add_argument('--val-path', default=None, type=str,
                         help='Path to validation data (default: %(default)s)')
-    parser.add_argument('--val-ind-f', default=None, type=str,
-                        help='Validation data indices (default: %(default)s)')
     parser.add_argument('--early-stop', action='store_true', default=False,
                         help='Early stopping. Can be used only if val-path provided (default: %(default)s)')
     parser.add_argument('--net-type', default='cnn_resnet', type=str,
@@ -83,71 +68,28 @@ def parse_args(curr_args=None, subparsers=None):
                         help='N of training epochs (default: %(default)s)')
     parser.add_argument('--batch-size', default=6, type=int,
                         help='Batch size (default: %(default)s)')
-    parser.add_argument('--max-len', default=10000, type=int,
-                        help='Max contig len, fixed input for CNN (default: %(default)s)')
     parser.add_argument('--dropout', default=0, type=float,
                         help='Rate of dropout (default: %(default)s)')
     parser.add_argument('--n-folds', default=-1, type=int,
                         help='How many folds for CV. Use "-1" to skip & pool all data for training (default: %(default)s)')
     parser.add_argument('--lr-init', default=0.001, type=float,
                         help='Size of test set (default: %(default)s)')
-    parser.add_argument('--seed', default=12, type=int,
-                        help='Seed used for numpy.random and tf (default: %(default)s)')
-    parser.add_argument('--n-procs', default=1, type=int,
-                        help='Number of parallel processes (default: %(default)s)')
     parser.add_argument('--fraq-neg', default=1., type=float,
                         help='Portion of samples to keep in overrepresented class (default: %(default)s)')
-    parser.add_argument('--features', nargs='+', help='Features to use for training', default=[
-        'ref_base',
-        'num_query_A',
-        'num_query_C',
-        'num_query_G',
-        'num_query_T',
-        'coverage',
-        'num_proper_Match',
-        'num_orphans_Match',
-        'max_insert_size_Match',
-        'mean_insert_size_Match',
-        'min_insert_size_Match',
-        'stdev_insert_size_Match',
-        'mean_mapq_Match',
-        'min_mapq_Match',
-        'stdev_mapq_Match',
-        'mean_al_score_Match',
-        'min_al_score_Match',
-        'stdev_al_score_Match',
-        'seq_window_perc_gc',
-        'num_proper_SNP',
-    ])
-    parser.add_argument('--binary-data', dest='binary_data', action='store_true',
-                        help='If present, train on binary data rather than (deprecated) h5 '
-                             'files transformed from zipped tsv feature files')
-    parser.add_argument('--log-level', default='INFO',
-                        help='Logging level, one of [CRITICAL, FATAL, ERROR, WARNING, INFO, DEBUG]')
-    parser.add_argument('--chunks', dest='chunks', action='store_true',
-                        help='If set, use the toc_chunked/binary_features_chunked data instead of toc/binary_features')
-    parser.add_argument('--normalize-stdev', dest='normalize_stdev', action='store_true',
-                        help='If set, normalize the floating point values by dividing by their standard deviation')
-    parser.add_argument('--no-normalize-stdev', dest='normalize_stdev', action='store_false',
-                        help='If set, the standard deviation of floating point value features won\'t be normalized')
-    parser.set_defaults(normalize_stdev=True)
     parser.add_argument('--cache', dest='cache', action='store_true',
                         help='If set, train+validation data be cached in memory')
     parser.add_argument('--cache-validation', dest='cache_validation', action='store_true',
                         help='If set, the validation data will be cached in memory for quicker access time')
     parser.add_argument('--cache-train', dest='cache_train', action='store_true',
                         help='If set, the train data will be cached in memory for quicker access time')
-    parser.add_argument('--no-cython', dest='no_cython', action='store_true',
-                        help='If set, data is read using pure Python rather than using the Cython bindings '
-                             '(about 2x slower, only useful for debugging')
-    parser.add_argument('--gpu-eval-mem-gb', default=3.0, type=float,
-                        help='Amount of GPU memory used for validation data (amount will be divided per GPU)')
     parser.add_argument('--log-progress', default=False,
                         help='If enabled, a progressbar will be shown for training/evaluation progress',
                         dest='log_progress', action='store_true')
     parser.add_argument('--num-translations', default=1, type=int,
                         help='How many variations to select around the breaking point for positive samples '
                              '(i.e. misassembled contigs) that are longer than max-len')
+
+    arguments.add_common_args(parser)
 
     # running test args
     if curr_args:
@@ -158,8 +100,6 @@ def parse_args(curr_args=None, subparsers=None):
 
 
 def main(args=None):
-    # Input
-    print(sys.path)
     if args is None:
         args = parse_args(sys.argv[1:])
 
