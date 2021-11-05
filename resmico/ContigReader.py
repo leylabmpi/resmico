@@ -175,7 +175,7 @@ class ContigReader:
     """
 
     def __init__(self, input_dir: str, feature_names: list[str], process_count: int, is_chunked: bool,
-                 no_cython: bool = False):
+                 no_cython: bool = False, stats_file: str = ''):
         """
         Arguments:
             - input_dir: location on disk where the feature data is stored
@@ -183,6 +183,7 @@ class ContigReader:
             - process_count: number of processes to use for loading data in parallel
             - is_chunked: if True, we are loading data from contig chunks (toc_chunked rather than toc)
             - no_cython: whether to read data from disk using pure Python or using Cython bindings
+            - stats_file: if present, specifies a stats file to read the statistics for each feature from
         """
         # means and stdevs are a map from feature name to the mean and standard deviation precomputed for that
         # feature across *all* contigs, stored as a tuple
@@ -202,14 +203,25 @@ class ContigReader:
 
         self.feature_mask: list[int] = [1 if feature in feature_names else 0 for feature in Reader.feature_names]
 
-        logging.info('Computing global means and standard deviations. Looking for stats/toc files...')
+        logging.info('Looking for stats/toc files...')
         file_list = [str(f) for f in list(Path(input_dir).rglob("**/stats"))]
         logging.info(f'Processing {len(file_list)} stats/toc files found in {input_dir} ...')
         if not file_list:
             logging.info('Nothing to do.')
             exit(0)
 
-        self._load_contigs_metadata(input_dir, file_list)
+        if stats_file == '':
+            logging.info('Computing global means and standard deviations...')
+            self._compute_mean_stdev(file_list)
+        else:
+            logging.info(f'Loading feature means and standard deviations from {stats_file}')
+            means_stdevs = json.load(open(stats_file))
+            self.means, self.stdevs = means_stdevs['means'], means_stdevs['stdevs']
+
+        self._load_contigs_metadata(file_list)
+        out_file = os.path.join(input_dir, 'stats.json')
+        json.dump({'means': self.means, 'stdevs': self.stdevs}, open(out_file, 'w'))
+        logging.info(f'Means and stdevs saved to: {out_file}')
 
     def __len__(self):
         return len(self.contigs)
@@ -247,7 +259,7 @@ class ContigReader:
                       f'normalize: {self.normalize_time:5.2f}s')
         return result
 
-    def _load_contigs_metadata(self, input_dir, file_list):
+    def _compute_mean_stdev(self, file_list):
         mean_count = 0
         stddev_count = 0
         metrics = ['insert_size', 'mapq', 'al_score']  # insert size, mapping quality, alignment quality
@@ -259,7 +271,6 @@ class ContigReader:
                 self.means[feature_name] = 0
                 self.stdevs[feature_name] = 0
 
-        # TODO: check if parallelization is needed and helps
         for fname in file_list:
             with open(fname) as f:
                 stats = json.load(f)
@@ -295,6 +306,7 @@ class ContigReader:
         logging.info(
             'Computed global means and stdevs:\n' + separator + '\n' + header + '\n' + values + '\n' + separator)
 
+    def _load_contigs_metadata(self, file_list):
         contig_count = 0
         total_len = 0
         breakpoint_hist = np.zeros(50)
@@ -318,9 +330,7 @@ class ContigReader:
                             for break_point in all_breakpoints:
                                 start_stop = break_point.split('-')
                                 breakpoints.append((int(start_stop[0]), int(start_stop[1])))
-                                if (int(start_stop[0]) + int(start_stop[1])) // 200 > 10:
-                                    print(f'Weird contig {toc_file}, {start_stop[0]}-{start_stop[1]}')
-                                breakpoint_hist[min(49,(int(start_stop[0]) + int(start_stop[1])) // 200)] += 1
+                                breakpoint_hist[min(49, (int(start_stop[0]) + int(start_stop[1])) // 200)] += 1
 
                     contig_info = ContigInfo(row[0], contig_fname, int(row[1]), offset, size_bytes, int(row[2]),
                                              breakpoints)

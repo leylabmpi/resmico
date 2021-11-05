@@ -19,7 +19,7 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
 
     logging.info('Loading contig data...')
     reader = ContigReader.ContigReader(args.feature_files_path, args.features, args.n_procs, args.chunks,
-                                       args.no_cython)
+                                       args.no_cython, args.stats_file)
 
     if args.val_ind_f:
         logging.info(f'Using indices in {args.val_ind_f} for prediction')

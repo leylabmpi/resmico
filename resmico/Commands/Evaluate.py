@@ -59,6 +59,7 @@ def parse_args(test_args=None, subparsers=None):
                         help='use deepmased')
     parser.add_argument('--longdir', action='store_true', default=False,
                         help='Six variable parameters in simulation (default: %(default)s)')
+    parser.add_argument('--stats-file', default='', help='File containing the feature means/stdevs of the training set')
     arguments.add_common_args(parser)
 
     # running test args
