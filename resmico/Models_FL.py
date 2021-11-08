@@ -256,7 +256,8 @@ class BinaryDataset(tf.keras.utils.Sequence):
 
 class BinaryDatasetTrain(BinaryDataset):
     def __init__(self, reader: ContigReader, indices: list[int], batch_size: int, feature_names: list[str],
-                 max_len: int, num_translations: int, fraq_neg: float, do_cache: bool, show_progress: bool):
+                 max_len: int, num_translations: int, max_translation_bases: int, fraq_neg: float, do_cache: bool,
+                 show_progress: bool):
 
         """
         Arguments:
@@ -266,6 +267,7 @@ class BinaryDatasetTrain(BinaryDataset):
             - feature_names: the names of the features to read and use for training
             - max_len: maximum acceptable length for a contig. Longer contigs are clipped at a random position
             - num_translations: how many variations to select around the breaking point for positive samples
+            - max_translation_bases: maximum number of bases to translate left or right
             - fraq_neg: fraction of samples to keep in the overrepresented class (contigs with no misassembly)
             - do_cahe: if True, the generator will cache the features in memory the first time they are
               read from disk
@@ -279,6 +281,7 @@ class BinaryDatasetTrain(BinaryDataset):
         self.batch_size = batch_size
         self.max_len = max_len
         self.num_translations = num_translations
+        self.max_translation_bases = max_translation_bases
         self.fraq_neg = fraq_neg
         self.do_cache = do_cache
         self.show_progress = show_progress
@@ -350,7 +353,8 @@ class BinaryDatasetTrain(BinaryDataset):
         #         x[:, [self.pos_ref + 1, self.pos_ref + 2]] = x[:, [self.pos_ref + 2, self.pos_ref + 1]]
         return x, y
 
-    def select_intervals(contig_data: list[ContigInfo], max_len: int, translate_short_contigs: bool):
+    def select_intervals(contig_data: list[ContigInfo], max_len: int, translate_short_contigs: bool,
+                         max_translation_bases: int):
         """
         Selects intervals from contigs such that the breakpoints are within the interval.
         For contigs shorter than #max_len, the entire contig is selected.
@@ -380,14 +384,13 @@ class BinaryDatasetTrain(BinaryDataset):
                         pass  # corner case for tiny tiny max-len, probably never reached
                 end_idx = start_idx + max_len
             elif translate_short_contigs:
-                max_translation = 30
                 if cd.breakpoints:
                     # we have a mis-assembled contig which is shorter than max_len; pick a random starting point
                     # before the breaking point or shift the contig to the right to enforce some translation invariance
                     lo, hi = cd.breakpoints[0]
                     if True:  # np.random.randint(0, 2) == 0:  # flip a coin for left/right shift
                         # in this case, the contig will be left-truncated
-                        start_idx = np.random.randint(0, min(max_translation, max(1, lo - min_padding)))
+                        start_idx = np.random.randint(0, min(max_translation_bases, max(1, lo - min_padding)))
                     else:
                         # end_idx will be larger than cd.length, which signals that the contig needs to be padded with
                         # start_idx zeros to the left
@@ -397,7 +400,7 @@ class BinaryDatasetTrain(BinaryDataset):
                 # #  (or ending with zero) are the positive samples and reach perfect training scores and horrible
                 # validation scores
                 else:
-                    start_idx = np.random.randint(0, max_translation)
+                    start_idx = np.random.randint(0, max_translation_bases)
             result.append((start_idx, end_idx))
         return result
 
@@ -426,7 +429,8 @@ class BinaryDatasetTrain(BinaryDataset):
         # Create the numpy array storing all the features for all the contigs in #batch_indices
         x = np.zeros((self.batch_size, max_len, len(features_data[0])))
 
-        contig_intervals = BinaryDatasetTrain.select_intervals(contig_data, max_len, self.translate_short_contigs)
+        contig_intervals = BinaryDatasetTrain.select_intervals(contig_data, max_len, self.translate_short_contigs,
+                                                               self.max_translation_bases)
         for i, contig_features in enumerate(features_data):
             contig_len = contig_data[i].length
             to_merge = [None] * len(self.expanded_feature_names)

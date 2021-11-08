@@ -86,8 +86,12 @@ def parse_args(curr_args=None, subparsers=None):
                         help='If enabled, a progressbar will be shown for training/evaluation progress',
                         dest='log_progress', action='store_true')
     parser.add_argument('--num-translations', default=1, type=int,
-                        help='How many variations to select around the breaking point for positive samples '
+                        help='How many variations to select for each sample (for positive samples, '
+                             'the variation will be around the breaking point)')
+    parser.add_argument('--max-translation-bases', default=1, type=int,
+                        help='Maximum number of bases to translate around the breaking point'
                              '(i.e. misassembled contigs) that are longer than max-len')
+
 
     arguments.add_common_args(parser)
 

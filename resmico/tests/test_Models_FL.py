@@ -16,7 +16,9 @@ class TestBinaryDatasetTrain(unittest.TestCase):
                        ContigInfo('Contig3', '/tmp/c3', 1000, 0, 0, 0, [(800, 900)])]
         max_len = 500
         for i in range(50):
-            intervals = Models_FL.BinaryDatasetTrain.select_intervals(contig_data, max_len, True)
+            intervals = Models_FL.BinaryDatasetTrain.select_intervals(contig_data, max_len,
+                                                                      translate_short_contigs=True,
+                                                                      max_translation_bases=30)
             self.assertTrue(0 <= intervals[0][0] <= 500)
             self.assertTrue(500 <= intervals[0][1] <= 1000)
             self.assertTrue(0 <= intervals[1][0] <= 50)
@@ -30,7 +32,7 @@ class TestBinaryDatasetTrain(unittest.TestCase):
         ]
         max_len = 350
         for i in range(50):
-            intervals = Models_FL.BinaryDatasetTrain.select_intervals(contig_data, max_len, True)
+            intervals = Models_FL.BinaryDatasetTrain.select_intervals(contig_data, max_len, True, 30)
             if intervals[0][1] - intervals[0][0] < 300:  # contig was truncated to left
                 self.assertTrue(0 <= intervals[0][0] <= 150)
                 self.assertEqual(300, intervals[0][1])
@@ -71,13 +73,13 @@ class TestBinaryDatasetTrain(unittest.TestCase):
 
                 indices = np.arange(len(reader))
                 batch_size = 10
-                num_translations = 3
                 max_len = 500
                 data_gen = Models_FL.BinaryDatasetTrain(reader, indices, batch_size, features, max_len,
-                                                        num_translations, 1.0, cached, False)
+                                                        num_translations=3, max_translation_bases=10, fraq_neg=1.0,
+                                                        do_cache=cached, show_progress=False)
                 data_gen.indices.sort()  # indices will now be 0,0,0,1,1,1,2,2,2
                 self.assertEqual(9, len(data_gen.indices))  # we have 3 contigs, each translated 3 times
-                self.assertEqual([0,0,0,1,1,1,2,2,2], data_gen.indices)
+                self.assertEqual([0, 0, 0, 1, 1, 1, 2, 2, 2], data_gen.indices)
                 mock_intervals.return_value = [
                     # 1st contig: full contig, shifted to left 100, shifted to right 200
                     (0, 500), (100, 500), (200, 700),
@@ -100,14 +102,14 @@ class TestBinaryDatasetTrain(unittest.TestCase):
                     self.assertEqual(100 + i, x[1][i][0])
                     self.assertEqual(600 + i, x[1][i][1])
                     self.assertEqual(1100 + i, x[1][i][2])
-                for i in range(400,500):
+                for i in range(400, 500):
                     for j in range(3):
                         self.assertEqual(0, x[1][i][j])
                 # first contig, 3rd translation (shift 200 to right)
                 for i in range(300):
-                    self.assertEqual(i, x[2][i+200][0])
-                    self.assertEqual(500 + i, x[2][i+200][1])
-                    self.assertEqual(1000 + i, x[2][i+200][2])
+                    self.assertEqual(i, x[2][i + 200][0])
+                    self.assertEqual(500 + i, x[2][i + 200][1])
+                    self.assertEqual(1000 + i, x[2][i + 200][2])
                 for i in range(200):
                     for j in range(3):
                         self.assertEqual(0, x[2][i][j])
@@ -172,7 +174,8 @@ class TestBinaryDatasetTrain(unittest.TestCase):
             batch_size = 10
             num_translations = 1
             data_gen = Models_FL.BinaryDatasetTrain(reader, indices, batch_size, Reader.feature_names, 500,
-                                                    num_translations, 1.0, cached, False)
+                                                    num_translations=1, max_translation_bases=0, fraq_neg=1.0,
+                                                    do_cache=cached, show_progress=False)
             data_gen.translate_short_contigs = False  # so that we know which interval is selected
             # set these to -1 in order to enforce NOT swapping A/T and G/C (for data enhancement)
             data_gen.pos_A = data_gen.pos_ref = data_gen.pos_C = -1

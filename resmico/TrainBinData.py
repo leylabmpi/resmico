@@ -57,8 +57,8 @@ def main(args):
 
     # create data generators for training data and evaluation data
     train_data = Models.BinaryDatasetTrain(reader, train_idx, args.batch_size, args.features, args.max_len,
-                                           args.num_translations, args.fraq_neg, args.cache_train or args.cache,
-                                           args.log_progress)
+                                           args.num_translations, args.max_translation_bases, args.fraq_neg,
+                                           args.cache_train or args.cache, args.log_progress)
     # convert the slow Keras train_data of type Sequence to a tf.data object
     # first, we convert the keras sequence into a generator-like object
     data_iter = lambda: (s for s in train_data)
@@ -93,7 +93,6 @@ def main(args):
         output_signature=(tf.TensorSpec(shape=(None, None, len(eval_data.expanded_feature_names)), dtype=tf.float32)))
     eval_data_tf = eval_data_tf.prefetch(4 * strategy.num_replicas_in_sync)
     eval_data_tf = eval_data_tf.with_options(options)  # avoids Tensorflow ugly console barf
-
 
     logging.info('Training network...')
     num_epochs = 2
