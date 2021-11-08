@@ -62,7 +62,7 @@ jobs:
       shell: bash -l {0}
       working-directory: ${{runner.workspace}}/ResMiCo/resmico/tests
       run: |
-        pytest ./test_models_fl.py ./test_contig_reader.py ./test_train.py
+        pytest ./test_models_fl.py ./test_contig_reader.py ./test_train.py ./test_evaluate.py
 #    - name: pytest
 #      shell: bash -l {0}
 #      run: |
