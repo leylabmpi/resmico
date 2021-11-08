@@ -1,5 +1,3 @@
-from concurrent.futures import ProcessPoolExecutor
-from concurrent.futures import Future
 import csv
 import gzip
 import json
@@ -13,7 +11,7 @@ import struct
 
 import numpy as np
 
-from resmico import Reader
+from resmico import reader
 
 
 def _replace_with_nan(data, feature_name, v):
@@ -201,7 +199,7 @@ class ContigReader:
         self.normalize_time = 0
         self.read_time = 0
 
-        self.feature_mask: list[int] = [1 if feature in feature_names else 0 for feature in Reader.feature_names]
+        self.feature_mask: list[int] = [1 if feature in feature_names else 0 for feature in reader.feature_names]
 
         logging.info('Looking for stats/toc files...')
         file_list = [str(f) for f in list(Path(input_dir).rglob("**/stats"))]
@@ -249,7 +247,7 @@ class ContigReader:
                 offsets.append(c.offset)
                 sizes.append(c.size_bytes)
 
-            features_raw = Reader.read_contigs_py(file_names, lengths, offsets, sizes, self.feature_mask,
+            features_raw = reader.read_contigs_py(file_names, lengths, offsets, sizes, self.feature_mask,
                                                   self.process_count)
             for f in features_raw:
                 features = _post_process_features(f)
@@ -341,7 +339,7 @@ class ContigReader:
 
         logging.info(
             f'Found {contig_count} contigs, {total_len} total length, '
-            f'memory needed (assuming fraq-neg=1) {total_len * Reader.bytes_per_base / 1e9:6.2f}GB')
+            f'memory needed (assuming fraq-neg=1) {total_len * reader.bytes_per_base / 1e9:6.2f}GB')
         logging.info(f'Breakpoint location histogram: {breakpoint_hist}')
 
     def read_file(self, fname):
@@ -392,7 +390,7 @@ class ContigReader:
 
     def _normalize(self, features):
         start = timer()
-        for feature_name in Reader.float_feature_names:
+        for feature_name in reader.float_feature_names:
             if feature_name not in features:
                 continue
             if feature_name not in self.means or feature_name not in self.stdevs:

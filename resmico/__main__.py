@@ -1,15 +1,13 @@
 #!/usr/bin/env python
-from __future__ import print_function
-
 __version__ = '0.3.1'
 
 import sys
 import argparse
 
-from resmico.Commands import Train
-from resmico.Commands import Predict
-from resmico.Commands import Evaluate
-from resmico.Commands import Preprocess
+from resmico.commands import train
+from resmico.commands import predict
+from resmico.commands import evaluate
+from resmico.commands import preprocess
 
 
 def main(args=None):
@@ -34,17 +32,17 @@ def main(args=None):
     # subparsers
     subparsers = parser.add_subparsers()
     # preprocess
-    preprocess = Preprocess.parse_args(subparsers=subparsers)
-    preprocess.set_defaults(func=Preprocess.main)
+    preprocessor = preprocess.parse_args(subparsers=subparsers)
+    preprocessor.set_defaults(func=preprocess.main)
     # train
-    train = Train.parse_args(subparsers=subparsers)
-    train.set_defaults(func=Train.main)
+    trainer = train.parse_args(subparsers=subparsers)
+    trainer.set_defaults(func=train.main)
     # predict
-    predict = Predict.parse_args(subparsers=subparsers)
-    predict.set_defaults(func=Predict.main)
+    predictor = predict.parse_args(subparsers=subparsers)
+    predictor.set_defaults(func=predict.main)
     # evaluate
-    evaluate = Evaluate.parse_args(subparsers=subparsers)
-    evaluate.set_defaults(func=Evaluate.main)
+    evaluator = evaluate.parse_args(subparsers=subparsers)
+    evaluator.set_defaults(func=evaluate.main)
 
     # parsing args
     if args:

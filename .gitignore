@@ -101,5 +101,5 @@ cmake-build-release/
 venv/
 .idea/
 # Cython generated files
-resmico/Reader.cpp
+resmico/reader.cpp
 resmico/Reader.html

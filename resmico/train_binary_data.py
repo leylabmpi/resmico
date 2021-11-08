@@ -9,8 +9,8 @@ import tensorflow as tf
 from tensorflow.keras import backend as K
 from sklearn.metrics import recall_score, average_precision_score
 
-from resmico import ContigReader
-from resmico import Models_FL as Models
+from resmico import contig_reader
+from resmico import models_fl as Models
 
 
 def main(args):
@@ -31,7 +31,7 @@ def main(args):
 
     #     # save model every epoch
     #     model_file = os.path.join(args.save_path, '_'.join(['mc_epoch', "{epoch}", args.save_name, 'model.h5']))
-    #     logging.info(f'Model will be saved to: {model_file}')
+    #     logging.info(f'model will be saved to: {model_file}')
     #     mc = ModelCheckpoint(model_file, save_freq="epoch", verbose=1)
 
     # tensorboard logs
@@ -40,8 +40,8 @@ def main(args):
                                              write_graph=True, write_images=True)
 
     logging.info('Loading contig data...')
-    reader = ContigReader.ContigReader(args.feature_files_path, args.features, args.n_procs, args.chunks,
-                                       args.no_cython)
+    reader = contig_reader.ContigReader(args.feature_files_path, args.features, args.n_procs, args.chunks,
+                                        args.no_cython)
 
     # separate data into 90% for training and 10% for evaluation
     all_idx = np.arange(len(reader))

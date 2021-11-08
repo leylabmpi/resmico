@@ -10,17 +10,18 @@ if platform.system() != 'Darwin':
     compile_args.append('-fopenmp')
     link_args.append('-fopenmp')
 
-sourcefiles = ['Reader.pyx', 'contig_reader.cpp']
+sourcefiles = ['reader.pyx', 'contig_reader.cpp']
 
-extensions = [Extension('Reader',
+extensions = [Extension('reader',
                         sourcefiles,
                         language="c++",
                         extra_compile_args=compile_args,
                         extra_link_args=link_args,
-                        libraries= ['z'],
+                        libraries=['z'],
                         )]
 
 setup(
-    ext_modules=cythonize(extensions, include_path=['.', numpy.get_include()], annotate=True),
+    ext_modules=cythonize(extensions, include_path=['.', numpy.get_include()], annotate=True,
+                          compiler_directives={'language_level': "3"}),
     include_dirs=['.', numpy.get_include()],
 )

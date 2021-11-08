@@ -7,7 +7,7 @@ import pickle
 from tensorflow.keras.models import load_model
 from sklearn.linear_model import LogisticRegression
 
-from resmico import Utils
+from resmico import utils
 
 
 def main(args):
@@ -21,7 +21,7 @@ def main(args):
     
     # Load and process data
     # Provide objective to load
-    custom_obj = {'class_recall_0':Utils.class_recall_0, 'class_recall_1': Utils.class_recall_1}
+    custom_obj = {'class_recall_0':utils.class_recall_0, 'class_recall_1': utils.class_recall_1}
     logging.info('Loading model...')
     ## pkl
     # logging.info('  Loading mstd...')
@@ -44,7 +44,7 @@ def main(args):
         os.makedirs(args.save_path)
 
 
-    feat_files_dic = Utils.read_feature_ft_realdata(args.feature_file_table)
+    feat_files_dic = utils.read_feature_ft_realdata(args.feature_file_table)
 
     # separate prediction for each genome
     for sample, info in feat_files_dic['pkl'].items():
@@ -62,7 +62,7 @@ def main(args):
             inds_toolong = np.arange(len(all_lens))[np.array(all_lens) > args.mem_lim]  # change if want 3k
             inds_sel = np.array([el for el in inds_sel if el not in inds_toolong])
 
-            batch_list = Utils.create_batch_inds(all_lens, inds_sel, args.mem_lim)
+            batch_list = utils.create_batch_inds(all_lens, inds_sel, args.mem_lim)
             logging.info("Number of batches: {}".format(len(batch_list)))
 
             for ind in range(len(batch_list)):
@@ -70,17 +70,17 @@ def main(args):
 
                 batch_size = 0
                 for cont_ind in batch_list[ind]:
-                    batch_size += 1 + Utils.n_moves_window(all_lens[cont_ind], args.window, args.window/2)
-                x_mb = Utils.gen_sliding_mb(X, batch_size, args.window, args.window/2)
+                    batch_size += 1 + utils.n_moves_window(all_lens[cont_ind], args.window, args.window / 2)
+                x_mb = utils.gen_sliding_mb(X, batch_size, args.window, args.window / 2)
                 pred_mb = model.predict(x_mb)
                 preds.extend(pred_mb)
 
-            dic_predictions = Utils.aggregate_chunks(batch_list, all_lens, all_labels=[],
-                                                    all_preds=np.array(preds), window=args.window, step=args.window / 2)
+            dic_predictions = utils.aggregate_chunks(batch_list, all_lens, all_labels=[],
+                                                     all_preds=np.array(preds), window=args.window, step=args.window / 2)
             logging.info('Dictionary created')
 
             df_preds = pd.DataFrame.from_dict(dic_predictions)
-            df_preds = Utils.add_stats(df_preds)
+            df_preds = utils.add_stats(df_preds)
             min_len = 1000
             mem_lim = 500000
             df_preds['scale_length'] = (df_preds['length']-min_len)/mem_lim

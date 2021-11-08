@@ -1,7 +1,7 @@
 from __future__ import print_function
 import argparse
 import logging
-from resmico import Preprocess
+from resmico import preprocess
 
 # functions
 def parse_args(test_args=None, subparsers=None):
@@ -100,7 +100,7 @@ def main(args=None):
     if args is None:
         args = parse_args()
     # Main interface
-    Preprocess.main(args)
+    preprocess.main(args)
     
 # main
 if __name__ == '__main__':

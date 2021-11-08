@@ -9,17 +9,17 @@ import tensorflow as tf
 from tensorflow.keras.models import load_model
 from sklearn.metrics import recall_score, average_precision_score
 
-from resmico import ContigReader
-from resmico import Models_FL as Models  # to use contigs of variable length
-from resmico import Utils
+from resmico import contig_reader
+from resmico import models_fl as Models  # to use contigs of variable length
+from resmico import utils
 
 
 def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
     start = time.time()
 
     logging.info('Loading contig data...')
-    reader = ContigReader.ContigReader(args.feature_files_path, args.features, args.n_procs, args.chunks,
-                                       args.no_cython, args.stats_file)
+    reader = contig_reader.ContigReader(args.feature_files_path, args.features, args.n_procs, args.chunks,
+                                        args.no_cython, args.stats_file)
 
     if args.val_ind_f:
         logging.info(f'Using indices in {args.val_ind_f} for prediction')
@@ -74,19 +74,19 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
 
 def predict_with_method(model, args):
     if args.filter10:
-        data_dict = Utils.build_sample_index(Path(args.feature_files_path), args.n_procs, filter10=True,
+        data_dict = utils.build_sample_index(Path(args.feature_files_path), args.n_procs, filter10=True,
                                              sdepth=args.sdepth, rich=args.rich)
     elif args.rep10:
-        data_dict = Utils.build_sample_index(Path(args.feature_files_path), args.n_procs, rep10=True,
+        data_dict = utils.build_sample_index(Path(args.feature_files_path), args.n_procs, rep10=True,
                                              sdepth=args.sdepth, rich=args.rich)
     else:
-        data_dict = Utils.build_sample_index(Path(args.feature_files_path), args.n_procs,
+        data_dict = utils.build_sample_index(Path(args.feature_files_path), args.n_procs,
                                              sdepth=args.sdepth, rich=args.rich, longdir=args.longdir)
     logging.info('Data dictionary created. Number of samples: {}'.format(len(data_dict)))
     all_contigs = list(data_dict.items())
     all_names = list(data_dict.keys())
-    all_lens = Utils.read_all_lens(data_dict)
-    all_labels = Utils.read_all_labels(data_dict)
+    all_lens = utils.read_all_lens(data_dict)
+    all_labels = utils.read_all_labels(data_dict)
 
     inds_sel = np.arange(len(all_lens))[np.array(all_lens) >= args.min_len]
     inds_toolong = np.arange(len(all_lens))[np.array(all_lens) > args.mem_lim]  # change if want 3k
@@ -104,7 +104,7 @@ def predict_with_method(model, args):
 
         num_runs = 5
         aupr_scores = []
-        labels_val = Utils.read_all_labels(data_dict)
+        labels_val = utils.read_all_labels(data_dict)
         for i in range(num_runs):
             data_gen = Models.GeneratorBigD(data_dict, max_len, batch_size,  # only contigs to pred for should be given
                                             shuffle=False, nprocs=args.n_procs, rnd_seed=i)
@@ -131,7 +131,7 @@ def predict_with_method(model, args):
                 logging.info("csv table saved: {}".format(df_name))
 
     elif args.method_pred == 'fulllength':
-        batches_list = Utils.create_batch_inds(all_lens, inds_sel, args.mem_lim, fulllen=True)
+        batches_list = utils.create_batch_inds(all_lens, inds_sel, args.mem_lim, fulllen=True)
         logging.info("Number of batches: {}".format(len(batches_list)))
         data_gen = Models.GeneratorFullLen(data_dict, batches_list, nprocs=args.n_procs)  # contigs filtered by indexing
         start = time.time()
@@ -147,18 +147,18 @@ def predict_with_method(model, args):
     elif args.v1:
         logging.info('predict with deepmased v1')
         window = 10000
-        batches_list = Utils.create_batch_inds(all_lens, inds_sel, args.mem_lim)
+        batches_list = utils.create_batch_inds(all_lens, inds_sel, args.mem_lim)
         logging.info("Number of batches: {}".format(len(batches_list)))
         data_gen = Models.Generator_v1(data_dict, batches_list, window=window, step=window, nprocs=args.n_procs)
 
         score_val = model.predict(data_gen, use_multiprocessing=args.n_procs > 1, workers=args.n_procs)
 
-        dic_predictions = Utils.aggregate_chunks(batches_list, all_lens, all_labels, all_names,
+        dic_predictions = utils.aggregate_chunks(batches_list, all_lens, all_labels, all_names,
                                                  all_preds=score_val, window=window, step=window)
         logging.info('Dictionary created')
 
     elif args.method_pred == 'chunks':
-        batches_list = Utils.create_batch_inds(all_lens, inds_sel, args.mem_lim)
+        batches_list = utils.create_batch_inds(all_lens, inds_sel, args.mem_lim)
         logging.info("Number of batches: {}".format(len(batches_list)))
         data_gen = Models.GeneratorPredLong(data_dict, batches_list, window=args.window,
                                             step=args.window / 2., nprocs=args.n_procs)
@@ -167,7 +167,7 @@ def predict_with_method(model, args):
         score_val = model.predict(data_gen, use_multiprocessing=args.n_procs > 1, workers=args.n_procs)
         duration = time.time() - start
         logging.info("measured time {}".format(duration))
-        dic_predictions = Utils.aggregate_chunks(batches_list, all_lens, all_labels, all_names,
+        dic_predictions = utils.aggregate_chunks(batches_list, all_lens, all_labels, all_names,
                                                  all_preds=score_val, window=args.window, step=args.window / 2)
         logging.info('Dictionary created')
 
@@ -177,7 +177,7 @@ def predict_with_method(model, args):
     df_preds = pd.DataFrame.from_dict(dic_predictions)
 
     if args.method_pred == 'chunks' or args.v1:
-        df_preds = Utils.add_stats(df_preds)
+        df_preds = utils.add_stats(df_preds)
     df_name = args.save_path + '/' + args.save_name + '.csv'
     df_preds.to_csv(df_name, index=False)
     logging.info("csv table saved: {}".format(df_name))
@@ -187,9 +187,9 @@ def main(args):
     """Main interface
     """
     if args.v1:
-        custom_obj = {'metr': Utils.class_recall_0}
+        custom_obj = {'metr': utils.class_recall_0}
     else:
-        custom_obj = {'class_recall_0': Utils.class_recall_0, 'class_recall_1': Utils.class_recall_1}
+        custom_obj = {'class_recall_0': utils.class_recall_0, 'class_recall_1': utils.class_recall_1}
 
     if not os.path.exists(args.model):
         raise IOError(f'Cannot find {args.model_name} file in {args.model_path}')

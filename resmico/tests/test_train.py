@@ -2,7 +2,7 @@ import os
 import pytest
 import logging
 
-from resmico.Commands import Train as Train_CMD
+from resmico.commands import train as Train_CMD
 
 # test/data dir
 test_dir = os.path.join(os.path.dirname(__file__))

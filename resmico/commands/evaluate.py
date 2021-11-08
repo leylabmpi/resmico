@@ -4,8 +4,8 @@ import os
 import argparse
 import logging
 
-from resmico import Evaluate
-from resmico.Commands import arguments
+from resmico import evaluate
+from resmico.commands import arguments
 
 
 # functions
@@ -29,8 +29,8 @@ def parse_args(test_args=None, subparsers=None):
                                          formatter_class=argparse.RawTextHelpFormatter)
 
     # default trained model
-    pkg_model = resource_filename('resmico', 'Model/fl_all_model.h5')
-    pkg_mstd = resource_filename('resmico', 'Model/fl_all_mean_std.pkl')
+    pkg_model = resource_filename('resmico', 'model/fl_all_model.h5')
+    pkg_mstd = resource_filename('resmico', 'model/fl_all_mean_std.pkl')
     _, pkg_mstd = os.path.split(pkg_mstd)
 
     parser.add_argument('--model', default=pkg_model, type=str,
@@ -79,7 +79,7 @@ def main(args=None):
     print()
     print(args)
     print()
-    Evaluate.main(args)
+    evaluate.main(args)
 
 
 if __name__ == '__main__':

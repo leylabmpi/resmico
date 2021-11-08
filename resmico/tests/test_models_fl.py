@@ -2,11 +2,11 @@ import numpy as np
 import unittest
 from unittest.mock import patch, MagicMock
 
-from resmico import Models_FL
-from resmico import ContigReader
-from resmico import Reader
+from resmico import models_fl
+from resmico import contig_reader
+from resmico import reader
 
-from resmico.ContigReader import ContigInfo
+from resmico.contig_reader import ContigInfo
 
 
 class TestBinaryDatasetTrain(unittest.TestCase):
@@ -16,7 +16,7 @@ class TestBinaryDatasetTrain(unittest.TestCase):
                        ContigInfo('Contig3', '/tmp/c3', 1000, 0, 0, 0, [(800, 900)])]
         max_len = 500
         for i in range(50):
-            intervals = Models_FL.BinaryDatasetTrain.select_intervals(contig_data, max_len,
+            intervals = models_fl.BinaryDatasetTrain.select_intervals(contig_data, max_len,
                                                                       translate_short_contigs=True,
                                                                       max_translation_bases=30)
             self.assertTrue(0 <= intervals[0][0] <= 500)
@@ -32,7 +32,7 @@ class TestBinaryDatasetTrain(unittest.TestCase):
         ]
         max_len = 350
         for i in range(50):
-            intervals = Models_FL.BinaryDatasetTrain.select_intervals(contig_data, max_len, True, 30)
+            intervals = models_fl.BinaryDatasetTrain.select_intervals(contig_data, max_len, True, 30)
             if intervals[0][1] - intervals[0][0] < 300:  # contig was truncated to left
                 self.assertTrue(0 <= intervals[0][0] <= 150)
                 self.assertEqual(300, intervals[0][1])
@@ -41,7 +41,7 @@ class TestBinaryDatasetTrain(unittest.TestCase):
                 self.assertEqual(300 + intervals[0][0], intervals[0][1],
                                  f'Intervals are: {intervals[0][0]}  {intervals[0][1]}')
 
-    @patch('resmico.Models_FL.BinaryDatasetTrain.select_intervals')
+    @patch('resmico.models_fl.BinaryDatasetTrain.select_intervals')
     def test_contig_selection(self, mock_intervals):
         """
         Make sure that the returned contig features (when using translations) are correct.
@@ -52,29 +52,29 @@ class TestBinaryDatasetTrain(unittest.TestCase):
         for use_cython in [False, True]:
             for cached in [False, True]:
                 features = ['num_query_A', 'coverage', 'num_SNPs']
-                reader = ContigReader.ContigReader('data/preprocess/', features, 1, use_cython)
+                ctg_reader = contig_reader.ContigReader('data/preprocess/', features, 1, use_cython)
                 c1 = ContigInfo('Contig1', '/tmp/c1', 500, 0, 0, 0, [])
                 c2 = ContigInfo('Contig2', '/tmp/c2', 300, 0, 0, 1, [(100, 100)])
                 c3 = ContigInfo('Contig3', '/tmp/c3', 1000, 0, 0, 1, [(800, 900)])
-                reader.contigs = [c1, c2, c3]
+                ctg_reader.contigs = [c1, c2, c3]
 
                 contigs_data = []
                 st = 0
-                for c in reader.contigs:
+                for c in ctg_reader.contigs:
                     contig_data = {}
                     for f in features:
                         feature_data = np.arange(start=st, stop=st + c.length, dtype=float)
                         contig_data[f] = feature_data
                         st += c.length
                     contigs_data.append(contig_data)
-                reader.read_contigs = MagicMock(
+                ctg_reader.read_contigs = MagicMock(
                     return_value=[contigs_data[0], contigs_data[0], contigs_data[0], contigs_data[1], contigs_data[1],
                                   contigs_data[1], contigs_data[2], contigs_data[2], contigs_data[2]])
 
-                indices = np.arange(len(reader))
+                indices = np.arange(len(ctg_reader))
                 batch_size = 10
                 max_len = 500
-                data_gen = Models_FL.BinaryDatasetTrain(reader, indices, batch_size, features, max_len,
+                data_gen = models_fl.BinaryDatasetTrain(ctg_reader, indices, batch_size, features, max_len,
                                                         num_translations=3, max_translation_bases=10, fraq_neg=1.0,
                                                         do_cache=cached, show_progress=False)
                 data_gen.indices.sort()  # indices will now be 0,0,0,1,1,1,2,2,2
@@ -169,11 +169,11 @@ class TestBinaryDatasetTrain(unittest.TestCase):
 
     def test_gen_train_data(self):
         for cached in [False, True]:
-            reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
-            indices = np.arange(len(reader))
+            ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
+            indices = np.arange(len(ctg_reader))
             batch_size = 10
             num_translations = 1
-            data_gen = Models_FL.BinaryDatasetTrain(reader, indices, batch_size, Reader.feature_names, 500,
+            data_gen = models_fl.BinaryDatasetTrain(ctg_reader, indices, batch_size, reader.feature_names, 500,
                                                     num_translations=1, max_translation_bases=0, fraq_neg=1.0,
                                                     do_cache=cached, show_progress=False)
             data_gen.translate_short_contigs = False  # so that we know which interval is selected
@@ -205,30 +205,30 @@ class TestBinaryDatasetTrain(unittest.TestCase):
 
 class TestBinaryDatasetEval(unittest.TestCase):
     bytes_per_base = 10 + sum(  # 10 is the overhead also added in Models_Fl.BinaryDataEval
-        [np.dtype(ft).itemsize for ft in Reader.feature_np_types])
+        [np.dtype(ft).itemsize for ft in reader.feature_np_types])
 
     def test_sort_by_contig_len(self):
         """ Make sure that contigs are sorted in increasing order by length """
-        reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
-        reader.contigs = [ContigInfo('Contig1', '/tmp/c1', 300, 0, 0, 0, []),
+        ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
+        ctg_reader.contigs = [ContigInfo('Contig1', '/tmp/c1', 300, 0, 0, 0, []),
                           ContigInfo('Contig2', '/tmp/c2', 200, 0, 0, 0, []),
                           ContigInfo('Contig3', '/tmp/c3', 100, 0, 0, 0, [])]
-        indices = np.arange(len(reader))
+        indices = np.arange(len(ctg_reader))
 
         gpu_memory_bytes = 1010 * self.bytes_per_base
-        eval_data = Models_FL.BinaryDatasetEval(reader, indices, Reader.feature_names, 500, 250, gpu_memory_bytes,
+        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 500, 250, gpu_memory_bytes,
                                                 False, False)
         self.assertEqual(eval_data.indices, [2, 1, 0])
 
     def test_batching_one_per_batch(self):
-        reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
-        reader.contigs = [ContigInfo('Contig1', '/tmp/c1', 1000, 0, 0, 0, []),
+        ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
+        ctg_reader.contigs = [ContigInfo('Contig1', '/tmp/c1', 1000, 0, 0, 0, []),
                           ContigInfo('Contig2', '/tmp/c2', 1000, 0, 0, 0, []),
                           ContigInfo('Contig3', '/tmp/c3', 1000, 0, 0, 0, [])]
-        indices = np.arange(len(reader))
+        indices = np.arange(len(ctg_reader))
 
         gpu_memory_bytes = 1010 * self.bytes_per_base
-        eval_data = Models_FL.BinaryDatasetEval(reader, indices, Reader.feature_names, 500, 250, gpu_memory_bytes,
+        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 500, 250, gpu_memory_bytes,
                                                 False, False)
         self.assertEqual(3, len(eval_data.chunk_counts))
         for i in range(len(eval_data.chunk_counts)):
@@ -236,13 +236,13 @@ class TestBinaryDatasetEval(unittest.TestCase):
             self.assertEqual(3, eval_data.chunk_counts[i][0])
 
     def test_batching_multiple_per_batch(self):
-        reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
-        reader.contigs = [ContigInfo('Contig1', 'data/preprocess/features_binary', 500, 0, 246, 0, []),
+        ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
+        ctg_reader.contigs = [ContigInfo('Contig1', 'data/preprocess/features_binary', 500, 0, 246, 0, []),
                           ContigInfo('Contig2', 'data/preprocess/features_binary', 500, 246, 183, 0, []),
                           ContigInfo('Contig3', 'data/preprocess/features_binary', 500, 0, 246, 0, [])]
-        indices = np.arange(len(reader))
+        indices = np.arange(len(ctg_reader))
         gpu_memory_bytes = 1600 * self.bytes_per_base
-        eval_data = Models_FL.BinaryDatasetEval(reader, indices, Reader.feature_names, 250, 200, gpu_memory_bytes,
+        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 250, 200, gpu_memory_bytes,
                                                 False, False)
         # check that Contig1 and Contig2 are in the first batch (with 3 chunks each) and Contig3 is in the second batch
         # (also with 3 chunks)
@@ -260,9 +260,9 @@ class TestBinaryDatasetEval(unittest.TestCase):
 
     def test_gen_eval_data(self):
         for cached in [False, True]:
-            reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
-            indices = np.arange(len(reader))
-            eval_data = Models_FL.BinaryDatasetEval(reader, indices, Reader.feature_names, 500, 250, 1e6, cached, False)
+            ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
+            indices = np.arange(len(ctg_reader))
+            eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 500, 250, 1e6, cached, False)
             self.assertEqual(1, len(eval_data))
             self.assertEqual(2, len(eval_data.batch_list[0]))
             self.assertIsNone(
@@ -274,9 +274,9 @@ class TestBinaryDatasetEval(unittest.TestCase):
             self.assertTrue(all(a == b for a, b in zip(eval_data[0][1][5][0:6], [1, 0, 0, 0, 0, 0])))
 
     def test_gen_eval_data_short_window(self):
-        reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
-        indices = np.arange(len(reader))
-        eval_data = Models_FL.BinaryDatasetEval(reader, indices, Reader.feature_names, 50, 30, 1e6, False, False)
+        ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
+        indices = np.arange(len(ctg_reader))
+        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 50, 30, 1e6, False, False)
         self.assertEqual(1, len(eval_data))
         self.assertEqual(2, len(eval_data.batch_list[0]))
         # 16 for the first contig of length 500, 16 for the 2nd contig of length 500
@@ -288,10 +288,10 @@ class TestBinaryDatasetEval(unittest.TestCase):
         self.assertTrue(all(a == b for a, b in zip(eval_data[0][16][5][0:6], [1, 0, 0, 0, 0, 0])))
 
     def test_group(self):
-        reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
-        indices = np.arange(len(reader))
+        ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
+        indices = np.arange(len(ctg_reader))
         total_memory_bytes = 1e6
-        eval_data = Models_FL.BinaryDatasetEval(reader, indices, Reader.feature_names, 50, 30, total_memory_bytes,
+        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 50, 30, total_memory_bytes,
                                                 False, False)
         self.assertEqual(32, len(eval_data[0]))
 
@@ -312,9 +312,9 @@ class TestBinaryDatasetEval(unittest.TestCase):
             np.testing.assert_array_equal(np.array([1, 1]), eval_data.group(y)))
 
     def test_group_two_batches(self):
-        reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
-        indices = np.arange(len(reader))
-        eval_data = Models_FL.BinaryDatasetEval(reader, indices, Reader.feature_names, 50, 30, 500, False, False)
+        ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
+        indices = np.arange(len(ctg_reader))
+        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 50, 30, 500, False, False)
 
         self.assertEqual(2, len(eval_data))
         self.assertEqual(16, len(eval_data[0]))
@@ -337,9 +337,9 @@ class TestBinaryDatasetEval(unittest.TestCase):
             np.testing.assert_array_equal(np.array([1, 1]), eval_data.group(y)))
 
     def test_gen_eval_data_cached(self):
-        reader = ContigReader.ContigReader('data/preprocess/', Reader.feature_names, 1, False)
-        indices = np.arange(len(reader))
-        eval_data = Models_FL.BinaryDatasetEval(reader, indices, Reader.feature_names, 500, 250, 1e6, True, False)
+        ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
+        indices = np.arange(len(ctg_reader))
+        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 500, 250, 1e6, True, False)
         self.assertEqual(1, len(eval_data))
         self.assertEqual(2, len(eval_data.batch_list[0]))
         self.assertTrue(all(a == b for a, b in zip(eval_data[0][0][0][0:6], [1, 0, 0, 0, 2, 1])))

@@ -1,6 +1,5 @@
 # distutils: language = c++
 cimport cython
-from libc.stdio cimport printf
 from libc.stdlib cimport malloc, free
 
 from array import array

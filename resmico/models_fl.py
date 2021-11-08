@@ -14,10 +14,10 @@ from tensorflow.keras.layers import Conv1D, Dropout, Dense
 from tensorflow.keras.layers import Bidirectional, LSTM
 from toolz import itertoolz
 
-from resmico import ContigReader
-from resmico.ContigReader import ContigInfo
-from resmico import Reader
-from resmico import Utils
+from resmico import contig_reader
+from resmico.contig_reader import ContigInfo
+from resmico import reader
+from resmico import utils
 
 
 class Resmico(object):
@@ -98,7 +98,7 @@ class Resmico(object):
             x = Conv1D(self.filters, kernel_size=10,
                        input_shape=(None, self.n_feat),
                        padding='valid', name='1st_conv')(x)
-            x = Utils.relu_bn(x)
+            x = utils.relu_bn(x)
             num_filters = self.filters
             if self.num_blocks == 3:
                 num_blocks_list = [2, 5, 2]
@@ -111,7 +111,7 @@ class Resmico(object):
             for i in range(len(num_blocks_list)):
                 num_blocks = num_blocks_list[i]
                 for j in range(num_blocks):
-                    x = Utils.residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
+                    x = utils.residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
                                              kernel_size=self.ker_size)
                 num_filters *= 2
 
@@ -124,7 +124,7 @@ class Resmico(object):
             x = Conv1D(self.filters, kernel_size=10,
                        input_shape=(self.max_len, self.n_feat),
                        padding='valid', name='1st_conv')(x)
-            x = Utils.relu_bn(x)
+            x = utils.relu_bn(x)
             num_filters = self.filters
             if self.num_blocks == 3:
                 num_blocks_list = [2, 5, 2]
@@ -137,7 +137,7 @@ class Resmico(object):
             for i in range(len(num_blocks_list)):
                 num_blocks = num_blocks_list[i]
                 for j in range(num_blocks):
-                    x = Utils.residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
+                    x = utils.residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
                                              kernel_size=self.ker_size)
                 num_filters *= 2
 
@@ -156,7 +156,7 @@ class Resmico(object):
         self.net = Model(inputs=inlayer, outputs=x)
         self.net.compile(loss='binary_crossentropy',
                          optimizer=optimizer,
-                         metrics=[Utils.class_recall_0, Utils.class_recall_1])
+                         metrics=[utils.class_recall_0, utils.class_recall_1])
 
         # self.reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
         #                        monitor='val_loss', factor=0.8,
@@ -236,7 +236,7 @@ class BinaryDataset(tf.keras.utils.Sequence):
     (as opposed to the old CSV files)
     """
 
-    def __init__(self, reader: ContigReader, feature_names: list[str]):
+    def __init__(self, reader: contig_reader, feature_names: list[str]):
         """
        Arguments:
            - reader: ContigReader instance with all the contig metadata
@@ -251,11 +251,11 @@ class BinaryDataset(tf.keras.utils.Sequence):
 
     def get_bytes_per_base(self):
         return sum(
-            [np.dtype(Reader.feature_np_types[Reader.feature_names.index(f)]).itemsize for f in self.feature_names])
+            [np.dtype(reader.feature_np_types[reader.feature_names.index(f)]).itemsize for f in self.feature_names])
 
 
 class BinaryDatasetTrain(BinaryDataset):
-    def __init__(self, reader: ContigReader, indices: list[int], batch_size: int, feature_names: list[str],
+    def __init__(self, reader: contig_reader, indices: list[int], batch_size: int, feature_names: list[str],
                  max_len: int, num_translations: int, max_translation_bases: int, fraq_neg: float, do_cache: bool,
                  show_progress: bool):
 
@@ -414,7 +414,7 @@ class BinaryDatasetTrain(BinaryDataset):
         self.intervals.clear()
         if self.do_cache and index in self.cache:
             if self.show_progress:
-                Utils.update_progress(index + 1, len(self), 'Training: ', '')
+                utils.update_progress(index + 1, len(self), 'Training: ', '')
             return self.cache[self.cache_indices[index]]
         batch_indices = self.indices[self.batch_size * index:  self.batch_size * (index + 1)]
         # files to process
@@ -451,12 +451,12 @@ class BinaryDatasetTrain(BinaryDataset):
         if self.do_cache:
             self.cache[index] = (x, np.array(y))
         if self.show_progress:
-            Utils.update_progress(index + 1, self.__len__(), 'Training: ', f' {(timer() - start):5.2f}s')
+            utils.update_progress(index + 1, self.__len__(), 'Training: ', f' {(timer() - start):5.2f}s')
         return x, np.array(y)
 
 
 class BinaryDatasetEval(BinaryDataset):
-    def __init__(self, reader: ContigReader, indices: list[int], feature_names: list[str], window: int, step: int,
+    def __init__(self, reader: contig_reader, indices: list[int], feature_names: list[str], window: int, step: int,
                  total_memory_bytes: int, cache_results: bool, show_progress: bool):
 
         """
@@ -609,7 +609,7 @@ class BinaryDatasetEval(BinaryDataset):
                     break
         assert (len(x) == sum(self.chunk_counts[batch_idx])), f'{len(x)} vs {sum(self.chunk_counts[batch_idx])}'
         if self.show_progress:
-            Utils.update_progress(batch_idx + 1, self.__len__(), 'Evaluating: ',
+            utils.update_progress(batch_idx + 1, self.__len__(), 'Evaluating: ',
                                   f' {(timer() - start):5.2f}s  {stack_time:5.2f}s')
         return np.array(x)
 
@@ -633,7 +633,7 @@ class GeneratorBigD(tf.keras.utils.Sequence):
             tf.random.set_seed(self.rnd_seed)
 
         if self.shuffle_data:
-            all_labels = Utils.read_all_labels(self.data_dict)
+            all_labels = utils.read_all_labels(self.data_dict)
             self.inds_pos = np.arange(len(all_labels))[np.array(all_labels) == 1]
             self.inds_neg = np.arange(len(all_labels))[np.array(all_labels) == 0]
             self.fraq_neg = fraq_neg  # downsampling
@@ -682,7 +682,7 @@ class GeneratorBigD(tf.keras.utils.Sequence):
         file_items = [(k, v, s) for (k, v), s in zip(files_dict.items(), file_seeds)]
 
         # start_load = time.time()
-        X, y = Utils.file_reading(file_items, self.max_len)
+        X, y = utils.file_reading(file_items, self.max_len)
 
         # duration_load = time.time() - start_load
         # logging.info("time to read one batch {} {}".format(len(indices_tmp), duration_load))
@@ -733,7 +733,7 @@ class GeneratorPredLong(tf.keras.utils.Sequence):
         self.window = window
         self.step = step
         # self.n_feat = 28 #todo: features_sel
-        self.all_lens = Utils.read_all_lens(data_dict)
+        self.all_lens = utils.read_all_lens(data_dict)
         self.indices = np.arange(len(batch_list))
         self.nprocs = nprocs
 
@@ -742,13 +742,13 @@ class GeneratorPredLong(tf.keras.utils.Sequence):
         files_dict = itertoolz.groupby(lambda t: t[1], list(
             map(lambda s: (s, self.data_dict[s]), sample_keys)))  # itertoolz.
         # attention: grouping can change order, it is important that indices are sorted
-        X = Utils.load_full_contigs(files_dict)
+        X = utils.load_full_contigs(files_dict)
 
         batch_size = 0
         for cont_ind in self.batch_list[ind]:
-            batch_size += 1 + Utils.n_moves_window(self.all_lens[cont_ind], self.window, self.step)
+            batch_size += 1 + utils.n_moves_window(self.all_lens[cont_ind], self.window, self.step)
 
-        x_mb = Utils.gen_sliding_mb(X, batch_size, self.window, self.step)
+        x_mb = utils.gen_sliding_mb(X, batch_size, self.window, self.step)
         return x_mb
 
     def __len__(self):
@@ -766,7 +766,7 @@ class GeneratorFullLen(tf.keras.utils.Sequence):
         self.data_dict = data_dict
         self.batch_list = batch_list
         # self.n_feat = 28 #todo: features_sel
-        self.all_lens = Utils.read_all_lens(data_dict)
+        self.all_lens = utils.read_all_lens(data_dict)
         self.indices = np.arange(len(batch_list))
         self.nprocs = nprocs
 
@@ -774,7 +774,7 @@ class GeneratorFullLen(tf.keras.utils.Sequence):
         sample_keys = np.array(list(self.data_dict.keys()))[self.batch_list[ind]]
         files_dict = itertoolz.groupby(lambda t: t[1], list(
             map(lambda s: (s, self.data_dict[s]), sample_keys)))  # itertoolz.
-        X = Utils.load_full_contigs(files_dict)
+        X = utils.load_full_contigs(files_dict)
 
         max_len = max([self.all_lens[cont_ind] for cont_ind in self.batch_list[ind]])
         n_feat = X[0].shape[1]
@@ -802,7 +802,7 @@ class Generator_v1(tf.keras.utils.Sequence):
         self.window = window
         self.step = step
         # self.n_feat = 28 #todo: features_sel
-        self.all_lens = Utils.read_all_lens(data_dict)
+        self.all_lens = utils.read_all_lens(data_dict)
         self.indices = np.arange(len(batch_list))
         self.nprocs = nprocs
 
@@ -810,13 +810,13 @@ class Generator_v1(tf.keras.utils.Sequence):
         sample_keys = np.array(list(self.data_dict.keys()))[self.batch_list[ind]]
         files_dict = itertoolz.groupby(lambda t: t[1], list(
             map(lambda s: (s, self.data_dict[s]), sample_keys)))  # itertoolz.
-        X = Utils.load_full_contigs(files_dict)
+        X = utils.load_full_contigs(files_dict)
 
         batch_size = 0
         for cont_ind in self.batch_list[ind]:
-            batch_size += 1 + Utils.n_moves_window(self.all_lens[cont_ind], self.window, self.step)
+            batch_size += 1 + utils.n_moves_window(self.all_lens[cont_ind], self.window, self.step)
 
-        x_mb = Utils.gen_sliding_mb(X, batch_size, self.window, self.step)
+        x_mb = utils.gen_sliding_mb(X, batch_size, self.window, self.step)
         x_mb = np.expand_dims(x_mb, -1)
         return x_mb
 

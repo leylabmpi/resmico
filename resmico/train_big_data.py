@@ -11,8 +11,8 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras import backend as K
 from sklearn.metrics import recall_score, roc_auc_score, average_precision_score, log_loss
 
-from resmico import Models_FL as Models
-from resmico import Utils
+from resmico import models_fl as Models
+from resmico import utils
 
 
 class Config(object):
@@ -97,12 +97,12 @@ def main(args):
         # main working area
         if args.val_ind_f:
             logging.info(f'Split data: using {args.val_ind_f} for validation, for training everything else')
-            all_data_dict = Utils.build_sample_index(Path(args.feature_files_path), args.n_procs, longdir=True)
+            all_data_dict = utils.build_sample_index(Path(args.feature_files_path), args.n_procs, longdir=True)
             logging.info('Data dictionary created. number of samples: {}'.format(len(all_data_dict)))
             inds_val = list(pd.read_csv(args.val_ind_f)['val_ind'])
             inds_train = list(set(range(len(all_data_dict))) - set(inds_val))
-            all_lens = Utils.read_all_lens(all_data_dict)
-            all_labels = Utils.read_all_labels(all_data_dict)
+            all_lens = utils.read_all_lens(all_data_dict)
+            all_labels = utils.read_all_labels(all_data_dict)
             if FILTERLONG:
                 inds_long = np.arange(len(all_lens))[np.array(all_lens) > args.max_len]
                 logging.info(f'Found {len(inds_long)} long contigs.')
@@ -118,15 +118,15 @@ def main(args):
             
         else:
             logging.info('Split data: reps 1-9 for training, 10 for validation')
-            train_data_dict = Utils.build_sample_index(Path(args.feature_files_path), args.n_procs, filter10=True, longdir=True)
+            train_data_dict = utils.build_sample_index(Path(args.feature_files_path), args.n_procs, filter10=True, longdir=True)
             logging.info('Train data dictionary created. number of samples: {}'.format(len(train_data_dict)))
-            val_data_dict = Utils.build_sample_index(Path(args.feature_files_path), args.n_procs, filter10=True) # TODO: set back: rep10=True)
+            val_data_dict = utils.build_sample_index(Path(args.feature_files_path), args.n_procs, filter10=True) # TODO: set back: rep10=True)
             logging.info('Validation data dictionary created. number of samples: {}'.format(len(val_data_dict)))
 
             if FILTERLONG:
                 #train
                 logging.info(f'Maximum contig length for training is: {args.max_len}')
-                all_lens = Utils.read_all_lens(train_data_dict)
+                all_lens = utils.read_all_lens(train_data_dict)
                 #TODO: try to keep a bit longer contigs, to learn that chunck does not always start in the beginning
                 inds_short = np.arange(len(all_lens))[np.array(all_lens) <= args.max_len] # + 1000
                 all_contigs = list(train_data_dict.items())
@@ -134,8 +134,8 @@ def main(args):
                 logging.info('from {}, {} short contigs left'.format(len(all_lens), len(inds_short)))
                 # validation is not downsampled and always the same max len 5k -- NO, now args.max_len
                 logging.info('max_len for validation: {}'.format(args.max_len))
-                all_lens = Utils.read_all_lens(val_data_dict)
-                all_labels = Utils.read_all_labels(val_data_dict)
+                all_lens = utils.read_all_lens(val_data_dict)
+                all_labels = utils.read_all_labels(val_data_dict)
                 inds_short = np.arange(len(all_lens))[np.array(all_lens) <= args.max_len]
                 all_contigs = list(val_data_dict.items())
                 val_data_dict = dict(np.array(all_contigs)[inds_short])
@@ -156,7 +156,7 @@ def main(args):
                                        shuffle_data=True, fraq_neg=args.fraq_neg,
                                        rnd_seed=args.seed, nprocs=args.n_procs)
         logging.info('Validation dataset')
-        batches_list = Utils.create_batch_inds(all_lens, inds_sel=inds_val, 
+        batches_list = utils.create_batch_inds(all_lens, inds_sel=inds_val,
                                                memory_limit=500000)
         logging.info("Number of batches: {}".format(len(batches_list)))
         y_true_val = np.array(all_labels)[inds_val]
@@ -231,11 +231,11 @@ def main(args):
                 logging.info('  File written: {}'.format(best_file))
 
     else:
-        train_data_dict = Utils.build_sample_index(Path(args.feature_files_path), args.n_procs)
+        train_data_dict = utils.build_sample_index(Path(args.feature_files_path), args.n_procs)
         logging.info('Train data dictionary created. number of samples: {}'.format(len(train_data_dict)))
 
         if FILTERLONG:
-            all_lens = Utils.read_all_lens(train_data_dict)
+            all_lens = utils.read_all_lens(train_data_dict)
             inds_long = np.arange(len(all_lens))[np.array(all_lens) > args.max_len]  # to fit model on top
             inds_short = np.arange(len(all_lens))[np.array(all_lens) <= args.max_len]
             all_contigs = list(train_data_dict.items())

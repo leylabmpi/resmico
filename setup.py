@@ -30,8 +30,8 @@ setup(
     long_description=desc + '\n See README for more information.',
     author='Nick Youngblut',
     author_email='nyoungb2@gmail.com',
-    package_data={'resmico': ['Model/deepmased_model.h5',
-                              'Model/deepmased_mean_std.pkl']},
+    package_data={'resmico': ['model/deepmased_model.h5',
+                              'model/deepmased_mean_std.pkl']},
     entry_points={
         'console_scripts': [
             'resmico = resmico.__main__:main'

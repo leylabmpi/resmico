@@ -1,9 +1,9 @@
 import argparse
 import logging
 import sys
-from resmico import Train_BigD
-from resmico import TrainBinData
-from resmico.Commands import arguments
+from resmico import train_big_data
+from resmico import train_binary_data
+from resmico.commands import arguments
 
 
 def parse_args(curr_args=None, subparsers=None):
@@ -110,9 +110,9 @@ def main(args=None):
     logging.basicConfig(format='%(asctime)s - %(message)s', level=logging._nameToLevel[args.log_level.upper()])
     # Main interface
     if args.binary_data:
-        TrainBinData.main(args)
+        train_binary_data.main(args)
     else:
-        Train_BigD.main(args)
+        train_big_data.main(args)
 
 
 # main
