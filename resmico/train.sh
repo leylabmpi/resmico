@@ -47,7 +47,7 @@ done
 if [ "${suffix}" == "_chunked" ]; then
   echo "Using chunked data, forcing max_len=500 and adding --chunks to parameter list"
   max_len=500
-  additional_params="--chunks"
+  additional_params="--chunks --cache"
 fi
 
 current_time=$(date "+%Y-%m-%d_%H-%M-%S")
@@ -77,8 +77,8 @@ features23="ref_base num_query_A num_query_C num_query_G num_query_T coverage nu
 cmd3="/usr/bin/time python resmico train --binary-data --feature-files-path ${SCRATCH_DIR} \
       --save-path /cluster/home/ddanciu/tmp --n-procs 8 --log-level info \
       --batch-size 300 --n-fc 1 --num-blocks 4 --fraq-neg 0.2  ${additional_params}  \
-      --max-len ${max_len} --gpu-eval-mem-gb 8 --features ${features_small} --n-epochs 60 \
-      --num-translations ${num_translations} --max_translation_bases ${max_translation_bases}\
+      --max-len ${max_len} --gpu-eval-mem-gb 4 --features ${features_small} --n-epochs 60 \
+      --num-translations ${num_translations} --max-translation-bases ${max_translation_bases}\
       --val-ind-f ${DATA_DIR}/val_ind.csv"
 #        --log-progress --cache-validation \
 cmd4="echo Cleaning scratch directory...; rm -rf ${SCRATCH_DIR}"
@@ -88,5 +88,6 @@ cd "${CODE_PATH}"
 echo "Training command is: ${cmd3}"
 
 # submit the job
-bsub -W 24:00 -n 8 -J resmico-n9k -R "span[hosts=1]" -R rusage[mem=30000,ngpus_excl_p=2,scratch=30000] -G ms_raets \
+bsub -W 4:00 -n 8 -J resmico-n9k -R "span[hosts=1]" -R rusage[mem=30000,ngpus_excl_p=2,scratch=30000] -G ms_raets \
      -oo "${lsf_log_file}" "${cmd1}; ${cmd2}; ${cmd3} 2>&1 | tee ${log_file}; ${cmd4}"
+
