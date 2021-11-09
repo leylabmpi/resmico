@@ -390,7 +390,7 @@ class BinaryDatasetTrain(BinaryDataset):
                     lo, hi = cd.breakpoints[0]
                     if True:  # np.random.randint(0, 2) == 0:  # flip a coin for left/right shift
                         # in this case, the contig will be left-truncated
-                        start_idx = np.random.randint(0, min(max_translation_bases, max(1, lo - min_padding)))
+                        start_idx = np.random.randint(0, min(max_translation_bases + 1, max(1, lo - min_padding)))
                     else:
                         # end_idx will be larger than cd.length, which signals that the contig needs to be padded with
                         # start_idx zeros to the left
@@ -400,7 +400,7 @@ class BinaryDatasetTrain(BinaryDataset):
                 # #  (or ending with zero) are the positive samples and reach perfect training scores and horrible
                 # validation scores
                 else:
-                    start_idx = np.random.randint(0, max_translation_bases)
+                    start_idx = np.random.randint(0, max_translation_bases + 1)
             result.append((start_idx, end_idx))
         return result
 
