@@ -63,7 +63,7 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
     logging.info(f'Prediction done in {duration:.0f}s.')
     out_file = open(args.save_path + '/' + args.save_name + '.csv', 'w')
     out_file.write('cont_name,length,label,score,min,mean,std,max\n')
-    for idx in eval_idx:
+    for idx in range(len(eval_idx)):
         contig = reader.contigs[predict_data.indices[idx]]
         out_file.write(f'{os.path.join(os.path.dirname(contig.file),contig.name)},{contig.length},'
                        f'{contig.misassembly},{eval_data_predicted_max[idx]},'
