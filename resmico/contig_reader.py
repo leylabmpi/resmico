@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 from timeit import default_timer as timer
 import struct
+from glob import glob
 
 import numpy as np
 
@@ -202,7 +203,7 @@ class ContigReader:
         self.feature_mask: list[int] = [1 if feature in feature_names else 0 for feature in reader.feature_names]
 
         logging.info('Looking for stats/toc files...')
-        file_list = [str(f) for f in list(Path(input_dir).rglob("**/stats"))]
+        file_list = list(glob(input_dir+"/**/stats", recursive=True))
         logging.info(f'Processing {len(file_list)} stats/toc files found in {input_dir} ...')
         if not file_list:
             logging.info('Nothing to do.')
