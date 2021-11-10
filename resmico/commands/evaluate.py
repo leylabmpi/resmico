@@ -35,8 +35,6 @@ def parse_args(test_args=None, subparsers=None):
 
     parser.add_argument('--model', default=pkg_model, type=str,
                         help='Location of the saved deep learning model')
-    parser.add_argument('--model-name', default=pkg_model, type=str,
-                        help='Model name in the model_path (default: %(default)s)')
     parser.add_argument('--batch-size', default=100, type=int,
                         help='Batch size (default: %(default)s)')
     parser.add_argument('--sdepth', default=None, type=str,

@@ -24,6 +24,7 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
     if args.val_ind_f:
         logging.info(f'Using indices in {args.val_ind_f} for prediction')
         eval_idx = list(pd.read_csv(args.val_ind_f)['val_ind'])
+        logging.info(f'Using {len(eval_idx)} indices in {args.val_ind_f} for prediction')
     else:
         logging.info(f'Using all indices for prediction')
         eval_idx = np.arange(len(reader))
@@ -192,7 +193,7 @@ def main(args):
         custom_obj = {'class_recall_0': utils.class_recall_0, 'class_recall_1': utils.class_recall_1}
 
     if not os.path.exists(args.model):
-        raise IOError(f'Cannot find {args.model_name} file in {args.model_path}')
+        raise IOError(f'Cannot find {args.model}')
     strategy = tf.distribute.MirroredStrategy()
     logging.info(f'Number of devices: {strategy.num_replicas_in_sync}')
     logging.info(f'Loading model: {args.model}')

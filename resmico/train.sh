@@ -33,9 +33,10 @@ while [[ $# -gt 0 ]]; do
       shift # past argument
       shift # past value
       ;;
-    -m|max-translation-bases)
+    -x|--max-translation-bases)
       max_translation_bases="$2"
       shift # past argument
+      shift # past value
       ;;
     *)    # unknown option
       POSITIONAL+=("$1") # save it in an array for later
@@ -65,7 +66,7 @@ echo "Logging data to ${log_file}"
 cmd1="echo Creating scratch directory...; rm -rf ${SCRATCH_DIR}; mkdir ${SCRATCH_DIR}"
 
 cmd2="echo Copying data to local disk...; \
-      find ${DATA_DIR} \
+      find ${DATA_DIR} -L \
         -type f -name stats -o -name toc${suffix} -o -name features_binary${suffix} \
         | xargs -i cp --parents {} ${SCRATCH_DIR}"
 

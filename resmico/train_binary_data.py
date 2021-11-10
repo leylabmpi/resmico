@@ -97,7 +97,8 @@ def main(args):
     logging.info('Training network...')
     num_epochs = 2
     train_data_tf = train_data_tf.repeat(num_epochs)
-    auc_val_best = 0.57
+    auc_val_best = 0
+    best_file = None
     for epoch in range(math.ceil(args.n_epochs / num_epochs)):
         start = time.time()
         resmico.net.fit(x=train_data_tf,
@@ -138,12 +139,14 @@ def main(args):
             logging.info(f'Updated learning rate from: {lr_old} to {K.get_value(resmico.net.optimizer.lr)}')
 
         if auc_val > auc_val_best:
+            if best_file: # delete old best model
+                os.remove(best_file)
             auc_val_best = auc_val
             best_file = os.path.join(args.save_path, '_'.join(
                 ['mc_epoch', str(cur_epoch), 'aucPR', str(auc_val_best)[:5], args.save_name,
                  'model.h5']))
             resmico.save(best_file)
-            logging.info('New best model written to: {}'.format(best_file))
+            logging.info(f'New best model written to: {best_file}')
 
     logging.info('Saving trained model...')
     x = [args.save_name, args.technology, 'model.h5']
