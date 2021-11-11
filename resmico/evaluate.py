@@ -22,7 +22,6 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
                                         args.no_cython, args.stats_file)
 
     if args.val_ind_f:
-        logging.info(f'Using indices in {args.val_ind_f} for prediction')
         eval_idx = list(pd.read_csv(args.val_ind_f)['val_ind'])
         logging.info(f'Using {len(eval_idx)} indices in {args.val_ind_f} for prediction')
     else:

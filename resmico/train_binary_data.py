@@ -53,6 +53,10 @@ def main(args):
         np.random.shuffle(all_idx)
         train_idx = all_idx[:(9 * len(reader)) // 10]
         eval_idx = all_idx[(9 * len(reader)) // 10:]
+        df = pd.DataFrame(eval_idx, columns=['val_ind'])
+        fname = f'{os.path.join(args.feature_files_path,"evaluation_indices.csv")}'
+        df.to_csv(fname)
+        logging.info(f'Evaluation indices saved to: {fname}')
     logging.info(f'Using {len(train_idx)} contigs for training, {len(eval_idx)} contigs for evaluation')
 
     # create data generators for training data and evaluation data

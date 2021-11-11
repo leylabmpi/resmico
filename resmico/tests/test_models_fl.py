@@ -211,8 +211,8 @@ class TestBinaryDatasetEval(unittest.TestCase):
         """ Make sure that contigs are sorted in increasing order by length """
         ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
         ctg_reader.contigs = [ContigInfo('Contig1', '/tmp/c1', 300, 0, 0, 0, []),
-                          ContigInfo('Contig2', '/tmp/c2', 200, 0, 0, 0, []),
-                          ContigInfo('Contig3', '/tmp/c3', 100, 0, 0, 0, [])]
+                              ContigInfo('Contig2', '/tmp/c2', 200, 0, 0, 0, []),
+                              ContigInfo('Contig3', '/tmp/c3', 100, 0, 0, 0, [])]
         indices = np.arange(len(ctg_reader))
 
         gpu_memory_bytes = 1010 * self.bytes_per_base
@@ -223,8 +223,8 @@ class TestBinaryDatasetEval(unittest.TestCase):
     def test_batching_one_per_batch(self):
         ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
         ctg_reader.contigs = [ContigInfo('Contig1', '/tmp/c1', 1000, 0, 0, 0, []),
-                          ContigInfo('Contig2', '/tmp/c2', 1000, 0, 0, 0, []),
-                          ContigInfo('Contig3', '/tmp/c3', 1000, 0, 0, 0, [])]
+                              ContigInfo('Contig2', '/tmp/c2', 1000, 0, 0, 0, []),
+                              ContigInfo('Contig3', '/tmp/c3', 1000, 0, 0, 0, [])]
         indices = np.arange(len(ctg_reader))
 
         gpu_memory_bytes = 1010 * self.bytes_per_base
@@ -238,8 +238,8 @@ class TestBinaryDatasetEval(unittest.TestCase):
     def test_batching_multiple_per_batch(self):
         ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
         ctg_reader.contigs = [ContigInfo('Contig1', 'data/preprocess/features_binary', 500, 0, 246, 0, []),
-                          ContigInfo('Contig2', 'data/preprocess/features_binary', 500, 246, 183, 0, []),
-                          ContigInfo('Contig3', 'data/preprocess/features_binary', 500, 0, 246, 0, [])]
+                              ContigInfo('Contig2', 'data/preprocess/features_binary', 500, 246, 183, 0, []),
+                              ContigInfo('Contig3', 'data/preprocess/features_binary', 500, 0, 246, 0, [])]
         indices = np.arange(len(ctg_reader))
         gpu_memory_bytes = 1600 * self.bytes_per_base
         eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 250, 200, gpu_memory_bytes,
@@ -262,7 +262,8 @@ class TestBinaryDatasetEval(unittest.TestCase):
         for cached in [False, True]:
             ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
             indices = np.arange(len(ctg_reader))
-            eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 500, 250, 1e6, cached, False)
+            eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 500, 250, 1e6, cached,
+                                                    False)
             self.assertEqual(1, len(eval_data))
             self.assertEqual(2, len(eval_data.batch_list[0]))
             self.assertIsNone(
@@ -276,14 +277,24 @@ class TestBinaryDatasetEval(unittest.TestCase):
     def test_gen_eval_data_short_window(self):
         ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
         indices = np.arange(len(ctg_reader))
-        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 50, 30, 1e6, False, False)
-        self.assertEqual(1, len(eval_data))
-        self.assertEqual(2, len(eval_data.batch_list[0]))
-        # 16 for the first contig of length 500, 16 for the 2nd contig of length 500
-        self.assertEqual(32, len(eval_data[0]))
+        window = 50
+        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, window, 30, 1e6, False,
+                                                False)
+        feature_count = len(eval_data.expanded_feature_names)
+
+        self.assertEqual(1, len(eval_data))  # one batch total
+        self.assertEqual(2, len(eval_data.batch_list[0]))  # the one batch has 2 contigs
+        self.assertEqual([16, 16], eval_data.chunk_counts[0])  # each of the contigs of length 500 has 16 chunks
+
+        total_chunks = 16 + 16  # 16 for the first contig of length 500, 16 for the 2nd contig of length 500
+        self.assertEqual((total_chunks, window, feature_count), eval_data[0].shape)
+
+        # check the first 6 features in the 0th and 5th positions of the first chunk in first contig (reference_A/C/G/T,
+        # coverage, num_query_A)
         self.assertTrue(all(a == b for a, b in zip(eval_data[0][0][0][0:6], [1, 0, 0, 0, 2, 1])))
         self.assertTrue(all(a == b for a, b in zip(eval_data[0][0][5][0:6], [1, 0, 0, 0, 0, 0])))
 
+        # check the first 6 features in the 0th and 5th positions of first chunk in 2nd contig
         self.assertTrue(all(a == b for a, b in zip(eval_data[0][16][0][0:6], [1, 0, 0, 0, 1, 1])))
         self.assertTrue(all(a == b for a, b in zip(eval_data[0][16][5][0:6], [1, 0, 0, 0, 0, 0])))
 

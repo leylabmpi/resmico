@@ -66,7 +66,7 @@ echo "Logging data to ${log_file}"
 cmd1="echo Creating scratch directory...; rm -rf ${SCRATCH_DIR}; mkdir ${SCRATCH_DIR}"
 
 cmd2="echo Copying data to local disk...; \
-      find ${DATA_DIR} -L \
+      find -L ${DATA_DIR} \
         -type f -name stats -o -name toc${suffix} -o -name features_binary${suffix} \
         | xargs -i cp --parents {} ${SCRATCH_DIR}"
 
@@ -89,6 +89,6 @@ cd "${CODE_PATH}"
 echo "Training command is: ${cmd3}"
 
 # submit the job
-bsub -W 4:00 -n 8 -J resmico-n9k -R "span[hosts=1]" -R rusage[mem=30000,ngpus_excl_p=2,scratch=30000] -G ms_raets \
+bsub -W 24:00 -n 8 -J resmico-n9k -R "span[hosts=1]" -R rusage[mem=30000,ngpus_excl_p=2,scratch=30000] -G ms_raets \
      -oo "${lsf_log_file}" "${cmd1}; ${cmd2}; ${cmd3} 2>&1 | tee ${log_file}; ${cmd4}"
 

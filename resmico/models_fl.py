@@ -290,7 +290,7 @@ class BinaryDatasetTrain(BinaryDataset):
             # the cache maps a batch index to feature_name:feature_data pairs
             self.cache: dict[int, dict[str, np.array]] = {}
         self.negative_idx = [i for i in indices if reader.contigs[i].misassembly == 0]
-        self.positive_idx = [i for i in indices if reader.contigs[i].misassembly == 1]
+        self.positive_idx = [i for i in indices if reader.contigs[i].misassembly != 0]
 
         self.on_epoch_end()  # select negative samples and shuffle indices
 
@@ -427,7 +427,7 @@ class BinaryDatasetTrain(BinaryDataset):
         max_contig_len = max([self.reader.contigs[i].length for i in batch_indices])
         max_len = min(max_contig_len, self.max_len)
         # Create the numpy array storing all the features for all the contigs in #batch_indices
-        x = np.zeros((self.batch_size, max_len, len(features_data[0])))
+        x = np.zeros((self.batch_size, max_len, len(features_data[0])), dtype=np.float32)
 
         contig_intervals = BinaryDatasetTrain.select_intervals(contig_data, max_len, self.translate_short_contigs,
                                                                self.max_translation_bases)
@@ -469,19 +469,18 @@ class BinaryDatasetEval(BinaryDataset):
             step - amount by which the sliding window is moved forward through a contig that is longer than #window
             nprocs - number of processes used to load the contig data
             total_memory_bytes - maximum memory desired for contig features in a mini-batch
-            cache_results
+            cache_results - if true, data is cached in memory after the first evaluation step
             show_progress - if true, a progress bar will show the evaluation progress
         """
         logging.info(f'Creating evaluation data generator. Window: {window}, Step: {step}, Caching: {cache_results}')
         BinaryDataset.__init__(self, reader, feature_names)
-        indices = sorted(indices, key=lambda x: reader.contigs[x].length)
-        self.indices = indices
+        self.indices = sorted(indices, key=lambda x: reader.contigs[x].length)
         self.window = window
         self.step = step
         # creates batches of contigs such that the total memory used by features in each batch is < total_memory_bytes
         # chunk_counts[batch_count][idx] represents the number of chunks for the contig number #idx
         # in the batch #batch_count
-        self.batch_list, self.chunk_counts = self._create_batch_list(reader.contigs, indices, total_memory_bytes)
+        self.batch_list, self.chunk_counts = self._create_batch_list(reader.contigs, self.indices, total_memory_bytes)
 
         # flattened ground truth for each eval contig
         self.y = [0 if self.reader.contigs[i].misassembly == 0 else 1 for b in self.batch_list for i in b]
@@ -577,8 +576,8 @@ class BinaryDatasetEval(BinaryDataset):
                 # each feature in features_data becomes o column in x
                 for j, feature_name in enumerate(self.expanded_feature_names):
                     to_merge[j] = contig_features[feature_name]
-                stacked_features = np.stack(to_merge, axis=-1)
-                all_stacked_features[i] = stacked_features
+                stacked_features = np.column_stack(to_merge)
+                all_stacked_features[i] = stacked_features.astype(np.float32)  # otherwise it's float64, too much RAM
             stack_time += (timer() - start_stack)
             if self.cache_results:
                 self.data[batch_idx] = all_stacked_features
@@ -586,28 +585,26 @@ class BinaryDatasetEval(BinaryDataset):
         max_contig_len = max([self.reader.contigs[i].length for i in indices])
         max_len = min(max_contig_len, self.window)
 
-        x = []  # the evaluation data for all contigs in this batch
+        # the evaluation data for all contigs in this batch
+        chunk_count = sum(self.chunk_counts[batch_idx])
+        x = np.zeros((chunk_count, max_len, len(self.expanded_feature_names)), dtype=np.float32)
         # traverse all contig features, break down into multiple contigs if too long, and create a numpy 3D array
         # of shape (contig_count, max_len, num_features) to be used for evaluation
+        idx = 0
         for stacked_features in all_stacked_features:
             contig_len = stacked_features.shape[0]
             start_idx = 0
-            count = 0
             while True:
                 end_idx = start_idx + self.window
                 if end_idx <= contig_len:
-                    x.append(stacked_features[start_idx:end_idx])
+                    x[idx] = stacked_features[start_idx:end_idx]
                 else:
-                    np_data = np.zeros((max_len, len(self.expanded_feature_names)))
-                    valid_end = min(end_idx, contig_len)
-                    np_data[:valid_end - start_idx] = stacked_features[start_idx:valid_end]
-                    x.append(np_data)
+                    x[idx][:contig_len - start_idx] = stacked_features[start_idx:contig_len]
                 start_idx += self.step
 
-                count += 1
+                idx += 1
                 if end_idx >= contig_len:
                     break
-        assert (len(x) == sum(self.chunk_counts[batch_idx])), f'{len(x)} vs {sum(self.chunk_counts[batch_idx])}'
         if self.show_progress:
             utils.update_progress(batch_idx + 1, self.__len__(), 'Evaluating: ',
                                   f' {(timer() - start):5.2f}s  {stack_time:5.2f}s')

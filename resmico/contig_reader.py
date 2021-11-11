@@ -28,7 +28,7 @@ def _read_feature(file: gzip.GzipFile, data, feature_name: str, bytes: int, dtyp
     if feature_name not in feature_names:
         file.seek(bytes, os.SEEK_CUR)
         return
-    # the astype is needed even if dtype already is np.float32, otherwise the array is read-only
+    # `.astype()` is needed even if dtype already is np.float32, otherwise the array is read-only
     data[feature_name] = np.frombuffer(file.read(bytes), dtype=dtype).astype(np.float32)
     if normalize_by != 1:
         data[feature_name] /= normalize_by
@@ -203,7 +203,7 @@ class ContigReader:
         self.feature_mask: list[int] = [1 if feature in feature_names else 0 for feature in reader.feature_names]
 
         logging.info('Looking for stats/toc files...')
-        file_list = list(glob(input_dir+"/**/stats", recursive=True))
+        file_list = list(glob(input_dir+'/**/stats', recursive=True))
         logging.info(f'Processing {len(file_list)} stats/toc files found in {input_dir} ...')
         if not file_list:
             logging.info('Nothing to do.')
@@ -212,15 +212,15 @@ class ContigReader:
         if stats_file == '':
             logging.info('Computing global means and standard deviations...')
             self._compute_mean_stdev(file_list)
+            out_file = os.path.join(input_dir, 'stats.json')
+            json.dump({'means': self.means, 'stdevs': self.stdevs}, open(out_file, 'w'))
+            logging.info(f'Means and stdevs saved to: {out_file}')
         else:
             logging.info(f'Loading feature means and standard deviations from {stats_file}')
             means_stdevs = json.load(open(stats_file))
             self.means, self.stdevs = means_stdevs['means'], means_stdevs['stdevs']
 
         self._load_contigs_metadata(file_list)
-        out_file = os.path.join(input_dir, 'stats.json')
-        json.dump({'means': self.means, 'stdevs': self.stdevs}, open(out_file, 'w'))
-        logging.info(f'Means and stdevs saved to: {out_file}')
 
     def __len__(self):
         return len(self.contigs)
