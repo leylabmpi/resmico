@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 import unittest
 from unittest.mock import patch, MagicMock
 
@@ -207,6 +208,7 @@ class TestBinaryDatasetEval(unittest.TestCase):
     bytes_per_base = 10 + sum(  # 10 is the overhead also added in Models_Fl.BinaryDataEval
         [np.dtype(ft).itemsize for ft in reader.feature_np_types])
 
+    @pytest.mark.skip(reason="Not sorting by length at the moment.")
     def test_sort_by_contig_len(self):
         """ Make sure that contigs are sorted in increasing order by length """
         ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
