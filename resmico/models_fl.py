@@ -30,7 +30,7 @@ class Resmico(object):
         self.filters = config.filters
         self.n_conv = config.n_conv
         # ref_base uses one-hot encoding, so needs 4 (i.e. an extra 3) input nodes
-        self.n_feat = len(config.features) + 3 if 'ref_base' in config.features else 0
+        self.n_feat = len(config.features) + (3 if 'ref_base' in config.features else 0)
         # self.pool_window = config.pool_window
         self.dropout = config.dropout
         self.lr_init = config.lr_init
