@@ -71,24 +71,24 @@ cmd2="echo Copying data to local disk...; \
         | xargs -i cp --parents {} ${SCRATCH_DIR}"
 
 # defining various sets of features
-features_small="ref_base num_query_A num_query_C num_query_G num_query_T num_SNPs num_proper_Match num_orphans_Match mean_al_score_Match coverage stdev_insert_size_Match mean_mapq_Match seq_window_perc_gc"
-features20="ref_base num_query_A num_query_C num_query_G num_query_T coverage num_proper_Match num_orphans_Match max_insert_size_Match mean_insert_size_Match min_insert_size_Match stdev_insert_size_Match mean_mapq_Match min_mapq_Match stdev_mapq_Match seq_window_perc_gc num_proper_SNP"
-features23="ref_base num_query_A num_query_C num_query_G num_query_T coverage num_proper_Match num_orphans_Match max_insert_size_Match mean_insert_size_Match min_insert_size_Match stdev_insert_size_Match mean_mapq_Match min_mapq_Match stdev_mapq_Match mean_al_score_Match min_al_score_Match stdev_al_score_Match seq_window_perc_gc num_proper_SNP"
+features_small="ref_base num_query_A num_query_C num_query_G num_query_T num_SNPs num_proper_Match num_orphans_Match mean_al_score_Match coverage stdev_insert_size_Match mean_mapq_Match seq_window_perc_gc seq_window_entropy"
+
+features_smaller="num_SNPs num_proper_Match num_orphans_Match mean_al_score_Match coverage stdev_insert_size_Match mean_mapq_Match seq_window_perc_gc seq_window_entropy"
 
 cmd3="/usr/bin/time python resmico train --binary-data --feature-files-path ${SCRATCH_DIR} \
       --save-path /cluster/home/ddanciu/tmp --n-procs 8 --log-level info \
       --batch-size 300 --n-fc 1 --num-blocks 4 --fraq-neg 0.2  ${additional_params}  \
       --max-len ${max_len} --gpu-eval-mem-gb 4 --features ${features_small} --n-epochs 60 \
       --num-translations ${num_translations} --max-translation-bases ${max_translation_bases} \
-      --val-ind-f ${DATA_DIR}/val_ind.csv"
-#        --log-progress --cache-validation \
+      --cache --val-ind-f ${DATA_DIR}/val_ind.csv"
+
 cmd4="echo Cleaning scratch directory...; rm -rf ${SCRATCH_DIR}"
 
 cd "${CODE_PATH}"
 
 echo "Training command is: ${cmd3}"
-# submit the job
-bsub -W 24:00 -n 8 -J resmico-n9k -R "span[hosts=1]" -R rusage[mem=30000,ngpus_excl_p=2,scratch=30000] -G ms_raets \
+# submit the job; when caching all data use 8 cores and 45000 mem
+bsub -W 24:00 -n 8 -J resmico-n9k -R "span[hosts=1]" -R rusage[mem=45000,ngpus_excl_p=6,scratch=30000] -G ms_raets \
      -oo "${lsf_log_file}" "${cmd1}; ${cmd2}; ${cmd3} 2>&1 | tee ${log_file}; ${cmd4}"
 
 
