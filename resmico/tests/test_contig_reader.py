@@ -47,7 +47,7 @@ class TestReadContig(unittest.TestCase):
                                                             result['mean_mapq_Match'][pos]))
             self.assertEqual(0.5 if 0 < pos < 5 else 1 if 420 <= pos < 425 else 0, result['num_proper_SNP'][pos])
             self.assertEqual(0 if pos < 498 else 25 if pos == 498 else 50, result['seq_window_perc_gc'][pos])
-            self.assertAlmostEqual(0 if pos < 498 else 0.811278 if pos == 498 else 1, result['entropy'][pos],
+            self.assertAlmostEqual(0 if pos < 498 else 0.811278 if pos == 498 else 1, result['seq_window_entropy'][pos],
                                    delta=1e-4)
 
     def test_normalize_zero_mean_one_stdev(self):
