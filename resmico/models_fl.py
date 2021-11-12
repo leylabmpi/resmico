@@ -474,7 +474,7 @@ class BinaryDatasetEval(BinaryDataset):
         """
         logging.info(f'Creating evaluation data generator. Window: {window}, Step: {step}, Caching: {cache_results}')
         BinaryDataset.__init__(self, reader, feature_names)
-        self.indices = sorted(indices, key=lambda x: reader.contigs[x].length)
+        self.indices = indices # sorted(indices, key=lambda x: reader.contigs[x].length)
         self.window = window
         self.step = step
         # creates batches of contigs such that the total memory used by features in each batch is < total_memory_bytes
