@@ -225,7 +225,7 @@ class ContigReader:
     def __len__(self):
         return len(self.contigs)
 
-    def read_contigs(self, contig_infos: list[ContigInfo]):
+    def read_contigs(self, contig_infos: list[ContigInfo], return_raw=False):
         """
         Reads the features for the given contig_infos from file and returns the result in a list of len(contig_infos)
         dictionaries of {'feature_name', feature_data}
@@ -252,8 +252,11 @@ class ContigReader:
                                                   self.process_count)
             for f in features_raw:
                 features = _post_process_features(f)
-                self._normalize(features)
-                result.append(features)
+                if return_raw:
+                    result.append(features)
+                else:
+                    self._normalize(features)
+                    result.append(features)
         logging.debug(f'Contigs read in {(timer() - start):5.2f}s; read: {self.read_time:5.2f}s '
                       f'normalize: {self.normalize_time:5.2f}s')
         return result
