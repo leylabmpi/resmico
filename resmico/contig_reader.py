@@ -203,7 +203,7 @@ class ContigReader:
         self.feature_mask: list[int] = [1 if feature in feature_names else 0 for feature in reader.feature_names]
 
         logging.info('Looking for stats/toc files...')
-        file_list = list(glob(input_dir+'/**/stats', recursive=True))
+        file_list = list(glob(input_dir + '/**/stats', recursive=True))
         logging.info(f'Processing {len(file_list)} stats/toc files found in {input_dir} ...')
         if not file_list:
             logging.info('Nothing to do.')
@@ -264,11 +264,9 @@ class ContigReader:
         metrics = ['insert_size', 'mapq', 'al_score']  # insert size, mapping quality, alignment quality
         metric_types = ['min', 'mean', 'stdev', 'max']
 
-        for metric in metrics:
-            for mtype in metric_types:
-                feature_name = f'{mtype}_{metric}_Match'
-                self.means[feature_name] = 0
-                self.stdevs[feature_name] = 0
+        for feature_name in reader.float_feature_names:
+            self.means[feature_name] = 0
+            self.stdevs[feature_name] = 0
 
         for fname in file_list:
             with open(fname) as f:
@@ -395,7 +393,8 @@ class ContigReader:
             if feature_name not in features:
                 continue
             if feature_name not in self.means or feature_name not in self.stdevs:
-                logging.warning('Could not find mean/standard deviation for feature: {fname}. Skipping normalization')
+                logging.warning(
+                    f'Could not find mean/standard deviation for feature: {feature_name}. Skipping normalization')
                 continue
             # if np.isnan(sum(features[feature_name])):
             #     logging.warning(f'Exception for feature {feature_name}')

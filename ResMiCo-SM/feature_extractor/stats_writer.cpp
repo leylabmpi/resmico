@@ -201,8 +201,8 @@ StatsWriter::StatsWriter(const std::filesystem::path &out_dir,
     std::filesystem::remove(binary_features);
     std::filesystem::remove(binary_chunk_features);
 
-    sums.resize(12, 0);
-    sums2.resize(12, 0);
+    sums.resize(14, 0);
+    sums2.resize(14, 0);
     tsv_stream.precision(3);
 
     // write tsv header
@@ -294,6 +294,7 @@ void StatsWriter::write_stats(QueueItem &&item,
         cs.num_proper_snp[pos] = normalize(s.n_proper_snp, s.coverage);
         cs.gc_percent[pos] = s.gc_percent * 100;
         cs.entropy[pos] = s.entropy;
+        count_all++;
 
         if (!std::isnan(s.mean_i_size)) { // coverage > 0
             count_mean++;
@@ -331,6 +332,12 @@ void StatsWriter::write_stats(QueueItem &&item,
                 sums2[10] += s.std_dev_al_score * s.std_dev_al_score;
             }
         }
+
+        sums[12] += s.gc_percent;
+        sums2[12] += s.gc_percent * s.gc_percent;
+
+        sums[13] += s.entropy;
+        sums2[13] += s.entropy * s.entropy;
 
         tsv_stream << assembler << '\t' << item.reference_name << '\t' << pos << '\t';
 
@@ -403,6 +410,7 @@ void StatsWriter::write_stats(QueueItem &&item,
 void StatsWriter::write_summary() {
     nlohmann::json j;
 
+    j["all_count"] = count_all;
     j["mean_cnt"] = count_mean;
     j["stdev_cnt"] = count_std_dev;
 
@@ -424,6 +432,10 @@ void StatsWriter::write_summary() {
     j["al_score"]["sum2"] = {
         { "min", sums2[8] }, { "mean", sums2[9] }, { "stdev", sums2[10] }, { "max", sums2[11] }
     };
+    j["seq_window_perc_gc"]["sum"] = sums[12];
+    j["seq_window_perc_gc"]["sum2"] = sums2[12];
+    j["seq_window_entropy"]["sum"] = sums[13];
+    j["seq_window_entropy"]["sum2"] = sums2[13];
 
     std::ofstream stats(out_dir / "stats");
     stats << j.dump(2);

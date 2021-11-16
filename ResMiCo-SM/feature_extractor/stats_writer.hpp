@@ -130,16 +130,19 @@ class StatsWriter {
 
     std::mt19937 random_engine;
 
+    /** Total number of positions (for computing means/stdev for gc_percent and entropy) */
+    uint32_t count_all = 0;
+
     /** Number of positions where a mean value could be computed (coverage > 0) */
     uint32_t count_mean = 0;
 
     /** Number of positions where a stddev value could be computed (coverage > 1) */
     uint32_t count_std_dev = 0;
 
-    /** The sums of all the non-nan position for each of the 12 float metrics */
+    /** The sums of all the non-NaN positions for each of the 12 float metrics */
     std::vector<double> sums;
 
-    /** The sums of squares of all the non-nan position for each of the 12 float metrics */
+    /** The sums of squares of all the non-NaN position for each of the 12 float metrics */
     std::vector<double> sums2;
 
     /* Selects the position of the breakpoint in the contig chunk */
