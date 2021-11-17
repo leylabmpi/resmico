@@ -12,6 +12,7 @@ from tensorflow.keras.layers import GlobalMaxPooling1D, GlobalAveragePooling1D, 
 from tensorflow.keras.layers import Conv1D, Dropout, Dense
 from tensorflow.keras.layers import Bidirectional, LSTM
 from toolz import itertoolz
+from unittest.mock import MagicMock
 
 from resmico import contig_reader
 from resmico.contig_reader import ContigInfo
@@ -42,6 +43,10 @@ class Resmico(object):
         mask = None
 
         tf.random.set_seed(self.seed)
+
+        # function that returns the size of the convoluted output (that goes into the global pooling layers)
+        # for an input of given size; only defined for 'cnn_resnet'
+        self.convoluted_size = None
 
         if self.net_type == 'fixlen_cnn_resnet':
             inlayer = Input(shape=(self.max_len, self.n_feat), name='input')
@@ -108,14 +113,22 @@ class Resmico(object):
                 num_blocks_list = [2, 3, 5, 5, 2]
             if self.num_blocks == 6:
                 num_blocks_list = [2, 3, 5, 5, 3, 2]
+            convoluted_sizes = [None] * (len(num_blocks_list) + 1)
+            convoluted_sizes[0] = lambda x: x - 9  # after applying '1st_conv'
             for i in range(len(num_blocks_list)):
                 num_blocks = num_blocks_list[i]
+                reduction = self.ker_size - 1
+                downsample = 1 if i == 0 else 2
+                convoluted_sizes[i + 1] = lambda x, f=convoluted_sizes[i], num_blocks=num_blocks, downsample=downsample: f(x) // downsample - 2 * reduction * num_blocks
                 for j in range(num_blocks):
                     x = utils.residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
                                              kernel_size=self.ker_size)
                 num_filters *= 2
+
             if config.mask_padding:
-                mask = Input(shape=(None, self.n_feat), name='mask')
+                self.convoluted_size = convoluted_sizes[-1]
+                # 128 is the number of filters at the last convolutional layer
+                mask = Input(shape=(None, num_filters // 2), name='mask')
                 avgP = GlobalAveragePooling1D()(x, mask=mask)
                 # x = Multiply()(x, mask)
                 maxP = GlobalMaxPooling1D()(x)
@@ -267,7 +280,7 @@ class BinaryDataset(tf.keras.utils.Sequence):
 class BinaryDatasetTrain(BinaryDataset):
     def __init__(self, reader: contig_reader, indices: list[int], batch_size: int, feature_names: list[str],
                  max_len: int, num_translations: int, max_translation_bases: int, fraq_neg: float, do_cache: bool,
-                 show_progress: bool):
+                 show_progress: bool, convoluted_size=lambda x: x):
 
         """
         Arguments:
@@ -282,6 +295,7 @@ class BinaryDatasetTrain(BinaryDataset):
             - do_cahe: if True, the generator will cache the features in memory the first time they are
               read from disk
             - show_progress - if true, a progress bar will show the evaluation progress
+            - convoluted_size - function that computes the size of the convoluted output for an input of size n
         """
         BinaryDataset.__init__(self, reader, feature_names)
         logging.info(
@@ -295,6 +309,7 @@ class BinaryDatasetTrain(BinaryDataset):
         self.fraq_neg = fraq_neg
         self.do_cache = do_cache
         self.show_progress = show_progress
+        self.convoluted_size = convoluted_size
 
         if self.do_cache:
             # the cache maps a batch index to feature_name:feature_data pairs
@@ -408,9 +423,11 @@ class BinaryDatasetTrain(BinaryDataset):
 
     def _get_data(self, index):
         """
-        Return the next mini-batch of size #batch_size. The shape of the output is (batch_size, length, feature_count)
+        Return the next mini-batch of size #batch_size and a mask for the convoluted values. The shape of the output
+        (and the mask) is (batch_size, length, feature_count). The returned mask indicates which values in the output
+        of the convolution layers need to be ignored (as they are just padding).
         Parameters:
-            - index: the mini-batch to return
+            - index: the index of the mini-batch to return
         """
         start = timer()
         self.intervals.clear()
@@ -448,7 +465,7 @@ class BinaryDatasetTrain(BinaryDataset):
                     to_merge[j] = contig_features[feature_name][0:min(max_len - start_idx, contig_len)]
             stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
             x[i][:length, :] = stacked_features
-            mask[i][:length] = 1
+            mask[i][:self.convoluted_size(length)] = 1
         if self.do_cache:
             self.cache[index] = (x, mask, np.array(y))
         if self.show_progress:
@@ -475,7 +492,7 @@ class BinaryDatasetEval(BinaryDataset):
         """
         logging.info(f'Creating evaluation data generator. Window: {window}, Step: {step}, Caching: {cache_results}')
         BinaryDataset.__init__(self, reader, feature_names)
-        self.indices = indices # sorted(indices, key=lambda x: reader.contigs[x].length)
+        self.indices = indices  # sorted(indices, key=lambda x: reader.contigs[x].length)
         self.window = window
         self.step = step
         # creates batches of contigs such that the total memory used by features in each batch is < total_memory_bytes

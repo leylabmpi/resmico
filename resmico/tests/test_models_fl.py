@@ -360,3 +360,27 @@ class TestBinaryDatasetEval(unittest.TestCase):
 
         self.assertTrue(all(a == b for a, b in zip(eval_data[0][1][0][0:6], [1, 0, 0, 0, 1, 1])))
         self.assertTrue(all(a == b for a, b in zip(eval_data[0][1][5][0:6], [1, 0, 0, 0, 0, 0])))
+
+class TestResmico(unittest.TestCase):
+    def setUp(self):
+        args = MagicMock()
+        args.n_hid = 50
+        args.net_type = 'cnn_resnet'
+        args.filters = 16
+        args.features = ['ref_base']
+        args.num_blocks = 4
+        args.ker_size = 5
+        args.lr_init = 1e-3
+        self.args = args
+
+    def test_convolved_output_size_no_masking(self):
+        self.args.mask_padding = False
+        model = models_fl.Resmico(self.args)
+        self.assertIsNone(model.convoluted_size)
+
+    def test_convolved_output_size(self):
+        self.args.mask_padding = True
+        model = models_fl.Resmico(self.args)
+        self.assertIsNotNone(model.convoluted_size)
+        self.assertEqual(14, model.convoluted_size(512))
+        self.assertEqual(78, model.convoluted_size(1024))
