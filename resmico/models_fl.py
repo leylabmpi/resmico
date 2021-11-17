@@ -450,7 +450,7 @@ class BinaryDatasetTrain(BinaryDataset):
             x[i][:length, :] = stacked_features
             mask[i][:length] = 1
         if self.do_cache:
-            self.cache[index] = (x, np.array(y))
+            self.cache[index] = (x, mask, np.array(y))
         if self.show_progress:
             utils.update_progress(index + 1, self.__len__(), 'Training: ', f' {(timer() - start):5.2f}s')
         return x, mask, np.array(y)
