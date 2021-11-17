@@ -39,6 +39,7 @@ class Resmico(object):
         self.num_blocks = config.num_blocks
         self.ker_size = config.ker_size
         self.seed = config.seed
+        mask = None
 
         tf.random.set_seed(self.seed)
 
@@ -158,7 +159,10 @@ class Resmico(object):
         x = Dense(1, activation='sigmoid')(x)
 
         optimizer = tf.keras.optimizers.Adam(lr=self.lr_init)
-        inputs = (inlayer, mask) if mask else inlayer
+        if mask is not None:
+            inputs = (inlayer, mask)
+        else:
+            inputs = inlayer
         self.net = Model(inputs=inputs, outputs=x)
         self.net.compile(loss='binary_crossentropy',
                          optimizer=optimizer,
