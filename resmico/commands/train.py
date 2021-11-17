@@ -91,6 +91,9 @@ def parse_args(curr_args=None, subparsers=None):
     parser.add_argument('--max-translation-bases', default=0, type=int,
                         help='Maximum number of bases to translate around the breaking point'
                              '(i.e. misassembled contigs) that are longer than max-len')
+    parser.add_argument('--mask-padding', default=False,
+                        help='If enabled, values affected by padding will be masked out in the convolution output',
+                        dest='mask_padding', action='store_true')
 
 
     arguments.add_common_args(parser)

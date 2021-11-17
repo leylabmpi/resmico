@@ -1,6 +1,5 @@
 import logging
 import math
-import random
 import time
 from timeit import default_timer as timer
 
@@ -9,7 +8,7 @@ import tensorflow as tf
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, BatchNormalization
 from tensorflow.keras.layers import GlobalMaxPooling1D, GlobalAveragePooling1D, concatenate, AveragePooling1D, \
-    MaxPooling1D, Flatten
+    MaxPooling1D, Flatten, Multiply
 from tensorflow.keras.layers import Conv1D, Dropout, Dense
 from tensorflow.keras.layers import Bidirectional, LSTM
 from toolz import itertoolz
@@ -114,10 +113,16 @@ class Resmico(object):
                     x = utils.residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
                                              kernel_size=self.ker_size)
                 num_filters *= 2
-
-            maxP = GlobalMaxPooling1D()(x)
-            avgP = GlobalAveragePooling1D()(x)
-            x = concatenate([maxP, avgP])
+            if config.mask_padding:
+                mask = Input(shape=(None, self.n_feat), name='mask')
+                avgP = GlobalAveragePooling1D()(x, mask=mask)
+                # x = Multiply()(x, mask)
+                maxP = GlobalMaxPooling1D()(x)
+            else:
+                avgP = GlobalAveragePooling1D()(x)
+                maxP = GlobalMaxPooling1D()(x)
+            # x = concatenate([maxP, avgP])
+            x = maxP
 
         elif self.net_type == 'fixlen_cnn_resnet':
             x = BatchNormalization()(inlayer)
@@ -153,7 +158,8 @@ class Resmico(object):
         x = Dense(1, activation='sigmoid')(x)
 
         optimizer = tf.keras.optimizers.Adam(lr=self.lr_init)
-        self.net = Model(inputs=inlayer, outputs=x)
+        inputs = (inlayer, mask) if mask else inlayer
+        self.net = Model(inputs=inputs, outputs=x)
         self.net.compile(loss='binary_crossentropy',
                          optimizer=optimizer,
                          metrics=[utils.class_recall_0, utils.class_recall_1])
@@ -342,15 +348,7 @@ class BinaryDatasetTrain(BinaryDataset):
         return int(np.ceil(len(self.indices) / self.batch_size))
 
     def __getitem__(self, index):
-        x, y = self._get_data(index)
-        # if self.pos_A > 0 and self.pos_T > 0 and random.randint(0, 1) == 1:
-        #     x[:, [self.pos_A, self.pos_T]] = x[:, [self.pos_T, self.pos_A]]
-        #     if self.pos_ref >= 0:
-        #         x[:, [self.pos_ref, self.pos_ref + 3]] = x[:, [self.pos_ref + 3, self.pos_ref]]
-        # if self.pos_G > 0 and self.pos_C > 0 and random.randint(0, 1) == 1:
-        #     x[:, [self.pos_C, self.pos_G]] = x[:, [self.pos_G, self.pos_C]]
-        #     if self.pos_ref >= 0:
-        #         x[:, [self.pos_ref + 1, self.pos_ref + 2]] = x[:, [self.pos_ref + 2, self.pos_ref + 1]]
+        x, mask, y = self._get_data(index)
         return x, y
 
     def select_intervals(contig_data: list[ContigInfo], max_len: int, translate_short_contigs: bool,
@@ -406,7 +404,7 @@ class BinaryDatasetTrain(BinaryDataset):
 
     def _get_data(self, index):
         """
-        Return the next mini-batch of size #batch_size
+        Return the next mini-batch of size #batch_size. The shape of the output is (batch_size, length, feature_count)
         Parameters:
             - index: the mini-batch to return
         """
@@ -428,6 +426,7 @@ class BinaryDatasetTrain(BinaryDataset):
         max_len = min(max_contig_len, self.max_len)
         # Create the numpy array storing all the features for all the contigs in #batch_indices
         x = np.zeros((self.batch_size, max_len, len(features_data[0])), dtype=np.float32)
+        mask = np.zeros((self.batch_size, max_len), dtype=np.bool)
 
         contig_intervals = BinaryDatasetTrain.select_intervals(contig_data, max_len, self.translate_short_contigs,
                                                                self.max_translation_bases)
@@ -444,15 +443,13 @@ class BinaryDatasetTrain(BinaryDataset):
                                                               f'st-end are {start_idx}-{end_idx}'
                     to_merge[j] = contig_features[feature_name][0:min(max_len - start_idx, contig_len)]
             stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
-            if end_idx <= contig_len:
-                x[i][:length, :] = stacked_features
-            else:
-                x[i][start_idx:min(max_len, end_idx), :] = stacked_features
+            x[i][:length, :] = stacked_features
+            mask[i][:length] = 1
         if self.do_cache:
             self.cache[index] = (x, np.array(y))
         if self.show_progress:
             utils.update_progress(index + 1, self.__len__(), 'Training: ', f' {(timer() - start):5.2f}s')
-        return x, np.array(y)
+        return x, mask, np.array(y)
 
 
 class BinaryDatasetEval(BinaryDataset):
