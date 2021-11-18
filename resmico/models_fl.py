@@ -119,24 +119,26 @@ class Resmico(object):
                 num_blocks = num_blocks_list[i]
                 reduction = self.ker_size - 1
                 downsample = 1 if i == 0 else 2
-                convoluted_sizes[i + 1] = lambda x, f=convoluted_sizes[i], num_blocks=num_blocks, downsample=downsample: f(x) // downsample - 2 * reduction * num_blocks
+                convoluted_sizes[i + 1] = lambda x, f=convoluted_sizes[i], num_blocks=num_blocks, downsample=downsample\
+                    : f(x) // downsample - 2 * reduction * num_blocks
                 for j in range(num_blocks):
                     x = utils.residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
                                              kernel_size=self.ker_size)
                 num_filters *= 2
 
+            if config.binary_data:
+                # num_filters/2 is the number of filters at the last convolutional layer (e.g. 128 for resnet with 4 blocks)
+                mask = Input(shape=(config.max_len), name='mask')
+
             if config.mask_padding:
                 self.convoluted_size = convoluted_sizes[-1]
-                # 128 is the number of filters at the last convolutional layer
-                mask = Input(shape=(None, num_filters // 2), name='mask')
                 avgP = GlobalAveragePooling1D()(x, mask=mask)
                 # x = Multiply()(x, mask)
                 maxP = GlobalMaxPooling1D()(x)
             else:
                 avgP = GlobalAveragePooling1D()(x)
                 maxP = GlobalMaxPooling1D()(x)
-            # x = concatenate([maxP, avgP])
-            x = maxP
+            x = concatenate([maxP, avgP])
 
         elif self.net_type == 'fixlen_cnn_resnet':
             x = BatchNormalization()(inlayer)
@@ -172,7 +174,7 @@ class Resmico(object):
         x = Dense(1, activation='sigmoid')(x)
 
         optimizer = tf.keras.optimizers.Adam(lr=self.lr_init)
-        if mask is not None:
+        if config.binary_data:
             inputs = (inlayer, mask)
         else:
             inputs = inlayer
@@ -368,7 +370,7 @@ class BinaryDatasetTrain(BinaryDataset):
 
     def __getitem__(self, index):
         x, mask, y = self._get_data(index)
-        return x, y
+        return x, mask, y
 
     def select_intervals(contig_data: list[ContigInfo], max_len: int, translate_short_contigs: bool,
                          max_translation_bases: int):

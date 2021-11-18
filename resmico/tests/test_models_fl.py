@@ -161,7 +161,7 @@ class TestBinaryDatasetTrain(unittest.TestCase):
                     self.assertEqual(2840 + i, x[8][i][0])
                     self.assertEqual(3840 + i, x[8][i][1])
                     self.assertEqual(4840 + i, x[8][i][2])
-                    
+
                 # padding
                 for i in range(500):
                     for j in range(3):
