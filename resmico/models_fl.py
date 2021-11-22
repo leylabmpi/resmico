@@ -113,7 +113,8 @@ class Resmico(object):
             if self.num_blocks == 6:
                 num_blocks_list = [2, 3, 5, 5, 3, 2]
             # lambda function that computes the data size after applying all the convolutional
-            # layers with and without padding
+            # layers with and without padding; if the 'pad' parameter is True, the output is computed
+            # for a convolutional layer with padding='same', otherwise for padding='valid'
             convoluted_size = lambda x, pad: x - 10 + 1  # after applying '1st_conv' with kernel size 10
             for i in range(len(num_blocks_list)):
                 num_blocks = num_blocks_list[i]
