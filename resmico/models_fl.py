@@ -284,7 +284,7 @@ class BinaryDataset(tf.keras.utils.Sequence):
 class BinaryDatasetTrain(BinaryDataset):
     def __init__(self, reader: ContigReader, indices: list[int], batch_size: int, feature_names: list[str],
                  max_len: int, num_translations: int, max_translation_bases: int, fraq_neg: float, do_cache: bool,
-                 show_progress: bool, convoluted_size=lambda x: x):
+                 show_progress: bool, convoluted_size):
 
         """
         Arguments:
