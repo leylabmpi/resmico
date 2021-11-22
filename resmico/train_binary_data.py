@@ -107,7 +107,7 @@ def main(args):
     eval_data_tf = eval_data_tf.with_options(options)  # avoids Tensorflow ugly console barf
 
     logging.info('Training network...')
-    num_epochs = 2
+    num_epochs = 5
     train_data_tf = train_data_tf.repeat(num_epochs)
     auc_val_best = 0
     best_file = None
