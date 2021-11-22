@@ -8,11 +8,10 @@ import tensorflow as tf
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, BatchNormalization
 from tensorflow.keras.layers import GlobalMaxPooling1D, GlobalAveragePooling1D, concatenate, AveragePooling1D, \
-    MaxPooling1D, Flatten, Multiply
+    MaxPooling1D, Flatten, Multiply, Masking
 from tensorflow.keras.layers import Conv1D, Dropout, Dense
 from tensorflow.keras.layers import Bidirectional, LSTM
 from toolz import itertoolz
-from unittest.mock import MagicMock
 
 from resmico.contig_reader import ContigReader
 from resmico.contig_reader import ContigInfo
@@ -134,7 +133,7 @@ class Resmico(object):
             if config.mask_padding:
                 self.convoluted_size = convoluted_size
                 avgP = GlobalAveragePooling1D()(x, mask=mask)
-                # x = Multiply()(x, mask)
+                # x = Multiply()([x, mask])
                 maxP = GlobalMaxPooling1D()(x)
             else:
                 self.convoluted_size = lambda x,y : x
@@ -468,7 +467,7 @@ class BinaryDatasetTrain(BinaryDataset):
                     to_merge[j] = contig_features[feature_name][0:min(max_len - start_idx, contig_len)]
             stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
             x[i][:length, :] = stacked_features
-            mask[i][:self.convoluted_size(length, False)] = 1
+            mask[i][:self.convoluted_size(length, True)] = 1
         self.last_mask = mask
         self.last_idx = index
         if self.do_cache:
