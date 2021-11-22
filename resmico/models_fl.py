@@ -137,6 +137,7 @@ class Resmico(object):
                 # x = Multiply()(x, mask)
                 maxP = GlobalMaxPooling1D()(x)
             else:
+                self.convoluted_size = lambda x,y : x
                 avgP = GlobalAveragePooling1D()(x)
                 maxP = GlobalMaxPooling1D()(x)
             x = concatenate([maxP, avgP])
