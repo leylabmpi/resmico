@@ -132,11 +132,13 @@ class Resmico(object):
 
             if config.mask_padding:
                 self.convoluted_size = convoluted_size
+                # the mask marks the convoluted positions that were not affected by padding
                 avgP = GlobalAveragePooling1D()(x, mask=mask)
                 # x = Multiply()([x, mask])
                 maxP = GlobalMaxPooling1D()(x)
             else:
-                self.convoluted_size = lambda x,y : x
+                # if we don't mask the zero-padded values, the convoluted size can be anything
+                self.convoluted_size = lambda x,y : 1
                 avgP = GlobalAveragePooling1D()(x)
                 maxP = GlobalMaxPooling1D()(x)
             x = concatenate([maxP, avgP])
