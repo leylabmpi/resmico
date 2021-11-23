@@ -453,6 +453,8 @@ class BinaryDatasetTrain(BinaryDataset):
         max_len = min(max_contig_len, self.max_len)
         # Create the numpy array storing all the features for all the contigs in #batch_indices
         x = np.zeros((self.batch_size, max_len, len(features_data[0])), dtype=np.float32)
+        # it's important to initialize the mask to all ones and then set to zero the padded values rather than the
+        # other way around, otherwise we create a mask of all zeros for incomplete batches -> NaN in averaging
         mask = np.ones((self.batch_size, self.convoluted_size(max_len, True)), dtype=np.bool)
 
         contig_intervals = BinaryDatasetTrain.select_intervals(contig_data, max_len, self.translate_short_contigs,
