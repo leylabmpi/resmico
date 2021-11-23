@@ -490,7 +490,7 @@ class BinaryDatasetTrain(BinaryDataset):
                     to_merge[j] = contig_features[feature_name][0:min(max_len - start_idx, contig_len)]
             stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
             x[i][:length, :] = stacked_features
-            mask[i][self.convoluted_size(length, True):] = 0
+            mask[i][self.convoluted_size(length, False):] = 0
         self.last_mask = mask
         self.last_idx = index
         if self.do_cache:
