@@ -396,6 +396,6 @@ class TestResmico(unittest.TestCase):
         self.args.mask_padding = True
         model = models_fl.Resmico(self.args)
         self.assertIsNotNone(model.convoluted_size)
-        self.assertEqual(14, model.convoluted_size(512, False))
-        self.assertEqual(78, model.convoluted_size(1024, False))
+        self.assertEqual(19, model.convoluted_size(512, False))
+        self.assertEqual(83, model.convoluted_size(1024, False))
         self.assertEqual(133, model.convoluted_size(1071, True))

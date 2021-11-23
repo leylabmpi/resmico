@@ -19,6 +19,26 @@ from resmico import reader
 from resmico import utils
 
 
+def get_convoluted_size(model: Model):
+    """
+    Returns a lambda that computes the size of the padded/unpadded convolution layer output for a contig of a specific
+    length.
+    """
+    convoluted_size = lambda x, pad: x
+    for layer in model.layers:
+        if isinstance(layer, Conv1D):
+            if layer.kernel_size[0] == 1:  # this is the residual layer that doesn't affect the output size
+                continue
+            is_valid = int(layer.padding == 'valid')
+            convoluted_size_n = lambda x, pad, f=convoluted_size, strides=layer.strides, kernel_size=layer.kernel_size, \
+                                       is_valid=is_valid: math.ceil(
+                (f(x, pad) - (kernel_size[0] - 1) * is_valid) / strides[0]) if pad else 1 + (
+                    f(x, pad) - kernel_size[0]) // strides[0]
+
+            convoluted_size = convoluted_size_n
+    return convoluted_size
+
+
 class Resmico(object):
     """
     Implements a convolutional network for mis-assembly prediction.
@@ -112,17 +132,9 @@ class Resmico(object):
                 num_blocks_list = [2, 3, 5, 5, 2]
             if self.num_blocks == 6:
                 num_blocks_list = [2, 3, 5, 5, 3, 2]
-            # lambda function that computes the data size after applying all the convolutional
-            # layers with and without padding; if the 'pad' parameter is True, the output is computed
-            # for a convolutional layer with padding='same', otherwise for padding='valid'
-            convoluted_size = lambda x, pad: x - 10 + 1  # after applying '1st_conv' with kernel size 10
             for i in range(len(num_blocks_list)):
                 num_blocks = num_blocks_list[i]
-                reduction = self.ker_size - 1
                 downsample = 1 if i == 0 else 2
-                convoluted_size_n = lambda x, pad, f=convoluted_size, num_blocks=num_blocks, downsample=downsample \
-                    : math.ceil(f(x, pad) / downsample) if pad else f(x, pad) // downsample - 2 * reduction * num_blocks
-                convoluted_size = convoluted_size_n
                 for j in range(num_blocks):
                     x = utils.residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
                                              kernel_size=self.ker_size)
@@ -132,14 +144,11 @@ class Resmico(object):
                 mask = Input(shape=(None,), name='mask')
 
             if config.mask_padding:
-                self.convoluted_size = convoluted_size
                 # the mask marks the convoluted positions that were not affected by padding
                 avgP = GlobalAveragePooling1D()(x, mask=mask)
                 # x = Multiply()([x, mask])
                 maxP = GlobalMaxPooling1D()(x)
             else:
-                # if we don't mask the zero-padded values, the convoluted size can be anything
-                self.convoluted_size = lambda x,y : 1
                 avgP = GlobalAveragePooling1D()(x)
                 maxP = GlobalMaxPooling1D()(x)
 
@@ -187,6 +196,14 @@ class Resmico(object):
         self.net.compile(loss='binary_crossentropy',
                          optimizer=optimizer,
                          metrics=[utils.class_recall_0, utils.class_recall_1])
+        if config.mask_padding:
+            # lambda function that computes the data size after applying all the convolutional
+            # layers with and without padding; if the 'pad' parameter is True, the output is computed
+            # for a convolutional layer with padding='same', otherwise for padding='valid'
+            self.convoluted_size = get_convoluted_size(self.net)
+        else:
+            # if we don't mask the zero-padded values, the convoluted size can be anything
+            self.convoluted_size = lambda x, pad: 1
 
         # self.reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
         #                        monitor='val_loss', factor=0.8,
@@ -485,7 +502,7 @@ class BinaryDatasetTrain(BinaryDataset):
 
 class BinaryDatasetEval(BinaryDataset):
     def __init__(self, reader: ContigReader, indices: list[int], feature_names: list[str], window: int, step: int,
-                 total_memory_bytes: int, cache_results: bool, show_progress: bool, convoluted_size=lambda x: x):
+                 total_memory_bytes: int, cache_results: bool, show_progress: bool, convoluted_size):
 
         """
         Arguments:

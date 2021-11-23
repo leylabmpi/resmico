@@ -1,5 +1,5 @@
-import os
 import logging
+import os
 from pathlib import Path
 import time
 
@@ -17,6 +17,11 @@ from resmico import utils
 def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
     start = time.time()
 
+    if args.mask_padding:
+        convoluted_size = Models.get_convoluted_size(model)
+    else:
+        convoluted_size = lambda len, pad: len
+
     logging.info('Loading contig data...')
     reader = contig_reader.ContigReader(args.feature_files_path, args.features, args.n_procs, args.chunks,
                                         args.no_cython, args.stats_file)
@@ -30,7 +35,7 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
 
     predict_data = Models.BinaryDatasetEval(reader, eval_idx, args.features, args.max_len, args.max_len // 2,
                                             int(args.gpu_eval_mem_gb * 1e9 * 0.8), cache_results=False,
-                                            show_progress=False)
+                                            show_progress=False, convoluted_size=convoluted_size)
 
     eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in predict_data.indices])
 
@@ -65,12 +70,13 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
     out_file.write('cont_name,length,label,score,min,mean,std,max\n')
     for idx in range(len(eval_idx)):
         contig = reader.contigs[predict_data.indices[idx]]
-        out_file.write(f'{os.path.join(os.path.dirname(contig.file),contig.name)},{contig.length},'
+        out_file.write(f'{os.path.join(os.path.dirname(contig.file), contig.name)},{contig.length},'
                        f'{contig.misassembly},{eval_data_predicted_max[idx]},'
                        f'{eval_data_predicted_min[idx]},{eval_data_predicted_mean[idx]},'
                        f'{eval_data_predicted_std[idx]},{eval_data_predicted_max[idx]}\n')
 
     logging.info(f'Predictions saved to: {out_file}')
+
 
 def predict_with_method(model, args):
     if args.filter10:
