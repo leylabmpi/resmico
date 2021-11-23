@@ -516,7 +516,7 @@ class BinaryDatasetEval(BinaryDataset):
             total_memory_bytes - maximum memory desired for contig features in a mini-batch
             cache_results - if true, data is cached in memory after the first evaluation step
             show_progress - if true, a progress bar will show the evaluation progress
-            convoluted_size - function that computes the size of the convoluted output for an input of size n
+            convoluted_size - lambda that computes the size of the convoluted output for an input of size n
         """
         logging.info(f'Creating evaluation data generator. Window: {window}, Step: {step}, Caching: {cache_results}')
         BinaryDataset.__init__(self, reader, feature_names, convoluted_size)

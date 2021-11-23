@@ -41,10 +41,18 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
 
     # convert the slow Keras predict_data of type Sequence to a tf.data object
     data_iter = lambda: (s for s in predict_data)
+
     predict_data_tf = tf.data.Dataset.from_generator(
         data_iter,
         output_signature=(
-            tf.TensorSpec(shape=(None, None, len(predict_data.expanded_feature_names)), dtype=tf.float32)))
+            # first dimension is batch size, second is contig length, third is number of features
+            (tf.TensorSpec(shape=(None, None, len(predict_data.expanded_feature_names)), dtype=tf.float32),
+             # first dimension is batch size, second is contig length (no third dimension,
+             # as all features are masked the same way)
+             tf.TensorSpec(shape=(None, None), dtype=tf.bool)),
+            tf.TensorSpec(shape=(None), dtype=tf.bool)
+        ))
+
     predict_data_tf = predict_data_tf.prefetch(4 * num_gpus)
     options = tf.data.Options()
     options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
