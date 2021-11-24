@@ -11,6 +11,8 @@ from tensorflow.keras.layers import GlobalMaxPooling1D, GlobalAveragePooling1D, 
     MaxPooling1D, Flatten
 from tensorflow.keras.layers import Conv1D, Dropout, Dense
 from tensorflow.keras.layers import Bidirectional, LSTM
+from tensorflow.python.ops import array_ops
+
 from toolz import itertoolz
 
 from resmico.contig_reader import ContigReader
@@ -26,8 +28,18 @@ class GlobalMaskedMaxPooling1D(GlobalMaxPooling1D):
 
     def call(self, inputs, mask=None):
         if mask is not None:
-            inputs = tf.minimum(inputs, (2 * tf.to_float(mask) - 1) * np.inf)
-        return super().call(self, inputs)
+            mask = tf.cast(mask, dtype=tf.float32)
+            mask = array_ops.expand_dims(
+                mask, 2 if self.data_format == 'channels_last' else 1)
+            # old = super().call(inputs)
+            inputs = tf.minimum(inputs, (2 * mask - 1) * np.inf)
+            new = super().call(inputs)
+            # diff = tf.equal(old, new)
+            # as_ints = 1 - tf.cast(diff, tf.int32)
+            # tf.print('old', tf.boolean_mask(old, not diff))
+            # tf.print('new', tf.boolean_mask(new, not diff))
+            # tf.print(tf.reduce_sum(as_ints))
+        return new
 
 
 def get_convoluted_size(model: Model):
@@ -156,7 +168,7 @@ class Resmico(object):
             if config.mask_padding:
                 # the mask marks the convoluted positions that were not affected by padding
                 avgP = GlobalAveragePooling1D()(x, mask=mask)
-                maxP = GlobalMaskedMaxPooling1D()(x, mask=mask)
+                maxP = GlobalMaxPooling1D()(x)
             else:
                 avgP = GlobalAveragePooling1D()(x)
                 maxP = GlobalMaxPooling1D()(x)
@@ -499,7 +511,7 @@ class BinaryDatasetTrain(BinaryDataset):
                     to_merge[j] = contig_features[feature_name][0:min(max_len - start_idx, contig_len)]
             stacked_features = np.stack(to_merge, axis=-1)  # each feature becomes a column in x[i]
             x[i][:length, :] = stacked_features
-            mask[i][self.convoluted_size(length, False):] = 0
+            mask[i][self.convoluted_size(length, True):] = 0
         self.last_mask = mask
         self.last_idx = index
         if self.do_cache:
@@ -664,7 +676,7 @@ class BinaryDatasetEval(BinaryDataset):
                     mask[idx][:self.convoluted_size(max_len, False)] = 1
                 else:
                     x[idx][:contig_len - start_idx] = stacked_features[start_idx:contig_len]
-                    mask[idx][:self.convoluted_size(contig_len - start_idx, False)] = 1
+                    mask[idx][:self.convoluted_size(contig_len - start_idx, True)] = 1
                 start_idx += self.step
 
                 idx += 1

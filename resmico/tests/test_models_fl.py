@@ -208,20 +208,6 @@ class TestBinaryDatasetEval(unittest.TestCase):
     bytes_per_base = 10 + sum(  # 10 is the overhead also added in Models_Fl.BinaryDataEval
         [np.dtype(ft).itemsize for ft in reader.feature_np_types])
 
-    @pytest.mark.skip(reason="Not sorting by length at the moment.")
-    def test_sort_by_contig_len(self):
-        """ Make sure that contigs are sorted in increasing order by length """
-        ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
-        ctg_reader.contigs = [ContigInfo('Contig1', '/tmp/c1', 300, 0, 0, 0, []),
-                              ContigInfo('Contig2', '/tmp/c2', 200, 0, 0, 0, []),
-                              ContigInfo('Contig3', '/tmp/c3', 100, 0, 0, 0, [])]
-        indices = np.arange(len(ctg_reader))
-
-        gpu_memory_bytes = 1010 * self.bytes_per_base
-        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 500, 250, gpu_memory_bytes,
-                                                False, False, convoluted_size=(lambda x, pad: x))
-        self.assertEqual(eval_data.indices, [2, 1, 0])
-
     def test_batching_one_per_batch(self):
         ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
         ctg_reader.contigs = [ContigInfo('Contig1', '/tmp/c1', 1000, 0, 0, 0, []),
