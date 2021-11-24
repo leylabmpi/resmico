@@ -8,7 +8,7 @@ import tensorflow as tf
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, BatchNormalization
 from tensorflow.keras.layers import GlobalMaxPooling1D, GlobalAveragePooling1D, concatenate, AveragePooling1D, \
-    MaxPooling1D, Flatten, Multiply, Masking
+    MaxPooling1D, Flatten
 from tensorflow.keras.layers import Conv1D, Dropout, Dense
 from tensorflow.keras.layers import Bidirectional, LSTM
 from toolz import itertoolz
@@ -17,6 +17,17 @@ from resmico.contig_reader import ContigReader
 from resmico.contig_reader import ContigInfo
 from resmico import reader
 from resmico import utils
+
+
+class GlobalMaskedMaxPooling1D(GlobalMaxPooling1D):
+    """
+    Global max pooling operation for 1D temporal data with optional masking.
+    """
+
+    def call(self, inputs, mask=None):
+        if mask is not None:
+            inputs = tf.minimum(inputs, (2 * tf.to_float(mask) - 1) * np.inf)
+        return super().call(self, inputs)
 
 
 def get_convoluted_size(model: Model):
@@ -134,7 +145,6 @@ class Resmico(object):
                 num_blocks_list = [2, 3, 5, 5, 3, 2]
             for i in range(len(num_blocks_list)):
                 num_blocks = num_blocks_list[i]
-                downsample = 1 if i == 0 else 2
                 for j in range(num_blocks):
                     x = utils.residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
                                              kernel_size=self.ker_size)
@@ -146,8 +156,7 @@ class Resmico(object):
             if config.mask_padding:
                 # the mask marks the convoluted positions that were not affected by padding
                 avgP = GlobalAveragePooling1D()(x, mask=mask)
-                # x = Multiply()([x, mask])
-                maxP = GlobalMaxPooling1D()(x)
+                maxP = GlobalMaskedMaxPooling1D()(x, mask=mask)
             else:
                 avgP = GlobalAveragePooling1D()(x)
                 maxP = GlobalMaxPooling1D()(x)
