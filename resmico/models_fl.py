@@ -168,7 +168,7 @@ class Resmico(object):
             if config.mask_padding:
                 # the mask marks the convoluted positions that were not affected by padding
                 avgP = GlobalAveragePooling1D()(x, mask=mask)
-                maxP = GlobalMaxPooling1D()(x)
+                maxP = GlobalMaskedMaxPooling1D()(x, mask=mask)
             else:
                 avgP = GlobalAveragePooling1D()(x)
                 maxP = GlobalMaxPooling1D()(x)
