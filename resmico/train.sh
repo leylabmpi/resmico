@@ -77,10 +77,11 @@ features_smaller="num_SNPs num_proper_Match num_orphans_Match mean_al_score_Matc
 
 cmd3="/usr/bin/time python resmico train --binary-data --feature-files-path ${SCRATCH_DIR} \
       --save-path /cluster/home/ddanciu/tmp --n-procs 8 --log-level info \
-      --batch-size 300 --n-fc 1 --num-blocks 4 --fraq-neg 0.2  ${additional_params}  \
+      --batch-size 300 --n-fc 1 --num-blocks 3 --fraq-neg 0.2  ${additional_params}  \
       --max-len ${max_len} --gpu-eval-mem-gb 4 --features ${features_small} --n-epochs 60 \
       --num-translations ${num_translations} --max-translation-bases ${max_translation_bases} \
-      --cache --val-ind-f ${DATA_DIR}/val_ind.csv"
+      --mask-padding --cache-train"
+# --val-ind-f ${DATA_DIR}/val_ind.csv"
 
 cmd4="echo Cleaning scratch directory...; rm -rf ${SCRATCH_DIR}"
 
