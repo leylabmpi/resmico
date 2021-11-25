@@ -28,8 +28,7 @@ class GlobalMaskedMaxPooling1D(GlobalMaxPooling1D):
     """
 
     def __init__(self, data_format='channels_last', **kwargs):
-        super(GlobalMaskedMaxPooling1D, self).__init__(data_format=data_format,
-                                                       **kwargs)
+        super().__init__(data_format=data_format, **kwargs)
 
     def call(self, inputs, mask=None):
         if mask is not None:

@@ -174,7 +174,7 @@ class ContigReader:
     """
 
     def __init__(self, input_dir: str, feature_names: list[str], process_count: int, is_chunked: bool,
-                 no_cython: bool = False, stats_file: str = ''):
+                 no_cython: bool = False, stats_file: str = '', min_len: int = 0):
         """
         Arguments:
             - input_dir: location on disk where the feature data is stored
@@ -183,6 +183,7 @@ class ContigReader:
             - is_chunked: if True, we are loading data from contig chunks (toc_chunked rather than toc)
             - no_cython: whether to read data from disk using pure Python or using Cython bindings
             - stats_file: if present, specifies a stats file to read the statistics for each feature from
+            - min_len: exclude all contigs shorter than min_len
         """
         # means and stdevs are a map from feature name to the mean and standard deviation precomputed for that
         # feature across *all* contigs, stored as a tuple
@@ -199,6 +200,7 @@ class ContigReader:
         # just temp attributes for measuring performance
         self.normalize_time = 0
         self.read_time = 0
+        self.min_len = min_len
 
         self.feature_mask: list[int] = [1 if feature in feature_names else 0 for feature in reader.feature_names]
 
@@ -307,6 +309,7 @@ class ContigReader:
         contig_count = 0
         total_len = 0
         breakpoint_hist = np.zeros(50)
+        excluded_count = 0
         for fname in file_list:
             toc_file = fname[:-len('stats')] + 'toc'
             contig_fname = fname[:-len('stats')] + 'features_binary'
@@ -331,13 +334,16 @@ class ContigReader:
 
                     contig_info = ContigInfo(row[0], contig_fname, int(row[1]), offset, size_bytes, int(row[2]),
                                              breakpoints)
-                    total_len += contig_info.length
-                    self.contigs.append(contig_info)
+                    if contig_info.length >= self.min_len:
+                        total_len += contig_info.length
+                        self.contigs.append(contig_info)
+                    else:
+                        excluded_count += 1
                     offset += size_bytes
                     contig_count += 1
 
         logging.info(
-            f'Found {contig_count} contigs, {total_len} total length, '
+            f'Found {contig_count} contigs, {excluded_count} excluded, {total_len} total length, '
             f'memory needed (assuming fraq-neg=1) {total_len * reader.bytes_per_base / 1e9:6.2f}GB')
         logging.info(f'Breakpoint location histogram: {breakpoint_hist}')
 

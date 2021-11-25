@@ -19,12 +19,12 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
 
     if args.mask_padding:
         convoluted_size = Models.get_convoluted_size(model)
-    else:
-        convoluted_size = lambda len, pad: len
+    else:  # when not padding, the convoluted size is unused
+        convoluted_size = lambda len, pad: 0
 
     logging.info('Loading contig data...')
     reader = contig_reader.ContigReader(args.feature_files_path, args.features, args.n_procs, args.chunks,
-                                        args.no_cython, args.stats_file)
+                                        args.no_cython, args.stats_file, args.min_len)
 
     if args.val_ind_f:
         eval_idx = list(pd.read_csv(args.val_ind_f)['val_ind'])
@@ -203,7 +203,7 @@ def main(args):
     if args.v1:
         custom_obj = {'metr': utils.class_recall_0}
     else:
-        #TOOD: remove GlobalMaskedMaxPooling1D, once annotation kicks in
+        # TOOD: remove GlobalMaskedMaxPooling1D, once annotation kicks in
         custom_obj = {'class_recall_0': utils.class_recall_0, 'class_recall_1': utils.class_recall_1,
                       'GlobalMaskedMaxPooling1D': Models.GlobalMaskedMaxPooling1D}
 
