@@ -77,18 +77,19 @@ class TestBinaryDatasetTrain(unittest.TestCase):
                 max_len = 500
                 data_gen = models_fl.BinaryDatasetTrain(ctg_reader, indices, batch_size, features, max_len,
                                                         num_translations=3, max_translation_bases=10, fraq_neg=1.0,
-                                                        do_cache=cached, show_progress=False)
+                                                        do_cache=cached, show_progress=False,
+                                                        convoluted_size=(lambda x, pad: x))
                 data_gen.indices.sort()  # indices will now be 0,0,0,1,1,1,2,2,2
                 self.assertEqual(9, len(data_gen.indices))  # we have 3 contigs, each translated 3 times
                 self.assertEqual([0, 0, 0, 1, 1, 1, 2, 2, 2], data_gen.indices)
                 mock_intervals.return_value = [
-                    # 1st contig: full contig, shifted to left 100, shifted to right 200
-                    (0, 500), (100, 500), (200, 700),
-                    (0, 300), (50, 300), (40, 340),  # 2nd contig
-                    (500, 1000), (450, 950), (440, 940)  # 3rd contig
+                    # 1st contig: full contig, cropped to left 100, cropped to left 10
+                    (0, 500), (100, 500), (10, 500),
+                    (0, 300), (50, 300), (40, 300),  # 2nd contig
+                    (500, 1000), (450, 950), (440, 900)  # 3rd contig
                 ]
 
-                x, y = data_gen.__getitem__(0)
+                (x, mask), y = data_gen.__getitem__(0)
                 self.assertEqual((batch_size, max_len, len(features)), x.shape)
                 # the last zero is just padding
                 self.assertIsNone(np.testing.assert_array_equal([0, 0, 0, 1, 1, 1, 1, 1, 1, 0], y))
@@ -106,12 +107,13 @@ class TestBinaryDatasetTrain(unittest.TestCase):
                 for i in range(400, 500):
                     for j in range(3):
                         self.assertEqual(0, x[1][i][j])
-                # first contig, 3rd translation (shift 200 to right)
-                for i in range(300):
-                    self.assertEqual(i, x[2][i + 200][0])
-                    self.assertEqual(500 + i, x[2][i + 200][1])
-                    self.assertEqual(1000 + i, x[2][i + 200][2])
-                for i in range(200):
+
+                # first contig, 2nd translation (shift 10 to left)
+                for i in range(490):
+                    self.assertEqual(10 + i, x[2][i][0])
+                    self.assertEqual(510 + i, x[2][i][1])
+                    self.assertEqual(1010 + i, x[2][i][2])
+                for i in range(490, 500):
                     for j in range(3):
                         self.assertEqual(0, x[2][i][j])
 
@@ -133,15 +135,12 @@ class TestBinaryDatasetTrain(unittest.TestCase):
                     for j in range(3):
                         self.assertEqual(0, x[4][i][j])
 
-                # 2nd contig 3rd translation (shift 40 bases to the right)
-                for i in range(40):  # first 40 positions are zero
-                    for j in range(3):
-                        self.assertEqual(0, x[5][i][j])
-                for i in range(300):  # positions 40-340 contain the actual contig data
-                    self.assertEqual(1500 + i, x[5][40 + i][0])
-                    self.assertEqual(1800 + i, x[5][40 + i][1])
-                    self.assertEqual(2100 + i, x[5][40 + i][2])
-                for i in range(340, 500):  # positions 340+ are again zero
+                # 2nd contig 3rd translation (truncate 40 bases from the left)
+                for i in range(260):
+                    self.assertEqual(1540 + i, x[5][i][0])
+                    self.assertEqual(1840 + i, x[5][i][1])
+                    self.assertEqual(2140 + i, x[5][i][2])
+                for i in range(260, 500):
                     for j in range(3):
                         self.assertEqual(0, x[5][i][j])
 
@@ -157,8 +156,8 @@ class TestBinaryDatasetTrain(unittest.TestCase):
                     self.assertEqual(3850 + i, x[7][i][1])
                     self.assertEqual(4850 + i, x[7][i][2])
 
-                # 3rd contig 3rd translation (bases 440 to 940 of contig 3)
-                for i in range(500):
+                # 3rd contig 3rd translation (bases 440 to 950 of contig 3)
+                for i in range(460):
                     self.assertEqual(2840 + i, x[8][i][0])
                     self.assertEqual(3840 + i, x[8][i][1])
                     self.assertEqual(4840 + i, x[8][i][2])
@@ -176,14 +175,15 @@ class TestBinaryDatasetTrain(unittest.TestCase):
             num_translations = 1
             data_gen = models_fl.BinaryDatasetTrain(ctg_reader, indices, batch_size, reader.feature_names, 500,
                                                     num_translations=1, max_translation_bases=0, fraq_neg=1.0,
-                                                    do_cache=cached, show_progress=False)
+                                                    do_cache=cached, show_progress=False,
+                                                    convoluted_size=(lambda x, pad: x))
             data_gen.translate_short_contigs = False  # so that we know which interval is selected
             # set these to -1 in order to enforce NOT swapping A/T and G/C (for data enhancement)
             data_gen.pos_A = data_gen.pos_ref = data_gen.pos_C = -1
             # unshuffle the indices, so that we can make assertions about the returned data
             data_gen.indices = [0, 1]
             self.assertEqual(1, len(data_gen))
-            train_data, y = data_gen[0]
+            (train_data, mask), y = data_gen[0]
             # even if we only have 2 samples, the remaining are filled with zero to reach the desired batch size
             self.assertEqual(batch_size, len(train_data))
 
@@ -208,20 +208,6 @@ class TestBinaryDatasetEval(unittest.TestCase):
     bytes_per_base = 10 + sum(  # 10 is the overhead also added in Models_Fl.BinaryDataEval
         [np.dtype(ft).itemsize for ft in reader.feature_np_types])
 
-    @pytest.mark.skip(reason="Not sorting by length at the moment.")
-    def test_sort_by_contig_len(self):
-        """ Make sure that contigs are sorted in increasing order by length """
-        ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
-        ctg_reader.contigs = [ContigInfo('Contig1', '/tmp/c1', 300, 0, 0, 0, []),
-                              ContigInfo('Contig2', '/tmp/c2', 200, 0, 0, 0, []),
-                              ContigInfo('Contig3', '/tmp/c3', 100, 0, 0, 0, [])]
-        indices = np.arange(len(ctg_reader))
-
-        gpu_memory_bytes = 1010 * self.bytes_per_base
-        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 500, 250, gpu_memory_bytes,
-                                                False, False)
-        self.assertEqual(eval_data.indices, [2, 1, 0])
-
     def test_batching_one_per_batch(self):
         ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
         ctg_reader.contigs = [ContigInfo('Contig1', '/tmp/c1', 1000, 0, 0, 0, []),
@@ -231,7 +217,7 @@ class TestBinaryDatasetEval(unittest.TestCase):
 
         gpu_memory_bytes = 1010 * self.bytes_per_base
         eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 500, 250, gpu_memory_bytes,
-                                                False, False)
+                                                False, False, convoluted_size=(lambda x, pad: x))
         self.assertEqual(3, len(eval_data.chunk_counts))
         for i in range(len(eval_data.chunk_counts)):
             self.assertEqual(1, len(eval_data.chunk_counts[i]))
@@ -245,7 +231,7 @@ class TestBinaryDatasetEval(unittest.TestCase):
         indices = np.arange(len(ctg_reader))
         gpu_memory_bytes = 1600 * self.bytes_per_base
         eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 250, 200, gpu_memory_bytes,
-                                                False, False)
+                                                False, False, convoluted_size=(lambda x, pad: x))
         # check that Contig1 and Contig2 are in the first batch (with 3 chunks each) and Contig3 is in the second batch
         # (also with 3 chunks)
         # 1st batch, 2 contigs, 3 chunks each
@@ -257,31 +243,34 @@ class TestBinaryDatasetEval(unittest.TestCase):
         self.assertEqual(1, len(eval_data.chunk_counts[1]))
         self.assertEqual(3, eval_data.chunk_counts[1][0])
 
-        self.assertEqual(6, len(eval_data[0]))
-        self.assertEqual(3, len(eval_data[1]))
+        (x,_),_ = eval_data[0]
+        self.assertEqual(6, len(x))
+        (x, _), _ = eval_data[1]
+        self.assertEqual(3, len(x))
 
     def test_gen_eval_data(self):
         for cached in [False, True]:
             ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
             indices = np.arange(len(ctg_reader))
             eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 500, 250, 1e6, cached,
-                                                    False)
+                                                    False, convoluted_size=(lambda x, pad: x))
             self.assertEqual(1, len(eval_data))
             self.assertEqual(2, len(eval_data.batch_list[0]))
+            (x,_), _ = eval_data[0]
             self.assertIsNone(
-                np.testing.assert_array_equal(eval_data[0][0][0][0:6], np.array([1, 0, 0, 0, 2, 1])))
+                np.testing.assert_array_equal(x[0][0][0:6], np.array([1, 0, 0, 0, 2, 1])))
             self.assertIsNone(
-                np.testing.assert_array_equal(eval_data[0][0][5][0:6], np.array([1, 0, 0, 0, 0, 0])))
+                np.testing.assert_array_equal(x[0][5][0:6], np.array([1, 0, 0, 0, 0, 0])))
 
-            self.assertTrue(all(a == b for a, b in zip(eval_data[0][1][0][0:6], [1, 0, 0, 0, 1, 1])))
-            self.assertTrue(all(a == b for a, b in zip(eval_data[0][1][5][0:6], [1, 0, 0, 0, 0, 0])))
+            self.assertTrue(all(a == b for a, b in zip(x[1][0][0:6], [1, 0, 0, 0, 1, 1])))
+            self.assertTrue(all(a == b for a, b in zip(x[1][5][0:6], [1, 0, 0, 0, 0, 0])))
 
     def test_gen_eval_data_short_window(self):
         ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
         indices = np.arange(len(ctg_reader))
         window = 50
         eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, window, 30, 1e6, False,
-                                                False)
+                                                False, convoluted_size=(lambda x, pad: x))
         feature_count = len(eval_data.expanded_feature_names)
 
         self.assertEqual(1, len(eval_data))  # one batch total
@@ -289,24 +278,27 @@ class TestBinaryDatasetEval(unittest.TestCase):
         self.assertEqual([16, 16], eval_data.chunk_counts[0])  # each of the contigs of length 500 has 16 chunks
 
         total_chunks = 16 + 16  # 16 for the first contig of length 500, 16 for the 2nd contig of length 500
-        self.assertEqual((total_chunks, window, feature_count), eval_data[0].shape)
+        (x, _), _ = eval_data[0]
+        self.assertEqual((total_chunks, window, feature_count), x.shape)
 
         # check the first 6 features in the 0th and 5th positions of the first chunk in first contig (reference_A/C/G/T,
         # coverage, num_query_A)
-        self.assertTrue(all(a == b for a, b in zip(eval_data[0][0][0][0:6], [1, 0, 0, 0, 2, 1])))
-        self.assertTrue(all(a == b for a, b in zip(eval_data[0][0][5][0:6], [1, 0, 0, 0, 0, 0])))
+        (x, _), _ = eval_data[0]
+        self.assertTrue(all(a == b for a, b in zip(x[0][0][0:6], [1, 0, 0, 0, 2, 1])))
+        self.assertTrue(all(a == b for a, b in zip(x[0][5][0:6], [1, 0, 0, 0, 0, 0])))
 
         # check the first 6 features in the 0th and 5th positions of first chunk in 2nd contig
-        self.assertTrue(all(a == b for a, b in zip(eval_data[0][16][0][0:6], [1, 0, 0, 0, 1, 1])))
-        self.assertTrue(all(a == b for a, b in zip(eval_data[0][16][5][0:6], [1, 0, 0, 0, 0, 0])))
+        self.assertTrue(all(a == b for a, b in zip(x[16][0][0:6], [1, 0, 0, 0, 1, 1])))
+        self.assertTrue(all(a == b for a, b in zip(x[16][5][0:6], [1, 0, 0, 0, 0, 0])))
 
     def test_group(self):
         ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
         indices = np.arange(len(ctg_reader))
         total_memory_bytes = 1e6
         eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 50, 30, total_memory_bytes,
-                                                False, False)
-        self.assertEqual(32, len(eval_data[0]))
+                                                False, False, convoluted_size=(lambda x, pad: x))
+        (x, _), _ = eval_data[0]
+        self.assertEqual(32, len(x))
 
         y = np.zeros(32)
         self.assertIsNone(
@@ -327,11 +319,14 @@ class TestBinaryDatasetEval(unittest.TestCase):
     def test_group_two_batches(self):
         ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
         indices = np.arange(len(ctg_reader))
-        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 50, 30, 500, False, False)
+        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 50, 30, 500, False, False,
+                                                convoluted_size=(lambda x, pad: x))
 
         self.assertEqual(2, len(eval_data))
-        self.assertEqual(16, len(eval_data[0]))
-        self.assertEqual(16, len(eval_data[1]))
+        (x, _), _ = eval_data[0]
+        self.assertEqual(16, len(x))
+        (x, _), _ = eval_data[1]
+        self.assertEqual(16, len(x))
 
         y = np.zeros(32)
         self.assertIsNone(
@@ -352,11 +347,41 @@ class TestBinaryDatasetEval(unittest.TestCase):
     def test_gen_eval_data_cached(self):
         ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
         indices = np.arange(len(ctg_reader))
-        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 500, 250, 1e6, True, False)
+        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 500, 250, 1e6, True, False,
+                                                convoluted_size=(lambda x, pad: x))
         self.assertEqual(1, len(eval_data))
         self.assertEqual(2, len(eval_data.batch_list[0]))
-        self.assertTrue(all(a == b for a, b in zip(eval_data[0][0][0][0:6], [1, 0, 0, 0, 2, 1])))
-        self.assertTrue(all(a == b for a, b in zip(eval_data[0][0][5][0:6], [1, 0, 0, 0, 0, 0])))
+        (x, _), _ = eval_data[0]
+        self.assertTrue(all(a == b for a, b in zip(x[0][0][0:6], [1, 0, 0, 0, 2, 1])))
+        self.assertTrue(all(a == b for a, b in zip(x[0][5][0:6], [1, 0, 0, 0, 0, 0])))
 
-        self.assertTrue(all(a == b for a, b in zip(eval_data[0][1][0][0:6], [1, 0, 0, 0, 1, 1])))
-        self.assertTrue(all(a == b for a, b in zip(eval_data[0][1][5][0:6], [1, 0, 0, 0, 0, 0])))
+        self.assertTrue(all(a == b for a, b in zip(x[1][0][0:6], [1, 0, 0, 0, 1, 1])))
+        self.assertTrue(all(a == b for a, b in zip(x[1][5][0:6], [1, 0, 0, 0, 0, 0])))
+
+
+class TestResmico(unittest.TestCase):
+    def setUp(self):
+        args = MagicMock()
+        args.n_hid = 50
+        args.net_type = 'cnn_resnet'
+        args.filters = 16
+        args.features = ['ref_base']
+        args.num_blocks = 4
+        args.ker_size = 5
+        args.lr_init = 1e-3
+        self.args = args
+
+    def test_convolved_output_size_no_masking(self):
+        self.args.mask_padding = False
+        model = models_fl.Resmico(self.args)
+        for is_padding in [False, True]:
+            for i in range(100, 10):
+                self.assertEqual(i, model.convoluted_size(i, is_padding))
+
+    def test_convolved_output_size(self):
+        self.args.mask_padding = True
+        model = models_fl.Resmico(self.args)
+        self.assertIsNotNone(model.convoluted_size)
+        self.assertEqual(19, model.convoluted_size(512, False))
+        self.assertEqual(83, model.convoluted_size(1024, False))
+        self.assertEqual(133, model.convoluted_size(1071, True))

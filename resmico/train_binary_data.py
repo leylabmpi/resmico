@@ -54,7 +54,7 @@ def main(args):
         train_idx = all_idx[:(9 * len(reader)) // 10]
         eval_idx = all_idx[(9 * len(reader)) // 10:]
         df = pd.DataFrame(eval_idx, columns=['val_ind'])
-        fname = f'{os.path.join(args.feature_files_path,"evaluation_indices.csv")}'
+        fname = f'{os.path.join(args.feature_files_path, "evaluation_indices.csv")}'
         df.to_csv(fname)
         logging.info(f'Evaluation indices saved to: {fname}')
     logging.info(f'Using {len(train_idx)} contigs for training, {len(eval_idx)} contigs for evaluation')
@@ -62,7 +62,7 @@ def main(args):
     # create data generators for training data and evaluation data
     train_data = Models.BinaryDatasetTrain(reader, train_idx, args.batch_size, args.features, args.max_len,
                                            args.num_translations, args.max_translation_bases, args.fraq_neg,
-                                           args.cache_train or args.cache, args.log_progress)
+                                           args.cache_train or args.cache, args.log_progress, resmico.convoluted_size)
     # convert the slow Keras train_data of type Sequence to a tf.data object
     # first, we convert the keras sequence into a generator-like object
     data_iter = lambda: (s for s in train_data)
@@ -71,7 +71,8 @@ def main(args):
     train_data_tf = tf.data.Dataset.from_generator(
         data_iter,
         output_signature=(
-            tf.TensorSpec(shape=(args.batch_size, None, len(train_data.expanded_feature_names)), dtype=tf.float32),
+            (tf.TensorSpec(shape=(args.batch_size, None, len(train_data.expanded_feature_names)), dtype=tf.float32),
+             tf.TensorSpec(shape=(args.batch_size, None), dtype=tf.bool)),
             tf.TensorSpec(shape=(args.batch_size), dtype=tf.uint8)))
 
     # add a prefetch option that builds the next batch ready for consumption by the GPU as it is working on
@@ -86,7 +87,7 @@ def main(args):
     np.seterr(all='raise')
     eval_data = Models.BinaryDatasetEval(reader, eval_idx, args.features, args.max_len, args.max_len // 2,
                                          int(args.gpu_eval_mem_gb * 1e9 * 0.8), args.cache_validation or args.cache,
-                                         args.log_progress)
+                                         args.log_progress, resmico.convoluted_size)
 
     eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_data.indices])
 
@@ -94,7 +95,14 @@ def main(args):
     data_iter = lambda: (s for s in eval_data)
     eval_data_tf = tf.data.Dataset.from_generator(
         data_iter,
-        output_signature=(tf.TensorSpec(shape=(None, None, len(eval_data.expanded_feature_names)), dtype=tf.float32)))
+        output_signature=(
+            # first dimension is batch size, second is contig length, third is number of features
+            (tf.TensorSpec(shape=(None, None, len(eval_data.expanded_feature_names)), dtype=tf.float32),
+             # first dimension is batch size, second is contig length (no third dimension,
+             # as all features are masked the same way)
+             tf.TensorSpec(shape=(None, None), dtype=tf.bool)),
+             tf.TensorSpec(shape=(None), dtype=tf.bool)
+        ))
     eval_data_tf = eval_data_tf.prefetch(4 * strategy.num_replicas_in_sync)
     eval_data_tf = eval_data_tf.with_options(options)  # avoids Tensorflow ugly console barf
 
@@ -143,7 +151,7 @@ def main(args):
             logging.info(f'Updated learning rate from: {lr_old} to {K.get_value(resmico.net.optimizer.lr)}')
 
         if auc_val > auc_val_best:
-            if best_file: # delete old best model
+            if best_file:  # delete old best model
                 os.remove(best_file)
             auc_val_best = auc_val
             best_file = os.path.join(args.save_path, '_'.join(

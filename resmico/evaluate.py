@@ -1,5 +1,5 @@
-import os
 import logging
+import os
 from pathlib import Path
 import time
 
@@ -17,9 +17,14 @@ from resmico import utils
 def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
     start = time.time()
 
+    if args.mask_padding:
+        convoluted_size = Models.get_convoluted_size(model)
+    else:  # when not padding, the convoluted size is unused
+        convoluted_size = lambda len, pad: 0
+
     logging.info('Loading contig data...')
     reader = contig_reader.ContigReader(args.feature_files_path, args.features, args.n_procs, args.chunks,
-                                        args.no_cython, args.stats_file)
+                                        args.no_cython, args.stats_file, args.min_len)
 
     if args.val_ind_f:
         eval_idx = list(pd.read_csv(args.val_ind_f)['val_ind'])
@@ -28,18 +33,26 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
         logging.info(f'Using all indices for prediction')
         eval_idx = np.arange(len(reader))
 
-    predict_data = Models.BinaryDatasetEval(reader, eval_idx, args.features, args.max_len, args.max_len // 2,
+    predict_data = Models.BinaryDatasetEval(reader, eval_idx, args.features, args.max_len, max(250, args.max_len-500),
                                             int(args.gpu_eval_mem_gb * 1e9 * 0.8), cache_results=False,
-                                            show_progress=False)
+                                            show_progress=False, convoluted_size=convoluted_size)
 
     eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in predict_data.indices])
 
     # convert the slow Keras predict_data of type Sequence to a tf.data object
     data_iter = lambda: (s for s in predict_data)
+
     predict_data_tf = tf.data.Dataset.from_generator(
         data_iter,
         output_signature=(
-            tf.TensorSpec(shape=(None, None, len(predict_data.expanded_feature_names)), dtype=tf.float32)))
+            # first dimension is batch size, second is contig length, third is number of features
+            (tf.TensorSpec(shape=(None, None, len(predict_data.expanded_feature_names)), dtype=tf.float32),
+             # first dimension is batch size, second is contig length (no third dimension,
+             # as all features are masked the same way)
+             tf.TensorSpec(shape=(None, None), dtype=tf.bool)),
+            tf.TensorSpec(shape=(None), dtype=tf.bool)
+        ))
+
     predict_data_tf = predict_data_tf.prefetch(4 * num_gpus)
     options = tf.data.Options()
     options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
@@ -65,12 +78,13 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
     out_file.write('cont_name,length,label,score,min,mean,std,max\n')
     for idx in range(len(eval_idx)):
         contig = reader.contigs[predict_data.indices[idx]]
-        out_file.write(f'{os.path.join(os.path.dirname(contig.file),contig.name)},{contig.length},'
+        out_file.write(f'{os.path.join(os.path.dirname(contig.file), contig.name)},{contig.length},'
                        f'{contig.misassembly},{eval_data_predicted_max[idx]},'
                        f'{eval_data_predicted_min[idx]},{eval_data_predicted_mean[idx]},'
                        f'{eval_data_predicted_std[idx]},{eval_data_predicted_max[idx]}\n')
 
     logging.info(f'Predictions saved to: {out_file}')
+
 
 def predict_with_method(model, args):
     if args.filter10:
@@ -189,7 +203,9 @@ def main(args):
     if args.v1:
         custom_obj = {'metr': utils.class_recall_0}
     else:
-        custom_obj = {'class_recall_0': utils.class_recall_0, 'class_recall_1': utils.class_recall_1}
+        # TOOD: remove GlobalMaskedMaxPooling1D, once annotation kicks in
+        custom_obj = {'class_recall_0': utils.class_recall_0, 'class_recall_1': utils.class_recall_1,
+                      'GlobalMaskedMaxPooling1D': Models.GlobalMaskedMaxPooling1D}
 
     if not os.path.exists(args.model):
         raise IOError(f'Cannot find {args.model}')
