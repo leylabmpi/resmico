@@ -203,7 +203,9 @@ def main(args):
     if args.v1:
         custom_obj = {'metr': utils.class_recall_0}
     else:
-        custom_obj = {'class_recall_0': utils.class_recall_0, 'class_recall_1': utils.class_recall_1}
+        #TOOD: remove GlobalMaskedMaxPooling1D, once annotation kicks in
+        custom_obj = {'class_recall_0': utils.class_recall_0, 'class_recall_1': utils.class_recall_1,
+                      'GlobalMaskedMaxPooling1D': Models.GlobalMaskedMaxPooling1D}
 
     if not os.path.exists(args.model):
         raise IOError(f'Cannot find {args.model}')

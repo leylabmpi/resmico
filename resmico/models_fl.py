@@ -21,10 +21,15 @@ from resmico import reader
 from resmico import utils
 
 
+@tf.keras.utils.register_keras_serializable()
 class GlobalMaskedMaxPooling1D(GlobalMaxPooling1D):
     """
     Global max pooling operation for 1D temporal data with optional masking.
     """
+
+    def __init__(self, data_format='channels_last', **kwargs):
+        super(GlobalMaskedMaxPooling1D, self).__init__(data_format=data_format,
+                                                       **kwargs)
 
     def call(self, inputs, mask=None):
         if mask is not None:
