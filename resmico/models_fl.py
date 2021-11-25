@@ -151,16 +151,7 @@ class Resmico(object):
                        padding='valid', name='1st_conv')(x)
             x = utils.relu_bn(x)
             num_filters = self.filters
-            if self.num_blocks == 3:
-                num_blocks_list = [2, 5, 2]
-            if self.num_blocks == 4:
-                num_blocks_list = [2, 5, 5, 2]
-            if self.num_blocks == 5:
-                num_blocks_list = [2, 3, 5, 5, 2]
-            if self.num_blocks == 6:
-                num_blocks_list = [2, 3, 5, 5, 3, 2]
-            for i in range(len(num_blocks_list)):
-                num_blocks = num_blocks_list[i]
+            for i, num_blocks in enumerate(self._get_blocks(self.num_blocks)):
                 for j in range(num_blocks):
                     x = utils.residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
                                              kernel_size=self.ker_size)
@@ -186,16 +177,7 @@ class Resmico(object):
                        padding='valid', name='1st_conv')(x)
             x = utils.relu_bn(x)
             num_filters = self.filters
-            if self.num_blocks == 3:
-                num_blocks_list = [2, 5, 2]
-            if self.num_blocks == 4:
-                num_blocks_list = [2, 5, 5, 2]
-            if self.num_blocks == 5:
-                num_blocks_list = [2, 3, 5, 5, 2]
-            if self.num_blocks == 6:
-                num_blocks_list = [2, 3, 5, 5, 3, 2]
-            for i in range(len(num_blocks_list)):
-                num_blocks = num_blocks_list[i]
+            for i, num_blocks in enumerate(self._get_blocks(self.num_blocks)):
                 for j in range(num_blocks):
                     x = utils.residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
                                              kernel_size=self.ker_size)
@@ -233,6 +215,17 @@ class Resmico(object):
         # self.reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
         #                        monitor='val_loss', factor=0.8,
         #                        patience=5, min_lr = 0.01 * self.lr_init)
+
+    @staticmethod
+    def _get_blocks(num_blocks: int):
+        if num_blocks == 3:
+            return [2, 5, 2]
+        if num_blocks == 4:
+            return [2, 5, 5, 2]
+        if num_blocks == 5:
+            return [2, 3, 5, 5, 2]
+        if num_blocks == 6:
+            return [2, 3, 5, 5, 3, 2]
 
     def predict(self, x, **kwargs):
         return self.net.predict(x, **kwargs)
