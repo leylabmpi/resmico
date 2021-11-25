@@ -110,6 +110,7 @@ def main(args):
     num_epochs = 2
     train_data_tf = train_data_tf.repeat(num_epochs)
     auc_val_best = 0
+    auc_val_prev = 0
     best_file = None
     for epoch in range(math.ceil(args.n_epochs / num_epochs)):
         start = time.time()
@@ -145,11 +146,12 @@ def main(args):
 
         # update the learning rate
         cur_epoch = (epoch + 1) * num_epochs
-        if cur_epoch > 10 and auc_val < auc_val_best:
+        if cur_epoch > 10 and auc_val < auc_val_prev:
             lr_old = K.get_value(resmico.net.optimizer.lr)
             K.set_value(resmico.net.optimizer.lr, lr_old * 0.8)  # changed for 120h jobs
             logging.info(f'Updated learning rate from: {lr_old} to {K.get_value(resmico.net.optimizer.lr)}')
 
+        auc_val_prev = auc_val
         if auc_val > auc_val_best:
             if best_file:  # delete old best model
                 os.remove(best_file)
