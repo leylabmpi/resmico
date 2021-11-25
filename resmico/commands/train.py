@@ -92,7 +92,6 @@ def parse_args(curr_args=None, subparsers=None):
                         help='Maximum number of bases to translate around the breaking point'
                              '(i.e. misassembled contigs) that are longer than max-len')
 
-
     arguments.add_common_args(parser)
 
     # running test args

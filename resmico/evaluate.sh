@@ -36,7 +36,7 @@ features_smaller="num_SNPs num_proper_Match num_orphans_Match mean_al_score_Matc
 
 cmd1="echo Creating scratch directory...; rm -rf ${SCRATCH_DIR}; mkdir ${SCRATCH_DIR}"
 cmd2="echo Copying data to local disk...; \
-      find -L ${DATA_DIR} \
+      find -L ${DATA_DIR_NOVEL} \
         -type f -name stats -o -name toc${suffix} -o -name features_binary${suffix} \
         | xargs -i cp --parents {} ${SCRATCH_DIR}"
 
@@ -44,7 +44,7 @@ cmd3="/usr/bin/time python resmico evaluate --binary-data --feature-files-path $
       --save-path /cluster/home/ddanciu/tmp --save-name evaluate${suffix}_${MAX_LEN} --n-procs 8 --log-level info \
       --model ${MODEL} \
       --max-len ${MAX_LEN} --gpu-eval-mem-gb=2 --features ${features_small} ${additional_params}"
-#      --val-ind-f ${DATA_DIR}/val_ind.csv"
+#      --val-ind-f ${DATA_DIR_NOVEL}/val_ind.csv"
 
 cmd4="echo Cleaning scratch directory...; rm -rf ${SCRATCH_DIR}"
 
