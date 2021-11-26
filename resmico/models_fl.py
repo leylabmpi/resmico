@@ -97,7 +97,10 @@ class Resmico(object):
         if self.net_type == 'fixlen_cnn_resnet':
             inlayer = Input(shape=(self.max_len, self.n_feat), name='input')
         else:
-            inlayer = Input(shape=(None, self.n_feat), name='input')
+            inlayer = Input(shape=(None, self.n_feat), name='input', dtype='float32')
+
+        if config.binary_data:
+            mask = Input(shape=(None,), name='mask', dtype='bool')
 
         if self.net_type == 'cnn_globpool':
             x = Conv1D(self.filters, kernel_size=(10),
@@ -124,7 +127,7 @@ class Resmico(object):
             x = concatenate([maxP, avgP])
 
         elif self.net_type == 'lstm':
-            x = Bidirectional(LSTM(20, return_sequences=True), merge_mode="concat")(inlayer)
+            x = Bidirectional(LSTM(20, return_sequences=True), merge_mode="concat")(inlayer, mask=mask)
             x = Bidirectional(LSTM(40, return_sequences=True, dropout=0.0), merge_mode="ave")(x)
             x = Bidirectional(LSTM(60, return_sequences=True, dropout=0.0), merge_mode="ave")(x)
             x = Bidirectional(LSTM(80, return_sequences=False, dropout=0.0), merge_mode="concat")(x)
@@ -156,9 +159,6 @@ class Resmico(object):
                     x = utils.residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
                                              kernel_size=self.ker_size)
                 num_filters *= 2
-
-            if config.binary_data:
-                mask = Input(shape=(None,), name='mask')
 
             if config.mask_padding:
                 # the mask marks the convoluted positions that were not affected by padding
