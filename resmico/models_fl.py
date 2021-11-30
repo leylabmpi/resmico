@@ -10,7 +10,7 @@ from tensorflow.keras.layers import Input, BatchNormalization
 from tensorflow.keras.layers import GlobalMaxPooling1D, GlobalAveragePooling1D, concatenate, AveragePooling1D, \
     MaxPooling1D, Flatten
 from tensorflow.keras.layers import Conv1D, Dropout, Dense
-from tensorflow.keras.layers import Bidirectional, LSTM
+from tensorflow.keras.layers import Bidirectional, LSTM, GRU
 from tensorflow.python.ops import array_ops
 
 from toolz import itertoolz
@@ -128,9 +128,21 @@ class Resmico(object):
 
         elif self.net_type == 'lstm':
             x = Bidirectional(LSTM(20, return_sequences=True), merge_mode="concat")(inlayer, mask=mask)
-            x = Bidirectional(LSTM(40, return_sequences=True, dropout=0.0), merge_mode="ave")(x)
-            x = Bidirectional(LSTM(60, return_sequences=True, dropout=0.0), merge_mode="ave")(x)
-            x = Bidirectional(LSTM(80, return_sequences=False, dropout=0.0), merge_mode="concat")(x)
+            x = Bidirectional(LSTM(40, return_sequences=True, dropout=self.dropout), merge_mode="ave")(x)
+            x = Bidirectional(LSTM(60, return_sequences=True, dropout=self.dropout), merge_mode="ave")(x)
+            x = Bidirectional(LSTM(80, return_sequences=False, dropout=self.dropout), merge_mode="concat")(x)
+
+        elif self.net_type == 'gru':
+            x = Bidirectional(GRU(20, return_sequences=True), merge_mode="concat")(inlayer, mask=mask)
+            x = Bidirectional(GRU(40, return_sequences=True, dropout=self.dropout), merge_mode="ave")(x)
+            x = Bidirectional(GRU(60, return_sequences=True, dropout=self.dropout), merge_mode="ave")(x)
+            x = Bidirectional(GRU(80, return_sequences=False, dropout=self.dropout), merge_mode="concat")(x)
+
+        elif self.net_type == 'gru_uni':
+            x = GRU(20, return_sequences=True)(inlayer, mask=mask)
+            x = GRU(40, return_sequences=True, dropout=self.dropout)(x)
+            x = GRU(60, return_sequences=True, dropout=self.dropout)(x)
+            x = GRU(80, return_sequences=False, dropout=self.dropout)(x)
 
         elif self.net_type == 'cnn_lstm':
             x = Conv1D(self.filters, kernel_size=(10),
