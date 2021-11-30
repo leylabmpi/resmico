@@ -35,14 +35,8 @@ class GlobalMaskedMaxPooling1D(GlobalMaxPooling1D):
             mask = tf.cast(mask, dtype=tf.float32)
             mask = array_ops.expand_dims(
                 mask, 2 if self.data_format == 'channels_last' else 1)
-            # old = super().call(inputs)
             inputs = tf.minimum(inputs, (2 * mask - 1) * np.inf)
             new = super().call(inputs)
-            # diff = tf.equal(old, new)
-            # as_ints = 1 - tf.cast(diff, tf.int32)
-            # tf.print('old', tf.boolean_mask(old, not diff))
-            # tf.print('new', tf.boolean_mask(new, not diff))
-            # tf.print(tf.reduce_sum(as_ints))
         return new
 
 
