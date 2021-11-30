@@ -21,6 +21,12 @@ def main(args):
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
 
+    # disable tf allocating all memory on the device at the very beginning, as this seems to be causing
+    # LSTM's to crash at prediction time.
+    gpu_devices = tf.config.experimental.list_physical_devices("GPU")
+    for device in gpu_devices:
+        tf.config.experimental.set_memory_growth(device, True)
+
     logging.info('Building Tensorflow model...')
     logging.info(args)
     strategy = tf.distribute.MirroredStrategy()
