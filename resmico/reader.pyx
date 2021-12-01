@@ -28,8 +28,6 @@ float_feature_tuples = [('min_insert_size_Match', np.uint16, np.float32),
                         ('mean_al_score_Match', np.float32, np.float32),
                         ('stdev_al_score_Match', np.float32, np.float32),
                         ('max_al_score_Match', np.int8, np.float32),
-                        ('seq_window_perc_gc', np.float32, np.float32),
-                        ('seq_window_entropy', np.float32, np.float32),
                         ]
 feature_tuples = [('ref_base', np.uint8, np.float32),  # because we use one-hot encoding, so 4 bytes
                   ('coverage', np.uint16, np.uint16),
@@ -43,6 +41,8 @@ feature_tuples = [('ref_base', np.uint8, np.float32),  # because we use one-hot 
                 + [('num_proper_Match', np.uint16, np.float32),
                    ('num_orphans_Match', np.uint16, np.float32),
                    ('num_proper_SNP', np.uint16, np.float32),
+                   ('seq_window_perc_gc', np.float32, np.float32),
+                   ('seq_window_entropy', np.float32, np.float32),
                    ]
 
 float_feature_names = [f[0] for f in float_feature_tuples]
