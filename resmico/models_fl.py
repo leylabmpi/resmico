@@ -10,7 +10,7 @@ from tensorflow.keras.layers import Input, BatchNormalization
 from tensorflow.keras.layers import GlobalMaxPooling1D, GlobalAveragePooling1D, concatenate, AveragePooling1D, \
     MaxPooling1D, Flatten
 from tensorflow.keras.layers import Conv1D, Dropout, Dense
-from tensorflow.keras.layers import Bidirectional, LSTM
+from tensorflow.keras.layers import Bidirectional, LSTM, GRU
 from tensorflow.python.ops import array_ops
 
 from toolz import itertoolz
@@ -35,14 +35,8 @@ class GlobalMaskedMaxPooling1D(GlobalMaxPooling1D):
             mask = tf.cast(mask, dtype=tf.float32)
             mask = array_ops.expand_dims(
                 mask, 2 if self.data_format == 'channels_last' else 1)
-            # old = super().call(inputs)
             inputs = tf.minimum(inputs, (2 * mask - 1) * np.inf)
             new = super().call(inputs)
-            # diff = tf.equal(old, new)
-            # as_ints = 1 - tf.cast(diff, tf.int32)
-            # tf.print('old', tf.boolean_mask(old, not diff))
-            # tf.print('new', tf.boolean_mask(new, not diff))
-            # tf.print(tf.reduce_sum(as_ints))
         return new
 
 
@@ -97,7 +91,10 @@ class Resmico(object):
         if self.net_type == 'fixlen_cnn_resnet':
             inlayer = Input(shape=(self.max_len, self.n_feat), name='input')
         else:
-            inlayer = Input(shape=(None, self.n_feat), name='input')
+            inlayer = Input(shape=(None, self.n_feat), name='input', dtype='float32')
+
+        if config.binary_data:
+            mask = Input(shape=(None,), name='mask', dtype='bool')
 
         if self.net_type == 'cnn_globpool':
             x = Conv1D(self.filters, kernel_size=(10),
@@ -124,10 +121,22 @@ class Resmico(object):
             x = concatenate([maxP, avgP])
 
         elif self.net_type == 'lstm':
-            x = Bidirectional(LSTM(20, return_sequences=True), merge_mode="concat")(inlayer)
-            x = Bidirectional(LSTM(40, return_sequences=True, dropout=0.0), merge_mode="ave")(x)
-            x = Bidirectional(LSTM(60, return_sequences=True, dropout=0.0), merge_mode="ave")(x)
-            x = Bidirectional(LSTM(80, return_sequences=False, dropout=0.0), merge_mode="concat")(x)
+            x = Bidirectional(LSTM(20, return_sequences=True), merge_mode="concat")(inlayer, mask=mask)
+            x = Bidirectional(LSTM(40, return_sequences=True, dropout=self.dropout), merge_mode="ave")(x)
+            x = Bidirectional(LSTM(60, return_sequences=True, dropout=self.dropout), merge_mode="ave")(x)
+            x = Bidirectional(LSTM(80, return_sequences=False, dropout=self.dropout), merge_mode="concat")(x)
+
+        elif self.net_type == 'gru':
+            x = Bidirectional(GRU(20, return_sequences=True), merge_mode="concat")(inlayer, mask=mask)
+            x = Bidirectional(GRU(40, return_sequences=True, dropout=self.dropout), merge_mode="ave")(x)
+            x = Bidirectional(GRU(60, return_sequences=True, dropout=self.dropout), merge_mode="ave")(x)
+            x = Bidirectional(GRU(80, return_sequences=False, dropout=self.dropout), merge_mode="concat")(x)
+
+        elif self.net_type == 'gru_uni':
+            x = GRU(20, return_sequences=True)(inlayer, mask=mask)
+            x = GRU(40, return_sequences=True, dropout=self.dropout)(x)
+            x = GRU(60, return_sequences=True, dropout=self.dropout)(x)
+            x = GRU(80, return_sequences=False, dropout=self.dropout)(x)
 
         elif self.net_type == 'cnn_lstm':
             x = Conv1D(self.filters, kernel_size=(10),
@@ -151,23 +160,11 @@ class Resmico(object):
                        padding='valid', name='1st_conv')(x)
             x = utils.relu_bn(x)
             num_filters = self.filters
-            if self.num_blocks == 3:
-                num_blocks_list = [2, 5, 2]
-            if self.num_blocks == 4:
-                num_blocks_list = [2, 5, 5, 2]
-            if self.num_blocks == 5:
-                num_blocks_list = [2, 3, 5, 5, 2]
-            if self.num_blocks == 6:
-                num_blocks_list = [2, 3, 5, 5, 3, 2]
-            for i in range(len(num_blocks_list)):
-                num_blocks = num_blocks_list[i]
+            for i, num_blocks in enumerate(self._get_blocks(self.num_blocks)):
                 for j in range(num_blocks):
                     x = utils.residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
                                              kernel_size=self.ker_size)
                 num_filters *= 2
-
-            if config.binary_data:
-                mask = Input(shape=(None,), name='mask')
 
             if config.mask_padding:
                 # the mask marks the convoluted positions that were not affected by padding
@@ -186,16 +183,7 @@ class Resmico(object):
                        padding='valid', name='1st_conv')(x)
             x = utils.relu_bn(x)
             num_filters = self.filters
-            if self.num_blocks == 3:
-                num_blocks_list = [2, 5, 2]
-            if self.num_blocks == 4:
-                num_blocks_list = [2, 5, 5, 2]
-            if self.num_blocks == 5:
-                num_blocks_list = [2, 3, 5, 5, 2]
-            if self.num_blocks == 6:
-                num_blocks_list = [2, 3, 5, 5, 3, 2]
-            for i in range(len(num_blocks_list)):
-                num_blocks = num_blocks_list[i]
+            for i, num_blocks in enumerate(self._get_blocks(self.num_blocks)):
                 for j in range(num_blocks):
                     x = utils.residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
                                              kernel_size=self.ker_size)
@@ -233,6 +221,17 @@ class Resmico(object):
         # self.reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
         #                        monitor='val_loss', factor=0.8,
         #                        patience=5, min_lr = 0.01 * self.lr_init)
+
+    @staticmethod
+    def _get_blocks(num_blocks: int):
+        if num_blocks == 3:
+            return [2, 5, 2]
+        if num_blocks == 4:
+            return [2, 5, 5, 2]
+        if num_blocks == 5:
+            return [2, 3, 5, 5, 2]
+        if num_blocks == 6:
+            return [2, 3, 5, 5, 3, 2]
 
     def predict(self, x, **kwargs):
         return self.net.predict(x, **kwargs)
