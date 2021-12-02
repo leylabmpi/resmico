@@ -60,7 +60,7 @@ def main():
             if prev_file != '' and not args.chunks:  # stats are computed on the full data (not the contig chunks)
                 stats_file = open(get_stats_name(prev_file, args.feature_files_path))
                 stats = json.load(stats_file)
-                stats['seq_window_entropy'] = {'sum':  sum_entropy, 'sum2': sum2_entropy}
+                stats['seq_window_entropy'] = {'sum': sum_entropy, 'sum2': sum2_entropy}
                 stats['seq_window_perc_gc'] = {'sum': sum_gc_percent, 'sum2': sum2_gc_percent}
                 stats_file = open(get_stats_name(prev_file, args.feature_files_path), 'w')
                 json.dump(stats, stats_file, indent=2)
@@ -70,9 +70,11 @@ def main():
                 sum2_gc_percent: float = 0
         prev_file = contig_info.file
 
+        breakpoints = '-' if len(contig_info.breakpoints) == 0 else ",".join(
+            str(b[0]) + "-" + str(b[1]) for b in contig_info.breakpoints)
         toc_new.write(f'{contig_info.name}\t{contig_info.length}\t{contig_info.misassembly}\t'
-                      f'{contig_info.size_bytes}\t{",".join(str(b[0]) + "-" + str(b[1]) for b in contig_info.breakpoints)}\t'
-                      f'{np.average(contig_data["coverage"])}')
+                      f'{contig_info.size_bytes}\t{breakpoints}\t'
+                      f'{round(np.average(contig_data["coverage"]), 5)}\n')
 
         sum_entropy += np.sum(contig_data['seq_window_entropy'])
         sum_gc_percent += np.sum(contig_data['seq_window_perc_gc'])
@@ -82,7 +84,7 @@ def main():
         # write leftover data
         stats_file = open(get_stats_name(prev_file, args.feature_files_path))
         stats = json.load(stats_file)
-        stats['seq_window_entropy'] = {'sum':  sum_entropy, 'sum2': sum2_entropy}
+        stats['seq_window_entropy'] = {'sum': sum_entropy, 'sum2': sum2_entropy}
         stats['seq_window_perc_gc'] = {'sum': sum_gc_percent, 'sum2': sum2_gc_percent}
         stats_file = open(get_stats_name(prev_file, args.feature_files_path), 'w')
         json.dump(stats, stats_file, indent=2)
