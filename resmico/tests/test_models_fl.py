@@ -12,9 +12,9 @@ from resmico.contig_reader import ContigInfo
 
 class TestBinaryDatasetTrain(unittest.TestCase):
     def test_select_intervals(self):
-        contig_data = [ContigInfo('Contig1', '/tmp/c1', 1000, 0, 0, 0, []),
-                       ContigInfo('Contig2', '/tmp/c2', 1000, 0, 0, 0, [(100, 100)]),
-                       ContigInfo('Contig3', '/tmp/c3', 1000, 0, 0, 0, [(800, 900)])]
+        contig_data = [ContigInfo('Contig1', '/tmp/c1', 1000, 0, 0, 0, [], avg_coverage=5),
+                       ContigInfo('Contig2', '/tmp/c2', 1000, 0, 0, 0, [(100, 100)], avg_coverage=5),
+                       ContigInfo('Contig3', '/tmp/c3', 1000, 0, 0, 0, [(800, 900)], avg_coverage=5)]
         max_len = 500
         for i in range(50):
             intervals = models_fl.BinaryDatasetTrain.select_intervals(contig_data, max_len,
@@ -29,7 +29,7 @@ class TestBinaryDatasetTrain(unittest.TestCase):
 
     def test_select_intervals_translate_short(self):
         contig_data = [
-            ContigInfo('Contig1', '/tmp/c1', 300, 0, 0, 0, [(200, 210)]),
+            ContigInfo('Contig1', '/tmp/c1', 300, 0, 0, 0, [(200, 210)], avg_coverage=5),
         ]
         max_len = 350
         for i in range(50):
@@ -54,9 +54,9 @@ class TestBinaryDatasetTrain(unittest.TestCase):
             for cached in [False, True]:
                 features = ['num_query_A', 'coverage', 'num_SNPs']
                 ctg_reader = contig_reader.ContigReader('data/preprocess/', features, 1, use_cython)
-                c1 = ContigInfo('Contig1', '/tmp/c1', 500, 0, 0, 0, [])
-                c2 = ContigInfo('Contig2', '/tmp/c2', 300, 0, 0, 1, [(100, 100)])
-                c3 = ContigInfo('Contig3', '/tmp/c3', 1000, 0, 0, 1, [(800, 900)])
+                c1 = ContigInfo('Contig1', '/tmp/c1', 500, 0, 0, 0, [], avg_coverage=5)
+                c2 = ContigInfo('Contig2', '/tmp/c2', 300, 0, 0, 1, [(100, 100)], avg_coverage=5)
+                c3 = ContigInfo('Contig3', '/tmp/c3', 1000, 0, 0, 1, [(800, 900)], avg_coverage=5)
                 ctg_reader.contigs = [c1, c2, c3]
 
                 contigs_data = []
@@ -210,9 +210,9 @@ class TestBinaryDatasetEval(unittest.TestCase):
 
     def test_batching_one_per_batch(self):
         ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
-        ctg_reader.contigs = [ContigInfo('Contig1', '/tmp/c1', 1000, 0, 0, 0, []),
-                              ContigInfo('Contig2', '/tmp/c2', 1000, 0, 0, 0, []),
-                              ContigInfo('Contig3', '/tmp/c3', 1000, 0, 0, 0, [])]
+        ctg_reader.contigs = [ContigInfo('Contig1', '/tmp/c1', 1000, 0, 0, 0, [], avg_coverage=5),
+                              ContigInfo('Contig2', '/tmp/c2', 1000, 0, 0, 0, [], avg_coverage=5),
+                              ContigInfo('Contig3', '/tmp/c3', 1000, 0, 0, 0, [], avg_coverage=5)]
         indices = np.arange(len(ctg_reader))
 
         gpu_memory_bytes = 1010 * self.bytes_per_base
@@ -225,9 +225,10 @@ class TestBinaryDatasetEval(unittest.TestCase):
 
     def test_batching_multiple_per_batch(self):
         ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
-        ctg_reader.contigs = [ContigInfo('Contig1', 'data/preprocess/features_binary', 500, 0, 246, 0, []),
-                              ContigInfo('Contig2', 'data/preprocess/features_binary', 500, 246, 183, 0, []),
-                              ContigInfo('Contig3', 'data/preprocess/features_binary', 500, 0, 246, 0, [])]
+        ctg_reader.contigs = [
+            ContigInfo('Contig1', 'data/preprocess/features_binary', 500, 0, 246, 0, [], avg_coverage=5),
+            ContigInfo('Contig2', 'data/preprocess/features_binary', 500, 246, 183, 0, [], avg_coverage=5),
+            ContigInfo('Contig3', 'data/preprocess/features_binary', 500, 0, 246, 0, [], avg_coverage=5)]
         indices = np.arange(len(ctg_reader))
         gpu_memory_bytes = 1600 * self.bytes_per_base
         eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 250, 200, gpu_memory_bytes,
@@ -243,7 +244,7 @@ class TestBinaryDatasetEval(unittest.TestCase):
         self.assertEqual(1, len(eval_data.chunk_counts[1]))
         self.assertEqual(3, eval_data.chunk_counts[1][0])
 
-        (x,_),_ = eval_data[0]
+        (x, _), _ = eval_data[0]
         self.assertEqual(6, len(x))
         (x, _), _ = eval_data[1]
         self.assertEqual(3, len(x))
@@ -256,7 +257,7 @@ class TestBinaryDatasetEval(unittest.TestCase):
                                                     False, convoluted_size=(lambda x, pad: x))
             self.assertEqual(1, len(eval_data))
             self.assertEqual(2, len(eval_data.batch_list[0]))
-            (x,_), _ = eval_data[0]
+            (x, _), _ = eval_data[0]
             self.assertIsNone(
                 np.testing.assert_array_equal(x[0][0][0:6], np.array([1, 0, 0, 0, 2, 1])))
             self.assertIsNone(

@@ -157,7 +157,7 @@ class ContigInfo:
     """
 
     def __init__(self, name: str, file_name: str, length: int, offset: int, size_bytes: int, misassembly_count: int,
-                 breakpoints: list[(int, int)]):
+                 breakpoints: list[(int, int)], avg_coverage:float):
         self.name: str = name
         self.file: str = file_name
         self.length: int = length
@@ -166,6 +166,7 @@ class ContigInfo:
         self.misassembly: int = misassembly_count
         self.features: dict[str:np.array] = {}
         self.breakpoints = breakpoints
+        self.avg_coverage = avg_coverage
 
 
 class ContigReader:
@@ -328,17 +329,18 @@ class ContigReader:
                     size_bytes = int(row[3])
                     # the fields in row are: name, length (bases), misassembly_count, size_bytes, breakpoints
                     breakpoints = []
-                    if len(row) == 5:  # breakpoints is present; TODO: remove this if once all datasets have it
+                    if len(row) >= 5:  # breakpoints is present; TODO: remove this once all datasets have it
                         if row[4] != '-':
                             all_breakpoints = row[4].split(',')
                             for break_point in all_breakpoints:
                                 start_stop = break_point.split('-')
                                 breakpoints.append((int(start_stop[0]), int(start_stop[1])))
                                 breakpoint_hist[min(49, (int(start_stop[0]) + int(start_stop[1])) // 200)] += 1
+                    avg_coverage = float(row[5]) if len(row) >= 6 else 100
 
                     contig_info = ContigInfo(row[0], contig_fname, int(row[1]), offset, size_bytes, int(row[2]),
-                                             breakpoints)
-                    if contig_info.length >= self.min_len:
+                                             breakpoints, avg_coverage)
+                    if contig_info.length >= self.min_len and contig_info.avg_coverage >= self.min_avg_coverage:
                         total_len += contig_info.length
                         self.contigs.append(contig_info)
                     else:
