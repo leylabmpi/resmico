@@ -21,6 +21,12 @@ def main(args):
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
 
+    # disable tf allocating all memory on the device at the very beginning, as this seems to be causing
+    # LSTM's to crash at prediction time.
+    gpu_devices = tf.config.experimental.list_physical_devices("GPU")
+    for device in gpu_devices:
+        tf.config.experimental.set_memory_growth(device, True)
+
     logging.info('Building Tensorflow model...')
     logging.info(args)
     strategy = tf.distribute.MirroredStrategy()
@@ -110,6 +116,7 @@ def main(args):
     num_epochs = 2
     train_data_tf = train_data_tf.repeat(num_epochs)
     auc_val_best = 0
+    auc_val_prev = 0
     best_file = None
     for epoch in range(math.ceil(args.n_epochs / num_epochs)):
         start = time.time()
@@ -145,11 +152,12 @@ def main(args):
 
         # update the learning rate
         cur_epoch = (epoch + 1) * num_epochs
-        if cur_epoch > 10 and auc_val < auc_val_best:
+        if cur_epoch > 10 and auc_val < auc_val_prev:
             lr_old = K.get_value(resmico.net.optimizer.lr)
             K.set_value(resmico.net.optimizer.lr, lr_old * 0.8)  # changed for 120h jobs
             logging.info(f'Updated learning rate from: {lr_old} to {K.get_value(resmico.net.optimizer.lr)}')
 
+        auc_val_prev = auc_val
         if auc_val > auc_val_best:
             if best_file:  # delete old best model
                 os.remove(best_file)

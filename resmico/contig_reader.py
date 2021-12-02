@@ -174,7 +174,7 @@ class ContigReader:
     """
 
     def __init__(self, input_dir: str, feature_names: list[str], process_count: int, is_chunked: bool,
-                 no_cython: bool = False, stats_file: str = '', min_len: int = 0):
+                 no_cython: bool = False, stats_file: str = '', min_len: int = 0, min_avg_coverage: int = 0):
         """
         Arguments:
             - input_dir: location on disk where the feature data is stored
@@ -201,6 +201,7 @@ class ContigReader:
         self.normalize_time = 0
         self.read_time = 0
         self.min_len = min_len
+        self.min_avg_coverage = min_avg_coverage
 
         self.feature_mask: list[int] = [1 if feature in feature_names else 0 for feature in reader.feature_names]
 
