@@ -157,7 +157,7 @@ class ContigInfo:
     """
 
     def __init__(self, name: str, file_name: str, length: int, offset: int, size_bytes: int, misassembly_count: int,
-                 breakpoints: list[(int, int)], avg_coverage:float):
+                 breakpoints: list[(int, int)], avg_coverage: float):
         self.name: str = name
         self.file: str = file_name
         self.length: int = length
@@ -217,7 +217,7 @@ class ContigReader:
             logging.info('Computing global means and standard deviations...')
             self._compute_mean_stdev(file_list)
             out_file = os.path.join(input_dir, 'stats.json')
-            json.dump({'means': self.means, 'stdevs': self.stdevs}, open(out_file, 'w'))
+            json.dump({'means': self.means, 'stdevs': self.stdevs}, open(out_file, 'w'), indent=2)
             logging.info(f'Means and stdevs saved to: {out_file}')
         else:
             logging.info(f'Loading feature means and standard deviations from {stats_file}')
@@ -268,16 +268,30 @@ class ContigReader:
     def _compute_mean_stdev(self, file_list):
         mean_count = 0
         stddev_count = 0
+        all_count = 0
         metrics = ['insert_size', 'mapq', 'al_score']  # insert size, mapping quality, alignment quality
         metric_types = ['min', 'mean', 'stdev', 'max']
 
-        for feature_name in reader.float_feature_names:
+        # test and see if the new metrics (coverage, gc, entropy) are already in the stats (either because
+        # the new bam2feat version was used or because they were added via add_stats.py
+        # TODO: remove when all datasets have the new metrics
+        has_new_metrics = False
+        with open(file_list[0]) as f:
+            stats = json.load(f)
+            if 'all_count' in stats and 'seq_window_perc_gc' in stats and 'seq_window_entropy' in stats and 'coverage' in stats:
+                has_new_metrics = True
+
+        new_metrics = ['coverage', 'seq_window_entropy', 'seq_window_perc_gc'] if has_new_metrics else []
+
+        for feature_name in reader.float_feature_names + new_metrics:
             self.means[feature_name] = 0
             self.stdevs[feature_name] = 0
 
         for fname in file_list:
             with open(fname) as f:
                 stats = json.load(f)
+                if 'all_count' in stats:
+                    all_count += stats['all_count']
                 mean_count += stats['mean_cnt']
                 stddev_count += stats['stdev_cnt']
                 for metric in metrics:
@@ -285,6 +299,9 @@ class ContigReader:
                         feature_name = f'{mtype}_{metric}_Match'
                         self.means[feature_name] += stats[metric]['sum'][mtype]
                         self.stdevs[feature_name] += stats[metric]['sum2'][mtype]
+                for metric in new_metrics:
+                    self.means[metric] += stats[metric]['sum']
+                    self.stdevs[metric] += stats[metric]['sum2']
 
         for metric in metrics:
             for mtype in metric_types:
@@ -297,15 +314,24 @@ class ContigReader:
                     var = 0
                 self.stdevs[feature_name] = math.sqrt(var) / cnt
                 self.means[feature_name] /= cnt
+        for feature_name in new_metrics:
+            cnt = all_count
+            var = cnt * self.stdevs[feature_name] - self.means[feature_name] ** 2
+            if -0.1 < var < 0:  # fix small rounding errors that may lead to negative values
+                var = 0
+            self.stdevs[feature_name] = math.sqrt(var) / cnt
+            self.means[feature_name] /= cnt
         # print the computed values
         header = ''
         values = ''
         for metric in metrics:
             for mtype in metric_types:
                 feature_name = f'{mtype}_{metric}_Match'
-                header += f'{mtype}_{metric}_Match\t\t\t'
+                header += f'{feature_name}\t\t\t'
                 values += f'{self.means[feature_name]:.2f}/{self.stdevs[feature_name]}\t\t\t'
-
+        for feature_name in new_metrics:
+            header += f'{feature_name}\t\t\t'
+            values += f'{self.means[feature_name]:.2f}/{self.stdevs[feature_name]}\t\t\t'
         separator = '_' * 300
         logging.info(
             'Computed global means and stdevs:\n' + separator + '\n' + header + '\n' + values + '\n' + separator)

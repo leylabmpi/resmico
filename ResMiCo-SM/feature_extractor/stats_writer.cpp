@@ -263,6 +263,7 @@ void StatsWriter::write_stats(QueueItem &&item,
     // get the misassembly information for each position
     cs.misassembly_by_pos = expand(contig_len, mis);
     double avg_coverage = 0;
+    count_all += item.stats.size();
     for (uint32_t pos = 0; pos < item.stats.size(); ++pos) {
         const Stats &s = item.stats[pos];
 
@@ -292,9 +293,8 @@ void StatsWriter::write_stats(QueueItem &&item,
         cs.num_proper_match[pos] = normalize(s.n_proper_match, s.coverage);
         cs.num_orphans_match[pos] = normalize(s.n_orphan_match, s.coverage);
         cs.num_proper_snp[pos] = normalize(s.n_proper_snp, s.coverage);
-        cs.gc_percent[pos] = s.gc_percent * 100;
+        cs.gc_percent[pos] = s.gc_percent;
         cs.entropy[pos] = s.entropy;
-        count_all++;
 
         if (!std::isnan(s.mean_i_size)) { // coverage > 0
             count_mean++;
@@ -333,14 +333,16 @@ void StatsWriter::write_stats(QueueItem &&item,
             }
         }
 
+        sums[14] += s.coverage;
+        sums2[14] += s.coverage * s.coverage;
+
+        // gc percent and entropy can be computed even on positions with zero coverage (because
+        // they summarize state accross multiple positions)
         sums[12] += s.gc_percent;
         sums2[12] += s.gc_percent * s.gc_percent;
 
         sums[13] += s.entropy;
         sums2[13] += s.entropy * s.entropy;
-
-        sums[14] += s.coverage;
-        sums2[14] += s.coverage * s.coverage;
 
         tsv_stream << assembler << '\t' << item.reference_name << '\t' << pos << '\t';
 
