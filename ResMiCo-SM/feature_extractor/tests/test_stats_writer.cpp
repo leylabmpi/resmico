@@ -204,7 +204,7 @@ TEST(WriteData, TwoReads) {
         ASSERT_TRUE((i >= 5 && std::isnan(mean_al_score[i]))
                     || mean_al_score[i] == (i == 0 ? -14 : 0));
 
-        ASSERT_EQ(gc_percent[i], i < 498 ? 0 : i == 498 ? 25. : 50.) << "Position: " << i;
+        ASSERT_EQ(gc_percent[i], i < 498 ? 0 : i == 498 ? 0.25 : 0.50) << "Position: " << i;
         ASSERT_EQ(num_snps[i], i > 0 && i < 5 ? 5'000 : i >= 420 && i < 425 ? 10'000 : 0);
         ASSERT_EQ(min_map_qual[i], i < 5 ? 6 : std::numeric_limits<uint8_t>::max());
         ASSERT_EQ(max_map_qual[i], i == 0 ? 7 : i < 5 ? 6 : std::numeric_limits<uint8_t>::max());
