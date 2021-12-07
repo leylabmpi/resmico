@@ -17,6 +17,8 @@ from resmico import utils
 def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
     start = time.time()
 
+    is_fixed_length = model.layers[0].input_shape[0][1] is not None
+
     if args.mask_padding:
         convoluted_size = Models.get_convoluted_size(model)
     else:  # when not padding, the convoluted size is unused
@@ -33,9 +35,10 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
         logging.info(f'Using all indices for prediction')
         eval_idx = np.arange(len(reader))
 
-    predict_data = Models.BinaryDatasetEval(reader, eval_idx, args.features, args.max_len, max(250, args.max_len-500),
+    predict_data = Models.BinaryDatasetEval(reader, eval_idx, args.features, args.max_len, max(250, args.max_len - 500),
                                             int(args.gpu_eval_mem_gb * 1e9 * 0.8), cache_results=False,
-                                            show_progress=False, convoluted_size=convoluted_size)
+                                            show_progress=False, convoluted_size=convoluted_size,
+                                            pad_to_max_len=is_fixed_length)
 
     eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in predict_data.indices])
 
