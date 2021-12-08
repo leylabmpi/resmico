@@ -204,9 +204,11 @@ class Resmico(object):
                     maxP = GlobalMaxPooling1D()(x)
                 x = concatenate([maxP, avgP])
             else:
-                avgP = GlobalAveragePooling1D()(x, mask=mask if config.mask_padding else None)
-                argMaxP = ArgMaxSumPooling()(x, mask=(mask if config.mask_padding else None))
-                x = concatenate([argMaxP, avgP])
+                # avgP = GlobalAveragePooling1D()(x, mask=mask if config.mask_padding else None)
+                # argMaxP = ArgMaxSumPooling()(x, mask=(mask if config.mask_padding else None))
+                # x = concatenate([argMaxP, avgP])
+                x = utils.residual_block(x, downsample=False, filters=num_filters/2,
+                                         kernel_size=self.ker_size)
 
         elif self.net_type == 'fixlen_cnn_resnet':
             x = BatchNormalization()(inlayer)
