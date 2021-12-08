@@ -95,10 +95,12 @@ class TestReadContig(unittest.TestCase):
         self.assertEqual(500, ctg_reader.contigs[1].length)
         self.assertEqual(1, ctg_reader.contigs[0].misassembly)
         self.assertEqual(0, ctg_reader.contigs[1].misassembly)
-        self.assertEqual(256, ctg_reader.contigs[0].size_bytes)
-        self.assertEqual(196, ctg_reader.contigs[1].size_bytes)
+        self.assertEqual(246, ctg_reader.contigs[0].size_bytes)
+        self.assertEqual(183, ctg_reader.contigs[1].size_bytes)
         self.assertEqual([(100, 102)], ctg_reader.contigs[0].breakpoints)
         self.assertEqual([(50, 55), (250, 255)], ctg_reader.contigs[1].breakpoints)
+        self.assertEqual(5, ctg_reader.contigs[0].avg_coverage)
+        self.assertEqual(3, ctg_reader.contigs[1].avg_coverage)
 
     def test_read_three_features(self):
         ctg_reader = contig_reader.ContigReader('data/preprocess/', [reader.feature_names[0], reader.feature_names[1],

@@ -26,7 +26,8 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
 
     logging.info('Loading contig data...')
     reader = contig_reader.ContigReader(args.feature_files_path, args.features, args.n_procs, args.chunks,
-                                        args.no_cython, args.stats_file, args.min_len)
+                                        args.no_cython, args.stats_file, args.min_len,
+                                        min_avg_coverage=args.min_avg_coverage)
 
     if args.val_ind_f:
         eval_idx = list(pd.read_csv(args.val_ind_f)['val_ind'])
