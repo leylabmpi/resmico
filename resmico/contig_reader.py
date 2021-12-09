@@ -109,7 +109,7 @@ def _read_contig_data(input_file, feature_names: list[str]):
         data['ref_base_C'] = np.where(ref_base == 67, 1, 0)
         data['ref_base_G'] = np.where(ref_base == 71, 1, 0)
         data['ref_base_T'] = np.where(ref_base == 84, 1, 0)
-        data['coverage'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16)
+        data['coverage'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32)
         # everything is converted to float32, because frombuffer creates an immutable array, so the int values need to
         # be made mutable (in order to convert from fixed point back to float) and the float values need to be copied
         # (in order to make them writeable for normalization)
@@ -436,7 +436,10 @@ class ContigReader:
 
             if features[feature_name].dtype != np.float32:  # we can do the division in place
                 features[feature_name] = features[feature_name].astype(np.float32)
-            features[feature_name] /= self.stdevs[feature_name]
+            if self.stdevs[feature_name] > 1e-3:
+                features[feature_name] /= self.stdevs[feature_name]
+            else:
+                logging.warning(f'Stdev for {feature_name} is too low ({self.stdevs[feature_name]}). Not normalizing')
             # replace NANs with 0 (the new mean)
             nan_pos = np.isnan(features[feature_name])
             features[feature_name][nan_pos] = 0

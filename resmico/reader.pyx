@@ -14,38 +14,37 @@ from cpython.mem cimport PyMem_Malloc, PyMem_Free
 cdef extern from "Python.h":
     char *PyBytes_AS_STRING(object)
 
-# define the available feature, their size in the feature file, and their size as numpy arrays
+# define the available feature, their size in the feature file, their size as numpy arrays, and if they need to
+# be normalized
 DEF N_FEATURES = 25
-float_feature_tuples = [('min_insert_size_Match', np.uint16, np.float32),
-                        ('mean_insert_size_Match', np.float32, np.float32),
-                        ('stdev_insert_size_Match', np.float32, np.float32),
-                        ('max_insert_size_Match', np.uint16, np.float32),
-                        ('min_mapq_Match', np.uint8, np.float32),
-                        ('mean_mapq_Match', np.float32, np.float32),
-                        ('stdev_mapq_Match', np.float32, np.float32),
-                        ('max_mapq_Match', np.uint8, np.float32),
-                        ('min_al_score_Match', np.int8, np.float32),
-                        ('mean_al_score_Match', np.float32, np.float32),
-                        ('stdev_al_score_Match', np.float32, np.float32),
-                        ('coverage', np.float32, np.float32),  # converting to float32 bc it's going to be normalized
-                        ('max_al_score_Match', np.int8, np.float32),
-                        ('seq_window_perc_gc', np.float32, np.float32),
-                        ('seq_window_entropy', np.float32, np.float32),
-                        ]
-feature_tuples = [('ref_base', np.uint8, np.float32),  # because we use one-hot encoding, so 4 bytes
-                  ('num_query_A', np.uint16, np.float32),
-                  ('num_query_C', np.uint16, np.float32),
-                  ('num_query_G', np.uint16, np.float32),
-                  ('num_query_T', np.uint16, np.float32),
-                  ('num_SNPs', np.uint16, np.float32),
-                  ('num_discordant', np.uint16, np.float32)] \
-                + float_feature_tuples \
-                + [('num_proper_Match', np.uint16, np.float32),
-                   ('num_orphans_Match', np.uint16, np.float32),
-                   ('num_proper_SNP', np.uint16, np.float32),
+feature_tuples = [('ref_base', np.uint8, np.float32, False),  # because we use one-hot encoding, so 4 bytes
+                  ('coverage', np.uint16, np.float32, True),  # converting to float32 bc it's going to be normalized
+                  ('num_query_A', np.uint16, np.float32, False),
+                  ('num_query_C', np.uint16, np.float32, False),
+                  ('num_query_G', np.uint16, np.float32, False),
+                  ('num_query_T', np.uint16, np.float32, False),
+                  ('num_SNPs', np.uint16, np.float32, False),
+                  ('num_discordant', np.uint16, np.float32, False),
+                  ('min_insert_size_Match', np.uint16, np.float32, True),
+                  ('mean_insert_size_Match', np.float32, np.float32, True),
+                  ('stdev_insert_size_Match', np.float32, np.float32, True),
+                  ('max_insert_size_Match', np.uint16, np.float32, True),
+                  ('min_mapq_Match', np.uint8, np.float32, True),
+                  ('mean_mapq_Match', np.float32, np.float32, True),
+                  ('stdev_mapq_Match', np.float32, np.float32, True),
+                  ('max_mapq_Match', np.uint8, np.float32, True),
+                  ('min_al_score_Match', np.int8, np.float32, True),
+                  ('mean_al_score_Match', np.float32, np.float32, True),
+                  ('stdev_al_score_Match', np.float32, np.float32, True),
+                  ('max_al_score_Match', np.int8, np.float32, True),
+                  ('num_proper_Match', np.uint16, np.float32, False),
+                  ('num_orphans_Match', np.uint16, np.float32, False),
+                  ('num_proper_SNP', np.uint16, np.float32, False),
+                  ('seq_window_perc_gc', np.float32, np.float32, True),
+                  ('seq_window_entropy', np.float32, np.float32, True),
                    ]
 
-float_feature_names = [f[0] for f in float_feature_tuples]
+float_feature_names = [f[0] for f in feature_tuples if f[3]]
 
 feature_names = [f[0] for f in feature_tuples]
 feature_types = [f[1] for f in feature_tuples]
@@ -122,7 +121,7 @@ def read_contigs_py(file_names:list[bytes], py_lengths: list[int],  py_offsets: 
         all_data[ctg_idx] = <char **> PyMem_Malloc(sizeof(char **) * N_FEATURES)
         for feat_idx in range(N_FEATURES):
             if feature_mask[feat_idx]:
-                np_data[feat_idx] = np.empty(lengths[ctg_idx], dtype = feature_types[feat_idx])
+                np_data[feat_idx] = np.empty(lengths[ctg_idx], dtype=np.float32 if feature_tuples[feat_idx][3] else feature_types[feat_idx])
                 view = np_data[feat_idx].view(np.int8)
                 views.append(view)
                 all_data[ctg_idx][feat_idx] = &view[0]
