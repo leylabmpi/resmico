@@ -11,9 +11,7 @@ import struct
 from glob import glob
 
 import numpy as np
-
 from resmico import reader
-
 
 def _replace_with_nan(data, feature_name, v):
     """Replaces all elements in arr that are equal to v with np.nan"""
@@ -434,9 +432,6 @@ class ContigReader:
                 logging.warning(
                     f'Could not find mean/standard deviation for feature: {feature_name}. Skipping normalization')
                 continue
-            # if np.isnan(sum(features[feature_name])):
-            #     logging.warning(f'Exception for feature {feature_name}')
-            #     print(features[feature_name])
             features[feature_name] -= self.means[feature_name]
 
             if features[feature_name].dtype != np.float32:  # we can do the division in place
