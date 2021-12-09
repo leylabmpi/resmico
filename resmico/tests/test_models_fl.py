@@ -10,7 +10,12 @@ from resmico import reader
 from resmico.contig_reader import ContigInfo
 
 
-class TestBinaryDatasetTrain(unittest.TestCase):
+class TestBase(unittest.TestCase):
+    def assert_array_equal(self, a, b):
+        self.assertIsNone(np.testing.assert_array_equal(a, b))
+
+
+class TestBinaryDatasetTrain(TestBase):
     def test_select_intervals(self):
         contig_data = [ContigInfo('Contig1', '/tmp/c1', 1000, 0, 0, 0, [], avg_coverage=5),
                        ContigInfo('Contig2', '/tmp/c2', 1000, 0, 0, 0, [(100, 100)], avg_coverage=5),
@@ -92,7 +97,7 @@ class TestBinaryDatasetTrain(unittest.TestCase):
                 (x, mask), y = data_gen.__getitem__(0)
                 self.assertEqual((batch_size, max_len, len(features)), x.shape)
                 # the last zero is just padding
-                self.assertIsNone(np.testing.assert_array_equal([0, 0, 0, 1, 1, 1, 1, 1, 1, 0], y))
+                self.assert_array_equal([0, 0, 0, 1, 1, 1, 1, 1, 1, 0], y)
 
                 # first contig, 1st translation (no translation, full contig)
                 for i in range(500):
@@ -189,22 +194,18 @@ class TestBinaryDatasetTrain(unittest.TestCase):
 
             expected_y = np.zeros(batch_size)
             expected_y[0] = 1
-            self.assertIsNone(np.testing.assert_array_equal(y, expected_y))
+            self.assert_array_equal(y, expected_y)
 
             # # train_data[0][0] - first position in first contig, train_data[0][5] 5th position in 1st contig
-            self.assertIsNone(
-                np.testing.assert_array_equal(train_data[0][0][0:6], np.array([1, 0, 0, 0, 2, 1])))
-            self.assertIsNone(
-                np.testing.assert_array_equal(train_data[0][5][0:6], np.array([1, 0, 0, 0, 0, 0])))
+            self.assert_array_equal(train_data[0][0][0:6], np.array([1, 0, 0, 0, 2, 1]))
+            self.assert_array_equal(train_data[0][5][0:6], np.array([1, 0, 0, 0, 0, 0]))
 
             # # train_data[1][0] - first position in 2nd contig, train_data[1][5] 5th position in 2nd contig
-            self.assertIsNone(
-                np.testing.assert_array_equal(train_data[1][0][0:6], np.array([1, 0, 0, 0, 1, 1])))
-            self.assertIsNone(
-                np.testing.assert_array_equal(train_data[1][5][0:6], np.array([1, 0, 0, 0, 0, 0])))
+            self.assert_array_equal(train_data[1][0][0:6], np.array([1, 0, 0, 0, 1, 1]))
+            self.assert_array_equal(train_data[1][5][0:6], np.array([1, 0, 0, 0, 0, 0]))
 
 
-class TestBinaryDatasetEval(unittest.TestCase):
+class TestBinaryDatasetEval(TestBase):
     bytes_per_base = 10 + sum(  # 10 is the overhead also added in Models_Fl.BinaryDataEval
         [np.dtype(ft).itemsize for ft in reader.feature_np_types])
 
@@ -258,13 +259,11 @@ class TestBinaryDatasetEval(unittest.TestCase):
             self.assertEqual(1, len(eval_data))
             self.assertEqual(2, len(eval_data.batch_list[0]))
             (x, _), _ = eval_data[0]
-            self.assertIsNone(
-                np.testing.assert_array_equal(x[0][0][0:6], np.array([1, 0, 0, 0, 2, 1])))
-            self.assertIsNone(
-                np.testing.assert_array_equal(x[0][5][0:6], np.array([1, 0, 0, 0, 0, 0])))
+            self.assert_array_equal(x[0][0][0:6], np.array([1, 0, 0, 0, 2, 1]))
+            self.assert_array_equal(x[0][5][0:6], np.array([1, 0, 0, 0, 0, 0]))
 
-            self.assertTrue(all(a == b for a, b in zip(x[1][0][0:6], [1, 0, 0, 0, 1, 1])))
-            self.assertTrue(all(a == b for a, b in zip(x[1][5][0:6], [1, 0, 0, 0, 0, 0])))
+            self.assert_array_equal(x[1][0][0:6], np.array([1, 0, 0, 0, 1, 1]))
+            self.assert_array_equal(x[1][5][0:6], np.array([1, 0, 0, 0, 0, 0]))
 
     def test_gen_eval_data_short_window(self):
         ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
@@ -285,12 +284,16 @@ class TestBinaryDatasetEval(unittest.TestCase):
         # check the first 6 features in the 0th and 5th positions of the first chunk in first contig (reference_A/C/G/T,
         # coverage, num_query_A)
         (x, _), _ = eval_data[0]
-        self.assertTrue(all(a == b for a, b in zip(x[0][0][0:6], [1, 0, 0, 0, 2, 1])))
-        self.assertTrue(all(a == b for a, b in zip(x[0][5][0:6], [1, 0, 0, 0, 0, 0])))
+        self.assertIsNone(
+            np.testing.assert_array_equal(x[0][0][0:6], np.array([1, 0, 0, 0, 2, 1])))
+        self.assertIsNone(
+            np.testing.assert_array_equal(x[0][5][0:6], np.array([1, 0, 0, 0, 0, 0])))
 
         # check the first 6 features in the 0th and 5th positions of first chunk in 2nd contig
-        self.assertTrue(all(a == b for a, b in zip(x[16][0][0:6], [1, 0, 0, 0, 1, 1])))
-        self.assertTrue(all(a == b for a, b in zip(x[16][5][0:6], [1, 0, 0, 0, 0, 0])))
+        self.assertIsNone(
+            np.testing.assert_array_equal(x[16][0][0:6], np.array([1, 0, 0, 0, 1, 1])))
+        self.assertIsNone(
+            np.testing.assert_array_equal(x[16][5][0:6], np.array([1, 0, 0, 0, 0, 0])))
 
     def test_group(self):
         ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
@@ -353,11 +356,16 @@ class TestBinaryDatasetEval(unittest.TestCase):
         self.assertEqual(1, len(eval_data))
         self.assertEqual(2, len(eval_data.batch_list[0]))
         (x, _), _ = eval_data[0]
-        self.assertTrue(all(a == b for a, b in zip(x[0][0][0:6], [1, 0, 0, 0, 2, 1])))
-        self.assertTrue(all(a == b for a, b in zip(x[0][5][0:6], [1, 0, 0, 0, 0, 0])))
 
-        self.assertTrue(all(a == b for a, b in zip(x[1][0][0:6], [1, 0, 0, 0, 1, 1])))
-        self.assertTrue(all(a == b for a, b in zip(x[1][5][0:6], [1, 0, 0, 0, 0, 0])))
+        self.assertIsNone(
+            np.testing.assert_array_equal(x[0][0][0:6], np.array([1, 0, 0, 0, 2, 1])))
+        self.assertIsNone(
+            np.testing.assert_array_equal(x[0][5][0:6], np.array([1, 0, 0, 0, 0, 0])))
+
+        self.assertIsNone(
+            np.testing.assert_array_equal(x[1][0][0:6], np.array([1, 0, 0, 0, 1, 1])))
+        self.assertIsNone(
+            np.testing.assert_array_equal(x[1][5][0:6], np.array([1, 0, 0, 0, 0, 0])))
 
 
 class TestResmico(unittest.TestCase):

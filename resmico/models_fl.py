@@ -67,7 +67,7 @@ class ArgMaxSumPooling(Layer):
             mask = array_ops.expand_dims(mask, channel_idx)
             max_idx_mask *= mask  # shape (batch_size, steps, channels)
         masked_input = inputs * max_idx_mask
-        return K.sum(masked_input, axis=channel_idx)  # shape (batch_size, steps)
+        return masked_input # K.sum(masked_input, axis=channel_idx)  # shape (batch_size, steps)
 
     def compute_mask(self, inputs, mask=None):
         return None
@@ -207,8 +207,9 @@ class Resmico(object):
                 # avgP = GlobalAveragePooling1D()(x, mask=mask if config.mask_padding else None)
                 # argMaxP = ArgMaxSumPooling()(x, mask=(mask if config.mask_padding else None))
                 # x = concatenate([argMaxP, avgP])
-                x = utils.residual_block(x, downsample=False, filters=num_filters/2,
-                                         kernel_size=self.ker_size)
+                x = ArgMaxSumPooling()(x, mask=(mask if config.mask_padding else None))  # shape (batch_size, steps)
+                x = utils.residual_block(x, downsample=False, filters=num_filters/2, kernel_size=self.ker_size)
+                x = GlobalMaxPooling1D()(x)
 
         elif self.net_type == 'fixlen_cnn_resnet':
             x = BatchNormalization()(inlayer)
