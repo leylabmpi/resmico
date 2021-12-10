@@ -59,6 +59,9 @@ def _post_process_features(features):
         result['ref_base_G'] = np.where(ref_base == 71, 1, 0)
         result['ref_base_T'] = np.where(ref_base == 84, 1, 0)
 
+    # coverage is uint16, but it needs to be cast to flaot32 because it's going to be normalized by mean/stdev later
+    if 'coverage' in features:
+        result['coverage'] = features['coverage'].astype(np.float32)
     _to_float_and_normalize(features, result, 'num_query_A', 10000)
     _to_float_and_normalize(features, result, 'num_query_C', 10000)
     _to_float_and_normalize(features, result, 'num_query_G', 10000)
@@ -77,7 +80,6 @@ def _post_process_features(features):
     _to_float_and_nan(features, result, 'max_al_score_Match', 127)
 
     _assign(result, features, [
-        'coverage',
         'mean_insert_size_Match',
         'stdev_insert_size_Match',
         'mean_mapq_Match',
@@ -252,13 +254,12 @@ class ContigReader:
 
             features_raw = reader.read_contigs_py(file_names, lengths, offsets, sizes, self.feature_mask,
                                                   self.process_count)
+            # traverse features for each contig, convert to proper data type and normalize by mean/stdev if needed
             for f in features_raw:
                 features = _post_process_features(f)
-                if return_raw:
-                    result.append(features)
-                else:
+                if not return_raw:
                     self._normalize(features)
-                    result.append(features)
+                result.append(features)
         logging.debug(f'Contigs read in {(timer() - start):5.2f}s; read: {self.read_time:5.2f}s '
                       f'normalize: {self.normalize_time:5.2f}s')
         return result

@@ -96,6 +96,16 @@ def read_contig_py(str file_name, int length, int offset, int size, py_feature_n
     result = read_contig_cpp(file_name.encode('utf-8'), length, offset, size, feature_mask)
     return {key: result[key] for key in py_feature_names}
 
+# Reads contig features from #file_names and returns a list of {'feature_name', 'feature_data'} dictionaries, for each
+# contig. Data is read in parallel (using Cython bindings).
+# Parameters:
+#   file_names: names of the binary files to read data from, one per contig; file names are not necessarily distinct,
+#           since each file contains data for many (hundreds) of contigs
+#   py_lengths: the length of each contig
+#   py_offsets: the position in the file where the contig data begins
+#   py_sizes: the size of data in bytes, for each contig (used to allocate memory in the C code)
+#   py_feature_mask: 0/1 mask denoting the features that need to be read
+#   num_threads: how many threads to use to read the data
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def read_contigs_py(file_names:list[bytes], py_lengths: list[int],  py_offsets: list[int],  py_sizes: list[int],
@@ -121,7 +131,7 @@ def read_contigs_py(file_names:list[bytes], py_lengths: list[int],  py_offsets: 
         all_data[ctg_idx] = <char **> PyMem_Malloc(sizeof(char **) * N_FEATURES)
         for feat_idx in range(N_FEATURES):
             if feature_mask[feat_idx]:
-                np_data[feat_idx] = np.empty(lengths[ctg_idx], dtype=np.float32 if feature_tuples[feat_idx][3] else feature_types[feat_idx])
+                np_data[feat_idx] = np.empty(lengths[ctg_idx], dtype=feature_types[feat_idx])
                 view = np_data[feat_idx].view(np.int8)
                 views.append(view)
                 all_data[ctg_idx][feat_idx] = &view[0]
