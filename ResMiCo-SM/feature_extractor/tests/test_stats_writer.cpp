@@ -28,10 +28,11 @@ void check_toc_files() {
     std::string line;
     std::getline(toc_read, line); // skip header
     std::string breaking_points;
+    double avg_coverage;
     for (uint32_t i : { 0, 1 }) {
         std::string contig_name;
         uint32_t length, is_missasembly, offset;
-        toc_read >> contig_name >> length >> is_missasembly >> offset >> breaking_points;
+        toc_read >> contig_name >> length >> is_missasembly >> offset >> breaking_points >> avg_coverage;
         ASSERT_EQ("Contig" + std::to_string(i == 0 ? 2 : 1), contig_name);
         ASSERT_EQ(500, length);
         ASSERT_EQ(i == 0 ? 1 : 0, is_missasembly);
@@ -59,10 +60,11 @@ void separate_contig_data(const std::string &toc,
     std::getline(toc_read, line); // skip header
     std::vector<uint32_t> sizes;
     std::string breaking_points;
+    double avg_coverage;
     while (toc_read) {
         std::string contig_name;
         uint32_t is_missasembly, len, size;
-        toc_read >> contig_name >> len >> is_missasembly >> size >> breaking_points;
+        toc_read >> contig_name >> len >> is_missasembly >> size >> breaking_points >> avg_coverage;
         sizes.push_back(size);
     }
 
@@ -202,7 +204,7 @@ TEST(WriteData, TwoReads) {
         ASSERT_TRUE((i >= 5 && std::isnan(mean_al_score[i]))
                     || mean_al_score[i] == (i == 0 ? -14 : 0));
 
-        ASSERT_EQ(gc_percent[i], i < 498 ? 0 : i == 498 ? 25. : 50.) << "Position: " << i;
+        ASSERT_EQ(gc_percent[i], i < 498 ? 0 : i == 498 ? 0.25 : 0.50) << "Position: " << i;
         ASSERT_EQ(num_snps[i], i > 0 && i < 5 ? 5'000 : i >= 420 && i < 425 ? 10'000 : 0);
         ASSERT_EQ(min_map_qual[i], i < 5 ? 6 : std::numeric_limits<uint8_t>::max());
         ASSERT_EQ(max_map_qual[i], i == 0 ? 7 : i < 5 ? 6 : std::numeric_limits<uint8_t>::max());

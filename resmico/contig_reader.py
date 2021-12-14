@@ -11,9 +11,7 @@ import struct
 from glob import glob
 
 import numpy as np
-
 from resmico import reader
-
 
 def _replace_with_nan(data, feature_name, v):
     """Replaces all elements in arr that are equal to v with np.nan"""
@@ -61,6 +59,9 @@ def _post_process_features(features):
         result['ref_base_G'] = np.where(ref_base == 71, 1, 0)
         result['ref_base_T'] = np.where(ref_base == 84, 1, 0)
 
+    # coverage is uint16, but it needs to be cast to flaot32 because it's going to be normalized by mean/stdev later
+    if 'coverage' in features:
+        result['coverage'] = features['coverage'].astype(np.float32)
     _to_float_and_normalize(features, result, 'num_query_A', 10000)
     _to_float_and_normalize(features, result, 'num_query_C', 10000)
     _to_float_and_normalize(features, result, 'num_query_G', 10000)
@@ -79,7 +80,6 @@ def _post_process_features(features):
     _to_float_and_nan(features, result, 'max_al_score_Match', 127)
 
     _assign(result, features, [
-        'coverage',
         'mean_insert_size_Match',
         'stdev_insert_size_Match',
         'mean_mapq_Match',
@@ -111,7 +111,7 @@ def _read_contig_data(input_file, feature_names: list[str]):
         data['ref_base_C'] = np.where(ref_base == 67, 1, 0)
         data['ref_base_G'] = np.where(ref_base == 71, 1, 0)
         data['ref_base_T'] = np.where(ref_base == 84, 1, 0)
-        data['coverage'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16)
+        data['coverage'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32)
         # everything is converted to float32, because frombuffer creates an immutable array, so the int values need to
         # be made mutable (in order to convert from fixed point back to float) and the float values need to be copied
         # (in order to make them writeable for normalization)
@@ -157,7 +157,7 @@ class ContigInfo:
     """
 
     def __init__(self, name: str, file_name: str, length: int, offset: int, size_bytes: int, misassembly_count: int,
-                 breakpoints: list[(int, int)]):
+                 breakpoints: list[(int, int)], avg_coverage: float):
         self.name: str = name
         self.file: str = file_name
         self.length: int = length
@@ -166,6 +166,7 @@ class ContigInfo:
         self.misassembly: int = misassembly_count
         self.features: dict[str:np.array] = {}
         self.breakpoints = breakpoints
+        self.avg_coverage = avg_coverage
 
 
 class ContigReader:
@@ -174,7 +175,7 @@ class ContigReader:
     """
 
     def __init__(self, input_dir: str, feature_names: list[str], process_count: int, is_chunked: bool,
-                 no_cython: bool = False, stats_file: str = '', min_len: int = 0):
+                 no_cython: bool = False, stats_file: str = '', min_len: int = 0, min_avg_coverage: int = 0):
         """
         Arguments:
             - input_dir: location on disk where the feature data is stored
@@ -201,6 +202,7 @@ class ContigReader:
         self.normalize_time = 0
         self.read_time = 0
         self.min_len = min_len
+        self.min_avg_coverage = min_avg_coverage
 
         self.feature_mask: list[int] = [1 if feature in feature_names else 0 for feature in reader.feature_names]
 
@@ -215,7 +217,7 @@ class ContigReader:
             logging.info('Computing global means and standard deviations...')
             self._compute_mean_stdev(file_list)
             out_file = os.path.join(input_dir, 'stats.json')
-            json.dump({'means': self.means, 'stdevs': self.stdevs}, open(out_file, 'w'))
+            json.dump({'means': self.means, 'stdevs': self.stdevs}, open(out_file, 'w'), indent=2)
             logging.info(f'Means and stdevs saved to: {out_file}')
         else:
             logging.info(f'Loading feature means and standard deviations from {stats_file}')
@@ -252,13 +254,12 @@ class ContigReader:
 
             features_raw = reader.read_contigs_py(file_names, lengths, offsets, sizes, self.feature_mask,
                                                   self.process_count)
+            # traverse features for each contig, convert to proper data type and normalize by mean/stdev if needed
             for f in features_raw:
                 features = _post_process_features(f)
-                if return_raw:
-                    result.append(features)
-                else:
+                if not return_raw:
                     self._normalize(features)
-                    result.append(features)
+                result.append(features)
         logging.debug(f'Contigs read in {(timer() - start):5.2f}s; read: {self.read_time:5.2f}s '
                       f'normalize: {self.normalize_time:5.2f}s')
         return result
@@ -266,16 +267,30 @@ class ContigReader:
     def _compute_mean_stdev(self, file_list):
         mean_count = 0
         stddev_count = 0
+        all_count = 0
         metrics = ['insert_size', 'mapq', 'al_score']  # insert size, mapping quality, alignment quality
         metric_types = ['min', 'mean', 'stdev', 'max']
 
-        for feature_name in reader.float_feature_names:
+        # test and see if the new metrics (coverage, gc, entropy) are already in the stats (either because
+        # the new bam2feat version was used or because they were added via add_stats.py
+        # TODO: remove when all datasets have the new metrics
+        has_new_metrics = False
+        with open(file_list[0]) as f:
+            stats = json.load(f)
+            if 'all_count' in stats and 'seq_window_perc_gc' in stats and 'seq_window_entropy' in stats and 'coverage' in stats:
+                has_new_metrics = True
+
+        new_metrics = ['coverage', 'seq_window_entropy', 'seq_window_perc_gc'] if has_new_metrics else []
+
+        for feature_name in reader.float_feature_names + new_metrics:
             self.means[feature_name] = 0
             self.stdevs[feature_name] = 0
 
         for fname in file_list:
             with open(fname) as f:
                 stats = json.load(f)
+                if 'all_count' in stats:
+                    all_count += stats['all_count']
                 mean_count += stats['mean_cnt']
                 stddev_count += stats['stdev_cnt']
                 for metric in metrics:
@@ -283,6 +298,9 @@ class ContigReader:
                         feature_name = f'{mtype}_{metric}_Match'
                         self.means[feature_name] += stats[metric]['sum'][mtype]
                         self.stdevs[feature_name] += stats[metric]['sum2'][mtype]
+                for metric in new_metrics:
+                    self.means[metric] += stats[metric]['sum']
+                    self.stdevs[metric] += stats[metric]['sum2']
 
         for metric in metrics:
             for mtype in metric_types:
@@ -295,15 +313,24 @@ class ContigReader:
                     var = 0
                 self.stdevs[feature_name] = math.sqrt(var) / cnt
                 self.means[feature_name] /= cnt
+        for feature_name in new_metrics:
+            cnt = all_count
+            var = cnt * self.stdevs[feature_name] - self.means[feature_name] ** 2
+            if -0.1 < var < 0:  # fix small rounding errors that may lead to negative values
+                var = 0
+            self.stdevs[feature_name] = math.sqrt(var) / cnt
+            self.means[feature_name] /= cnt
         # print the computed values
         header = ''
         values = ''
         for metric in metrics:
             for mtype in metric_types:
                 feature_name = f'{mtype}_{metric}_Match'
-                header += f'{mtype}_{metric}_Match\t\t\t'
+                header += f'{feature_name}\t\t\t'
                 values += f'{self.means[feature_name]:.2f}/{self.stdevs[feature_name]}\t\t\t'
-
+        for feature_name in new_metrics:
+            header += f'{feature_name}\t\t\t'
+            values += f'{self.means[feature_name]:.2f}/{self.stdevs[feature_name]}\t\t\t'
         separator = '_' * 300
         logging.info(
             'Computed global means and stdevs:\n' + separator + '\n' + header + '\n' + values + '\n' + separator)
@@ -327,17 +354,18 @@ class ContigReader:
                     size_bytes = int(row[3])
                     # the fields in row are: name, length (bases), misassembly_count, size_bytes, breakpoints
                     breakpoints = []
-                    if len(row) == 5:  # breakpoints is present; TODO: remove this if once all datasets have it
+                    if len(row) >= 5:  # breakpoints is present; TODO: remove this once all datasets have it
                         if row[4] != '-':
                             all_breakpoints = row[4].split(',')
                             for break_point in all_breakpoints:
                                 start_stop = break_point.split('-')
                                 breakpoints.append((int(start_stop[0]), int(start_stop[1])))
                                 breakpoint_hist[min(49, (int(start_stop[0]) + int(start_stop[1])) // 200)] += 1
+                    avg_coverage = float(row[5]) if len(row) >= 6 else 100
 
                     contig_info = ContigInfo(row[0], contig_fname, int(row[1]), offset, size_bytes, int(row[2]),
-                                             breakpoints)
-                    if contig_info.length >= self.min_len:
+                                             breakpoints, avg_coverage)
+                    if contig_info.length >= self.min_len and contig_info.avg_coverage >= self.min_avg_coverage:
                         total_len += contig_info.length
                         self.contigs.append(contig_info)
                     else:
@@ -405,14 +433,14 @@ class ContigReader:
                 logging.warning(
                     f'Could not find mean/standard deviation for feature: {feature_name}. Skipping normalization')
                 continue
-            # if np.isnan(sum(features[feature_name])):
-            #     logging.warning(f'Exception for feature {feature_name}')
-            #     print(features[feature_name])
             features[feature_name] -= self.means[feature_name]
 
             if features[feature_name].dtype != np.float32:  # we can do the division in place
                 features[feature_name] = features[feature_name].astype(np.float32)
-            features[feature_name] /= self.stdevs[feature_name]
+            if self.stdevs[feature_name] > 1e-3:
+                features[feature_name] /= self.stdevs[feature_name]
+            else:
+                logging.warning(f'Stdev for {feature_name} is too low ({self.stdevs[feature_name]}). Not normalizing')
             # replace NANs with 0 (the new mean)
             nan_pos = np.isnan(features[feature_name])
             features[feature_name][nan_pos] = 0

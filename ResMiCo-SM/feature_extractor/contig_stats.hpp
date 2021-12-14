@@ -55,8 +55,8 @@ struct Stats {
     uint16_t n_discord_match = 0;
     uint16_t n_proper_snp = 0;
 
-    float entropy;
-    float gc_percent;
+    float entropy = 0;
+    float gc_percent = 0;
 
     // these 3 are unusued; remove?
     uint16_t n_diff_strand = 0;

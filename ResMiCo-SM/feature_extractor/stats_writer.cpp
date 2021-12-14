@@ -201,19 +201,18 @@ StatsWriter::StatsWriter(const std::filesystem::path &out_dir,
     std::filesystem::remove(binary_features);
     std::filesystem::remove(binary_chunk_features);
 
-    sums.resize(14, 0);
-    sums2.resize(14, 0);
+    sums.resize(15, 0);
+    sums2.resize(15, 0);
     tsv_stream.precision(3);
 
     // write tsv header
     tsv_stream << join_vec(headers, '\t');
 
-    // write toc header for binary features (entire contig)
-    toc << "Contig" << '\t' << "LengthBases" << '\t' << "MisassemblCnt" << '\t' << "SizeBytes"
-        << '\t' << "Breaking_points" << std::endl;
-    // write toc header for binary features (contig chunk)
-    toc_chunk << "Contig" << '\t' << "LengthBases" << '\t' << "Misassembly" << '\t' << "SizeBytes"
-              << '\t' << "Breaking_points" << std::endl;
+    // write toc header for binary features (entire contig + chunks)
+    std::string toc_str
+            = "Contig\tLengthBases\tMisassemblyCnt\tSizeBytes\tBreakingPoints\tAvgCoverage\n";
+    toc << toc_str;
+    toc_chunk << toc_str;
 }
 
 std::string to_string(const std::vector<MisassemblyInfo> &mis, uint32_t start = 0) {
@@ -263,11 +262,13 @@ void StatsWriter::write_stats(QueueItem &&item,
 
     // get the misassembly information for each position
     cs.misassembly_by_pos = expand(contig_len, mis);
-
+    double avg_coverage = 0;
+    count_all += item.stats.size();
     for (uint32_t pos = 0; pos < item.stats.size(); ++pos) {
         const Stats &s = item.stats[pos];
 
         cs.coverage[pos] = s.coverage;
+        avg_coverage += s.coverage;
         for (uint32_t i : { 0, 1, 2, 3 }) {
             cs.n_bases[i][pos] = normalize(s.n_bases[i], s.coverage);
         }
@@ -292,9 +293,8 @@ void StatsWriter::write_stats(QueueItem &&item,
         cs.num_proper_match[pos] = normalize(s.n_proper_match, s.coverage);
         cs.num_orphans_match[pos] = normalize(s.n_orphan_match, s.coverage);
         cs.num_proper_snp[pos] = normalize(s.n_proper_snp, s.coverage);
-        cs.gc_percent[pos] = s.gc_percent * 100;
+        cs.gc_percent[pos] = s.gc_percent;
         cs.entropy[pos] = s.entropy;
-        count_all++;
 
         if (!std::isnan(s.mean_i_size)) { // coverage > 0
             count_mean++;
@@ -333,6 +333,11 @@ void StatsWriter::write_stats(QueueItem &&item,
             }
         }
 
+        sums[14] += s.coverage;
+        sums2[14] += s.coverage * s.coverage;
+
+        // gc percent and entropy can be computed even on positions with zero coverage (because
+        // they summarize state accross multiple positions)
         sums[12] += s.gc_percent;
         sums2[12] += s.gc_percent * s.gc_percent;
 
@@ -366,7 +371,8 @@ void StatsWriter::write_stats(QueueItem &&item,
     std::string binary_stats_file = out_dir / (item.reference_name + ".gz");
     write_data(item.reference, binary_stats_file, cs);
     toc << item.reference_name << '\t' << item.stats.size() << '\t' << mis.size() << '\t'
-        << std::filesystem::file_size(binary_stats_file) << '\t' << to_string(mis) << std::endl;
+        << std::filesystem::file_size(binary_stats_file) << '\t' << to_string(mis) << '\t'
+        << avg_coverage / item.stats.size() << std::endl;
     append_file(binary_features, binary_stats_file);
 
     // ----- start selecting a chunk and writing its stats to disk ----
@@ -436,6 +442,8 @@ void StatsWriter::write_summary() {
     j["seq_window_perc_gc"]["sum2"] = sums2[12];
     j["seq_window_entropy"]["sum"] = sums[13];
     j["seq_window_entropy"]["sum2"] = sums2[13];
+    j["coverage"]["sum"] = sums[14];
+    j["coverage"]["sum2"] = sums2[14];
 
     std::ofstream stats(out_dir / "stats");
     stats << j.dump(2);
