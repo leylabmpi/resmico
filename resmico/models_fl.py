@@ -653,6 +653,37 @@ class BinaryDatasetEval(BinaryDataset):
                 i += 1
                 j += chunk_count
         return grouped_y
+    
+    def group_emb(self, y, method=np.mean):
+        """
+        Groups results for contigs chunked into multiple windows (because they were too long)
+        by applying mean across all windows
+        Params:
+            - y: the results for the chunked contigs that need to be grouped. 
+        Returns:
+            - the grouped y, containing one vector for each contig in #self.indices
+        """
+        total_len = 0
+        grouped_y_size = 0
+        for batch in self.chunk_counts:
+            total_len += sum(batch)
+            grouped_y_size += len(batch)
+        assert len(y) == total_len, f'y has length {len(y)}, chunk_counts total length is {total_len}'
+        assert grouped_y_size == len(self.indices), \
+            f'Index map has {grouped_y_size} elements, while indices has {len(self.indices)} elements'
+        grouped_y = np.empty(len(self.indices), dtype=object)
+        i = 0
+        j = 0
+        for batch in self.chunk_counts:
+            for chunk_count in batch:
+                if chunk_count > 1:
+                    arr = method(y[j:j + chunk_count], axis=0)
+                else: 
+                    arr = y[j]
+                grouped_y[i] = '|'.join(str(elem) for elem in arr)
+                i += 1
+                j += chunk_count
+        return grouped_y
 
     def __len__(self):
         return len(self.batch_list)

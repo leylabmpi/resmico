@@ -57,6 +57,10 @@ def parse_args(test_args=None, subparsers=None):
                         help='use deepmased')
     parser.add_argument('--longdir', action='store_true', default=False,
                         help='Six variable parameters in simulation (default: %(default)s)')
+    parser.add_argument('--embeddings', action='store_true', default=False,
+                        help='Produce embeddings (default: %(default)s)')
+    parser.add_argument('--emb-ind', default=0, type=int,
+                        help='Layer index to produce embedding (default: %(default)s)')
     parser.add_argument('--stats-file', default='', help='File containing the feature means/stdevs of the training set')
     arguments.add_common_args(parser)
 
