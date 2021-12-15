@@ -49,6 +49,7 @@
 /cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/resmico-0.3.1-py3.9.egg/resmico/Utils.py
 /cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/resmico-0.3.1-py3.9.egg/resmico/__init__.py
 /cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/resmico-0.3.1-py3.9.egg/resmico/__main__.py
+/cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/resmico-0.3.1-py3.9.egg/resmico/add_stats.py
 /cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/resmico-0.3.1-py3.9.egg/resmico/contig_reader.py
 /cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/resmico-0.3.1-py3.9.egg/resmico/evaluate.py
 /cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/resmico-0.3.1-py3.9.egg/resmico/models_fl.py
@@ -82,6 +83,7 @@
 /cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/resmico-0.3.1-py3.9.egg/resmico/__pycache__/Utils.cpython-39.pyc
 /cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/resmico-0.3.1-py3.9.egg/resmico/__pycache__/__init__.cpython-39.pyc
 /cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/resmico-0.3.1-py3.9.egg/resmico/__pycache__/__main__.cpython-39.pyc
+/cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/resmico-0.3.1-py3.9.egg/resmico/__pycache__/add_stats.cpython-39.pyc
 /cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/resmico-0.3.1-py3.9.egg/resmico/__pycache__/contig_reader.cpython-39.pyc
 /cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/resmico-0.3.1-py3.9.egg/resmico/__pycache__/evaluate.cpython-39.pyc
 /cluster/home/omineeva/software/anaconda/envs/resmico/lib/python3.9/site-packages/resmico-0.3.1-py3.9.egg/resmico/__pycache__/models_fl.cpython-39.pyc
@@ -149,8 +151,8 @@
 /cluster/home/omineeva/software/anaconda/envs/resmico/bin/f2py
 /cluster/home/omineeva/software/anaconda/envs/resmico/bin/f2py3
 /cluster/home/omineeva/software/anaconda/envs/resmico/bin/f2py3.9
-/cluster/home/omineeva/software/anaconda/envs/resmico/bin/wheel
 /cluster/home/omineeva/software/anaconda/envs/resmico/bin/tensorboard
+/cluster/home/omineeva/software/anaconda/envs/resmico/bin/wheel
 /cluster/home/omineeva/software/anaconda/envs/resmico/bin/markdown_py
 /cluster/home/omineeva/software/anaconda/envs/resmico/bin/google-oauthlib-tool
 /cluster/home/omineeva/software/anaconda/envs/resmico/bin/pyrsa-decrypt
