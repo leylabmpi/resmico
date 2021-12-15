@@ -13,6 +13,7 @@ from glob import glob
 import numpy as np
 from resmico import reader
 
+
 def _replace_with_nan(data, feature_name, v):
     """Replaces all elements in arr that are equal to v with np.nan"""
     if feature_name not in data:
@@ -175,7 +176,8 @@ class ContigReader:
     """
 
     def __init__(self, input_dir: str, feature_names: list[str], process_count: int, is_chunked: bool,
-                 no_cython: bool = False, stats_file: str = '', min_len: int = 0, min_avg_coverage: int = 0):
+                 no_cython: bool = False, stats_file: str = '', min_len: int = 0, min_avg_coverage: int = 0,
+                 feature_file_match: str = ''):
         """
         Arguments:
             - input_dir: location on disk where the feature data is stored
@@ -185,6 +187,8 @@ class ContigReader:
             - no_cython: whether to read data from disk using pure Python or using Cython bindings
             - stats_file: if present, specifies a stats file to read the statistics for each feature from
             - min_len: exclude all contigs shorter than min_len
+            - input_dir_match string that the directories for the feature files must match; useful for filtering
+              contigs with certain properties, such as sequencing depth, abundance, etc.
         """
         # means and stdevs are a map from feature name to the mean and standard deviation precomputed for that
         # feature across *all* contigs, stored as a tuple
@@ -203,11 +207,17 @@ class ContigReader:
         self.read_time = 0
         self.min_len = min_len
         self.min_avg_coverage = min_avg_coverage
+        self.feature_file_match = feature_file_match
 
         self.feature_mask: list[int] = [1 if feature in feature_names else 0 for feature in reader.feature_names]
 
         logging.info('Looking for stats/toc files...')
         file_list = list(glob(input_dir + '/**/stats', recursive=True))
+        if feature_file_match:
+            count = len(file_list)
+            file_list = [f for f in file_list if feature_file_match in f]
+            logging.info(
+                f'Filtered for directories matching: {feature_file_match}. {len(file_list)} out of {count} kept')
         logging.info(f'Processing {len(file_list)} stats/toc files found in {input_dir} ...')
         if not file_list:
             logging.info('Nothing to do.')

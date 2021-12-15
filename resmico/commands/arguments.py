@@ -64,3 +64,6 @@ def add_common_args(parser: argparse.ArgumentParser):
                         dest='mask_padding', action='store_true')
     parser.add_argument('--min-avg-coverage', default=1.0, type=float,
                         help='Minimum average coverage for a contig to be considered during evaluation or training')
+    parser.add_argument('--feature-file-match', default='', type=str,
+                        help='String that paths to feature files must match '
+                             '(e.g. 0.005 to select of lowest abundance contigs only)')
