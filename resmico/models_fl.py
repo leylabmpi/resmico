@@ -173,7 +173,7 @@ class Resmico(object):
             x = Dropout(rate=self.dropout)(x)
             x = Bidirectional(LSTM(40, return_sequences=False, dropout=0.0), merge_mode="concat")(x)
 
-        elif self.net_type == 'cnn_resnet' or self.net_type == 'cnn_resnet_argmax':
+        elif self.net_type == 'cnn_resnet' or self.net_type == 'cnn_resnet_argmax' or self.net_type == 'cnn_resnet_avg':
             x = BatchNormalization()(inlayer)
             x = Conv1D(self.filters, kernel_size=10,
                        input_shape=(None, self.n_feat),
@@ -204,13 +204,15 @@ class Resmico(object):
                 else:
                     maxP = GlobalMaxPooling1D()(x)
                 x = concatenate([maxP, avgP])
-            else:
+            elif self.net_type == 'cnn_resnet_argmax':
                 # avgP = GlobalAveragePooling1D()(x, mask=mask if config.mask_padding else None)
                 # argMaxP = ArgMaxSumPooling()(x, mask=(mask if config.mask_padding else None))
                 # x = concatenate([argMaxP, avgP])
                 x = ArgMaxSumPooling()(x, mask=(mask if config.mask_padding else None))  # shape (batch_size, steps)
                 x = utils.residual_block(x, downsample=False, filters=16, kernel_size=self.ker_size)
                 x = GlobalMaxPooling1D()(x)
+            else: # cnn_resnet_avg
+                x = GlobalAveragePooling1D()(x, mask=mask if config.mask_padding else None)
 
         elif self.net_type == 'fixlen_cnn_resnet':
             x = BatchNormalization()(inlayer)
