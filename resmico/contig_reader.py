@@ -175,7 +175,7 @@ class ContigReader:
     Reads contig data from binary files written by ResMiCo-SM.
     """
 
-    def __init__(self, input_dir: str, feature_names: list[str], process_count: int, is_chunked: bool,
+    def __init__(self, input_dirs: str, feature_names: list[str], process_count: int, is_chunked: bool,
                  no_cython: bool = False, stats_file: str = '', min_len: int = 0, min_avg_coverage: int = 0,
                  feature_file_match: str = ''):
         """
@@ -212,23 +212,31 @@ class ContigReader:
         self.feature_mask: list[int] = [1 if feature in feature_names else 0 for feature in reader.feature_names]
 
         logging.info('Looking for stats/toc files...')
-        file_list = list(glob(input_dir + '/**/stats', recursive=True))
-        if feature_file_match:
-            count = len(file_list)
-            file_list = [f for f in file_list if feature_file_match in f]
-            logging.info(
-                f'Filtered for directories matching: {feature_file_match}. {len(file_list)} out of {count} kept')
-        logging.info(f'Processing {len(file_list)} stats/toc files found in {input_dir} ...')
+        file_list = []
+        for input_dir in input_dirs.split(','):
+            fl = list(glob(input_dir + '/**/stats', recursive=True))
+            if feature_file_match:
+                count = len(fl)
+                fl = [f for f in fl if feature_file_match in f]
+                logging.info(
+                    f'Filtered for directories matching: {feature_file_match}. {len(file_list)} out of {count} kept')
+            file_list.extend(fl)
+            logging.info(f'Processing {len(file_list)} stats/toc files found in {input_dir} ...')
         if not file_list:
             logging.info('Nothing to do.')
             exit(0)
+        elif ',' in input_dirs:
+            logging.info(f'A total of {len(file_list)} stats/toc files found')
 
         if stats_file == '':
             logging.info('Computing global means and standard deviations...')
             self._compute_mean_stdev(file_list)
-            out_file = os.path.join(input_dir, 'stats.json')
-            json.dump({'means': self.means, 'stdevs': self.stdevs}, open(out_file, 'w'), indent=2)
-            logging.info(f'Means and stdevs saved to: {out_file}')
+            if ',' not in input_dirs:
+                out_file = os.path.join(input_dirs, 'stats.json')
+                json.dump({'means': self.means, 'stdevs': self.stdevs}, open(out_file, 'w'), indent=2)
+                logging.info(f'Means and stdevs saved to: {out_file}')
+            else:
+                logging.info('Composed input dir: not writing stats.json')
         else:
             logging.info(f'Loading feature means and standard deviations from {stats_file}')
             means_stdevs = json.load(open(stats_file))
