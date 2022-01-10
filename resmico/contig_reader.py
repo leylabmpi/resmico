@@ -460,7 +460,7 @@ class ContigReader:
             else:
                 continue
                 logging.warning(f'Stdev for {feature_name} is too low ({self.stdevs[feature_name]}). Not normalizing')
-            replace NANs with 0 (the new mean)
+#             replace NANs with 0 (the new mean)
             nan_pos = np.isnan(features[feature_name])
             features[feature_name][nan_pos] = 0
         self.normalize_time += (timer() - start)
