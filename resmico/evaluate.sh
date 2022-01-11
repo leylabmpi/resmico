@@ -2,7 +2,7 @@ eval "$(conda shell.bash hook)"
 conda activate tfgpu
 module load cuda/11.1.1 cudnn/7.5 nccl/2.3.7-1
 
-MODEL="/cluster/home/ddanciu/tmp/mc_epoch_34_aucPR_0.647_resmico_model.h5"
+MODEL="/cluster/home/ddanciu/tmp/mc_epoch_26_aucPR_0.663_resmico_model.h5"
 
 DATA_DIR_N9K="/cluster/work/grlab/projects/projects2019-contig_quality/data/v2/resmico-sm/GTDBr202_n9k_train/features"
 DATA_DIR_NOVEL="/cluster/work/grlab/projects/projects2019-contig_quality/data/v2/resmico-sm/GTDBr202_n9k_novel-family_test/features"
