@@ -644,7 +644,7 @@ class BinaryDatasetEval(BinaryDataset):
             curr_chunk_count = 1 + max(0, math.ceil((contig_len - self.window) / self.step))
             batch_chunk_count += curr_chunk_count
             # check if the new contig still fits in memory; create a new batch if not
-            if current_indices and batch_chunk_count * self.window * bytes_per_base > total_memory_bytes:
+            if len(current_indices) > 300 or current_indices and batch_chunk_count * self.window * bytes_per_base > total_memory_bytes:
                 logging.debug(f'Added {len(counts)} contigs with {sum(counts)} chunks to evaluation batch')
                 batch_list.append(current_indices)
                 current_indices = []

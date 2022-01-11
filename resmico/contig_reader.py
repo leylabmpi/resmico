@@ -298,6 +298,7 @@ class ContigReader:
             if 'all_count' in stats and 'seq_window_perc_gc' in stats and 'seq_window_entropy' in stats and 'coverage' in stats:
                 has_new_metrics = True
 
+        has_new_metrics = False # TODO: remove
         new_metrics = ['coverage', 'seq_window_entropy', 'seq_window_perc_gc'] if has_new_metrics else []
 
         for feature_name in reader.float_feature_names + new_metrics:

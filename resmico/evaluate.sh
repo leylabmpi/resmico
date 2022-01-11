@@ -2,19 +2,20 @@ eval "$(conda shell.bash hook)"
 conda activate tfgpu
 module load cuda/11.1.1 cudnn/7.5 nccl/2.3.7-1
 
+MODEL="/cluster/home/ddanciu/tmp/mc_epoch_34_aucPR_0.647_resmico_model.h5"
+
 DATA_DIR_N9K="/cluster/work/grlab/projects/projects2019-contig_quality/data/v2/resmico-sm/GTDBr202_n9k_train/features"
 DATA_DIR_NOVEL="/cluster/work/grlab/projects/projects2019-contig_quality/data/v2/resmico-sm/GTDBr202_n9k_novel-family_test/features"
 DATA_DIR_CAMI_GUT="/cluster/work/grlab/projects/projects2019-contig_quality/data/CAMI/CAMI2_HMP-gut/"
 DATA_DIR_CAMI_SKIN="/cluster/work/grlab/projects/projects2019-contig_quality/data/CAMI/CAMI2_HMP-skin/"
 DATA_DIR_CAMI_ORAL="/cluster/work/grlab/projects/projects2019-contig_quality/data/CAMI/CAMI2_HMP-oral/"
 
-declare -a DATA_DIRS=("${DATA_DIR_NOVEL}" "${DATA_DIR_CAMI_GUT}")
-declare -a DATA_NAMES=("novel" "gut")
+declare -a DATA_DIRS=("${DATA_DIR_NOVEL}" "${DATA_DIR_CAMI_GUT}" "${DATA_DIR_CAMI_SKIN}" "${DATA_DIR_CAMI_ORAL}")
+declare -a DATA_NAMES=("novel" "gut" "skin" "oral")
 
 CODE_PATH="/cluster/home/ddanciu/resmico"  # replace with whatever directory your source code is in
 OUT_PATH="/cluster/home/ddanciu/tmp" # replace this with the desired output directory
-MODEL="/cluster/home/ddanciu/tmp/mc_epoch_30_aucPR_0.690_resmico_model.h5"
-MAX_LEN=5000
+MAX_LEN=10000
 
 suffix="" # "_chunked" # set to "_chunked" if evaluating on contig chunks, empty ("") otherwise
 if [ "${suffix}" == "_chunked" ]; then
@@ -43,7 +44,7 @@ for i in "${!DATA_DIRS[@]}"; do
 
   cmd="/usr/bin/time python resmico evaluate --binary-data --feature-files-path ${DATA_DIR} \
         --save-path /cluster/home/ddanciu/tmp --save-name evaluate${suffix}_${name}_${current_time} --n-procs 8 --log-level info \
-        --model ${MODEL} --mask-padding \
+        --model ${MODEL} --mask-padding --stats-file /cluster/work/grlab/projects/projects2019-contig_quality/data/v2/resmico-sm/GTDBr202_n9k_train_d12m/stats.json \
         --min-avg-coverage 0 --max-len ${MAX_LEN} --gpu-eval-mem-gb=0.1 --features ${features_small} ${additional_params}"
 
   cd "${CODE_PATH}" || exit
@@ -51,6 +52,7 @@ for i in "${!DATA_DIRS[@]}"; do
   echo "Evaluation command is: ${cmd}"
 
   # submit the job
-  bsub -W 1:00 -n 4 -J cami-gut -R "span[hosts=1]" -R rusage[mem=20000,ngpus_excl_p=2] -G ms_raets \
+  bsub -W 4:00 -n 4 -J cami-gut -R "span[hosts=1]" -R rusage[mem=20000,ngpus_excl_p=2] -G ms_raets \
      -oo "${lsf_log_file}" "${cmd} 2>&1 | tee ${log_file}"
+  sleep 1
 done
