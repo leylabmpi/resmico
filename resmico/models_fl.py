@@ -74,24 +74,33 @@ class ArgMaxSumPooling(Layer):
         return None
 
 
-def get_convoluted_size(model: Model):
+def construct_convolution_lambda(model: Model):
     """
-    Returns a lambda that computes the size of the padded/unpadded convolution layer output for a contig of a specific
-    length.
+    Builds and returns a lambda that computes the size of the padded/unpadded convolution layer output 
+    for the given model. The function traverses the model layer by layer, and updates the lambda function 
+    whenever it sees a 1D convolution.
+    The returned lambda has two parameters:
+      - the contig length (int). The lambda will return the convolved contig length
+      - pad (bool): If true, positions that needed padding in order to be convolved are not masked out.
+        If false, any position that needed padding in order to be computed will be masked out.
     """
-    convoluted_size = lambda x, pad: x
+    result = lambda contig_len, pad: contig_len
     for layer in model.layers:
         if isinstance(layer, Conv1D):
             if layer.kernel_size[0] == 1:  # this is the residual layer that doesn't affect the output size
                 continue
-            is_valid = int(layer.padding == 'valid')
-            convoluted_size_n = lambda x, pad, f=convoluted_size, strides=layer.strides, kernel_size=layer.kernel_size, \
-                                       is_valid=is_valid: math.ceil(
-                (f(x, pad) - (kernel_size[0] - 1) * is_valid) / strides[0]) if pad else 1 + (
-                    f(x, pad) - kernel_size[0]) // strides[0]
+            # padding of a layer can be 'valid' or 'same'; if the padding is 'valid' (as in the first convolution
+            # layer of ResMiCo), then the output size is shrunk by (kernel_size-1)
+            kernel_size = layer.kernel_size[0]
+            stride = layer.strides[0]
+            output_reduction = kernel_size - 1 if layer.padding == 'valid' else 0
+            result_n = \
+                lambda x, pad, f=result, stride=stride, kernel_size=kernel_size, output_reduction=output_reduction: \
+                    math.ceil((f(x, pad) - output_reduction) / stride) if pad \
+                        else 1 + (f(x, pad) - kernel_size) // stride
 
-            convoluted_size = convoluted_size_n
-    return convoluted_size
+            result = result_n
+    return result
 
 
 class Resmico(object):
@@ -191,7 +200,7 @@ class Resmico(object):
             # for a convolutional layer with padding='same', otherwise for padding='valid'
             # if we don't mask the zero-padded values, the convoluted size can be anything
             tmp_model = Model(inputs=inlayer, outputs=x)  # dummy model used only in next line
-            self.convoluted_size = get_convoluted_size(tmp_model) if config.mask_padding else lambda x, pad: 1
+            self.convoluted_size = construct_convolution_lambda(tmp_model) if config.mask_padding else lambda x, pad: 1
             if config.binary_data:
                 mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
                 mask = Input(shape=(mask_size,), name='mask', dtype='bool')
@@ -211,7 +220,7 @@ class Resmico(object):
                 x = ArgMaxSumPooling()(x, mask=(mask if config.mask_padding else None))  # shape (batch_size, steps)
                 x = utils.residual_block(x, downsample=False, filters=16, kernel_size=self.ker_size)
                 x = GlobalMaxPooling1D()(x)
-            else: # cnn_resnet_avg
+            else:  # cnn_resnet_avg
                 x = GlobalAveragePooling1D()(x, mask=mask if config.mask_padding else None)
 
         elif self.net_type == 'fixlen_cnn_resnet':
@@ -655,7 +664,7 @@ class BinaryDatasetEval(BinaryDataset):
                 i += 1
                 j += chunk_count
         return grouped_y
-    
+
     def group_emb(self, y, method=np.mean):
         """
         Groups results for contigs chunked into multiple windows (because they were too long)
@@ -680,7 +689,7 @@ class BinaryDatasetEval(BinaryDataset):
             for chunk_count in batch:
                 if chunk_count > 1:
                     arr = method(y[j:j + chunk_count], axis=0)
-                else: 
+                else:
                     arr = y[j]
                 grouped_y[i] = '|'.join(str(elem) for elem in arr)
                 i += 1
@@ -693,10 +702,10 @@ class BinaryDatasetEval(BinaryDataset):
     def __getitem__(self, batch_idx: int):
         """
         Return the mini-batch at index #index
-        The function returns a tuple (x,mask), where x has the shape (batch_size, max-contig-len, feature_count) and
+        The function returns a tuple ((x,mask),y), where x has the shape (batch_size, max-contig-len, feature_count) and
         mask has shape (batch_size, max-contig-len). The mask indicates which positions in the output of the last
         convolutional layer are not affected by padding (and should thus be considered by the maxpool and average pool
-        layers).
+        layers). The y value, representing the labels) is in this case unused and is a zero array of size batch_size.
         """
         start = timer()
         # files to process
@@ -731,7 +740,8 @@ class BinaryDatasetEval(BinaryDataset):
         # the evaluation data for all contigs in this batch
         batch_size = sum(self.chunk_counts[batch_idx])
         x = np.zeros((batch_size, max_len, len(self.expanded_feature_names)), dtype=np.float32)
-        mask = np.zeros((batch_size, self.convoluted_size(max_len, True)), dtype=np.bool)
+        # the size of the convoluted output for the longest contig, including positions that needed partial padding
+        mask = np.zeros((batch_size, self.convoluted_size(max_len, pad=True)), dtype=np.bool)
         # traverse all contig features, break down into multiple contigs if too long, and create a numpy 3D array
         # of shape (contig_count, max_len, num_features) to be used for evaluation
         idx = 0
@@ -743,10 +753,11 @@ class BinaryDatasetEval(BinaryDataset):
                 if end_idx <= contig_len:
                     x[idx] = stacked_features[start_idx:end_idx]
                     assert max_len == self.window
-                    mask[idx][:self.convoluted_size(max_len, False)] = 1
+                    # keep only positions that didn't need padding in order to be computed (pad=False)
+                    mask[idx][:self.convoluted_size(max_len, pad=False)] = 1
                 else:
                     x[idx][:contig_len - start_idx] = stacked_features[start_idx:contig_len]
-                    mask[idx][:self.convoluted_size(contig_len - start_idx, False)] = 1
+                    mask[idx][:self.convoluted_size(contig_len - start_idx, pad=False)] = 1
                 start_idx += self.step
 
                 idx += 1

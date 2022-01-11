@@ -21,7 +21,7 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
     is_fixed_length = model.layers[0].input_shape[0][1] is not None
 
     if args.mask_padding:
-        convoluted_size = Models.get_convoluted_size(model)
+        convoluted_size = Models.construct_convolution_lambda(model)
     else:  # when not padding, the convoluted size is unused
         convoluted_size = lambda len, pad: 0
 

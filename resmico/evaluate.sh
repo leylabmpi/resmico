@@ -42,7 +42,7 @@ for i in "${!DATA_DIRS[@]}"; do
   features_smaller="num_SNPs num_proper_Match num_orphans_Match mean_al_score_Match coverage stdev_insert_size_Match mean_mapq_Match seq_window_perc_gc seq_window_entropy"
 
   cmd="/usr/bin/time python resmico evaluate --binary-data --feature-files-path ${DATA_DIR} \
-        --save-path /cluster/home/ddanciu/tmp --save-name evaluate${suffix}_${MAX_LEN} --n-procs 8 --log-level info \
+        --save-path /cluster/home/ddanciu/tmp --save-name evaluate${suffix}_${name}_${current_time} --n-procs 8 --log-level info \
         --model ${MODEL} --mask-padding \
         --min-avg-coverage 0 --max-len ${MAX_LEN} --gpu-eval-mem-gb=0.1 --features ${features_small} ${additional_params}"
 

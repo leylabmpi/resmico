@@ -221,7 +221,7 @@ class ContigReader:
                 logging.info(
                     f'Filtered for directories matching: {feature_file_match}. {len(file_list)} out of {count} kept')
             file_list.extend(fl)
-            logging.info(f'Processing {len(file_list)} stats/toc files found in {input_dir} ...')
+            logging.info(f'Processing {len(fl)} stats/toc files found in {input_dir} ...')
         if not file_list:
             logging.info('Nothing to do.')
             exit(0)
