@@ -1,3 +1,3 @@
-Contig	LengthBases	MisassemblCnt	SizeBytes	Breaking_points
-Contig2	500	1	256	100-102
-Contig1	500	0	196	50-55,250-255
+Contig	LengthBases	MisassemblCnt	SizeBytes	Breaking_points	Avg_Coverage
+Contig2	500	1	256	100-102	5
+Contig1	500	0	196	50-55,250-255	3

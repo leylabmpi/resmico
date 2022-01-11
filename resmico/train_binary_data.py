@@ -47,7 +47,8 @@ def main(args):
 
     logging.info('Loading contig data...')
     reader = contig_reader.ContigReader(args.feature_files_path, args.features, args.n_procs, args.chunks,
-                                        args.no_cython)
+                                        args.no_cython, min_avg_coverage=args.min_avg_coverage,
+                                        feature_file_match=args.feature_file_match)
 
     # separate data into 90% for training and 10% for evaluation
     all_idx = np.arange(len(reader))
@@ -60,7 +61,7 @@ def main(args):
         train_idx = all_idx[:(9 * len(reader)) // 10]
         eval_idx = all_idx[(9 * len(reader)) // 10:]
         df = pd.DataFrame(eval_idx, columns=['val_ind'])
-        fname = f'{os.path.join(args.feature_files_path, "evaluation_indices.csv")}'
+        fname = os.path.join(args.feature_files_path.split(",")[0], "evaluation_indices.csv")
         df.to_csv(fname)
         logging.info(f'Evaluation indices saved to: {fname}')
     logging.info(f'Using {len(train_idx)} contigs for training, {len(eval_idx)} contigs for evaluation')
@@ -68,7 +69,8 @@ def main(args):
     # create data generators for training data and evaluation data
     train_data = Models.BinaryDatasetTrain(reader, train_idx, args.batch_size, args.features, args.max_len,
                                            args.num_translations, args.max_translation_bases, args.fraq_neg,
-                                           args.cache_train or args.cache, args.log_progress, resmico.convoluted_size)
+                                           args.cache_train or args.cache, args.log_progress, resmico.convoluted_size,
+                                           resmico.fixed_length)
     # convert the slow Keras train_data of type Sequence to a tf.data object
     # first, we convert the keras sequence into a generator-like object
     data_iter = lambda: (s for s in train_data)
@@ -93,7 +95,7 @@ def main(args):
     np.seterr(all='raise')
     eval_data = Models.BinaryDatasetEval(reader, eval_idx, args.features, args.max_len, args.max_len // 2,
                                          int(args.gpu_eval_mem_gb * 1e9 * 0.8), args.cache_validation or args.cache,
-                                         args.log_progress, resmico.convoluted_size)
+                                         args.log_progress, resmico.convoluted_size, resmico.fixed_length)
 
     eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_data.indices])
 
@@ -107,7 +109,7 @@ def main(args):
              # first dimension is batch size, second is contig length (no third dimension,
              # as all features are masked the same way)
              tf.TensorSpec(shape=(None, None), dtype=tf.bool)),
-             tf.TensorSpec(shape=(None), dtype=tf.bool)
+            tf.TensorSpec(shape=(None), dtype=tf.bool)
         ))
     eval_data_tf = eval_data_tf.prefetch(4 * strategy.num_replicas_in_sync)
     eval_data_tf = eval_data_tf.with_options(options)  # avoids Tensorflow ugly console barf

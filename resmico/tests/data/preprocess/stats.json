@@ -1,1 +1,36 @@
-{"means": {"min_insert_size_Match": 425.0, "mean_insert_size_Match": 425.0, "stdev_insert_size_Match": 0.0, "max_insert_size_Match": 425.0, "min_mapq_Match": 6.0, "mean_mapq_Match": 6.05, "stdev_mapq_Match": 0.7071067690849304, "max_mapq_Match": 6.1, "min_al_score_Match": -16.3, "mean_al_score_Match": -14.9, "stdev_al_score_Match": 19.79899024963379, "max_al_score_Match": -13.5}, "stdevs": {"min_insert_size_Match": 0.0, "mean_insert_size_Match": 0.0, "stdev_insert_size_Match": 0.0, "max_insert_size_Match": 0.0, "min_mapq_Match": 0.0, "mean_mapq_Match": 0.15, "stdev_mapq_Match": 0.0, "max_mapq_Match": 0.3, "min_al_score_Match": 13.312024639400274, "mean_al_score_Match": 12.731457104353767, "stdev_al_score_Match": 0.0, "max_al_score_Match": 13.5}}
+{
+  "means": {
+    "coverage": 0,
+    "min_insert_size_Match": 425.0,
+    "mean_insert_size_Match": 425.0,
+    "stdev_insert_size_Match": 0.0,
+    "max_insert_size_Match": 425.0,
+    "min_mapq_Match": 6.0,
+    "mean_mapq_Match": 6.05,
+    "stdev_mapq_Match": 0.7071067690849304,
+    "max_mapq_Match": 6.1,
+    "min_al_score_Match": -16.3,
+    "mean_al_score_Match": -14.9,
+    "stdev_al_score_Match": 19.79899024963379,
+    "max_al_score_Match": -13.5,
+    "seq_window_perc_gc": 0,
+    "seq_window_entropy": 0
+  },
+  "stdevs": {
+    "coverage": 0,
+    "min_insert_size_Match": 0.0,
+    "mean_insert_size_Match": 0.0,
+    "stdev_insert_size_Match": 0.0,
+    "max_insert_size_Match": 0.0,
+    "min_mapq_Match": 0.0,
+    "mean_mapq_Match": 0.15,
+    "stdev_mapq_Match": 0.0,
+    "max_mapq_Match": 0.3,
+    "min_al_score_Match": 13.312024639400274,
+    "mean_al_score_Match": 12.731457104353767,
+    "stdev_al_score_Match": 0.0,
+    "max_al_score_Match": 13.5,
+    "seq_window_perc_gc": 0,
+    "seq_window_entropy": 0
+  }
+}

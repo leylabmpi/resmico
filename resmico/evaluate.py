@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from tensorflow.keras.models import load_model
+from tensorflow.keras.models import Model
 from sklearn.metrics import recall_score, average_precision_score
 
 from resmico import contig_reader
@@ -17,14 +18,17 @@ from resmico import utils
 def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
     start = time.time()
 
+    is_fixed_length = model.layers[0].input_shape[0][1] is not None
+
     if args.mask_padding:
-        convoluted_size = Models.get_convoluted_size(model)
+        convoluted_size = Models.construct_convolution_lambda(model)
     else:  # when not padding, the convoluted size is unused
         convoluted_size = lambda len, pad: 0
 
     logging.info('Loading contig data...')
     reader = contig_reader.ContigReader(args.feature_files_path, args.features, args.n_procs, args.chunks,
-                                        args.no_cython, args.stats_file, args.min_len)
+                                        args.no_cython, args.stats_file, args.min_len,
+                                        min_avg_coverage=args.min_avg_coverage)
 
     if args.val_ind_f:
         eval_idx = list(pd.read_csv(args.val_ind_f)['val_ind'])
@@ -33,9 +37,10 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
         logging.info(f'Using all indices for prediction')
         eval_idx = np.arange(len(reader))
 
-    predict_data = Models.BinaryDatasetEval(reader, eval_idx, args.features, args.max_len, max(250, args.max_len-500),
+    predict_data = Models.BinaryDatasetEval(reader, eval_idx, args.features, args.max_len, max(250, args.max_len - 500),
                                             int(args.gpu_eval_mem_gb * 1e9 * 0.8), cache_results=False,
-                                            show_progress=False, convoluted_size=convoluted_size)
+                                            show_progress=False, convoluted_size=convoluted_size,
+                                            pad_to_max_len=is_fixed_length)
 
     eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in predict_data.indices])
 
@@ -74,14 +79,34 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
     logging.info(f'Prediction scores: aucPR: {auc_val} - recall1: {recall1_val} - recall0: {recall0_val}')
     duration = time.time() - start
     logging.info(f'Prediction done in {duration:.0f}s.')
-    out_file = open(args.save_path + '/' + args.save_name + '.csv', 'w')
-    out_file.write('cont_name,length,label,score,min,mean,std,max\n')
-    for idx in range(len(eval_idx)):
-        contig = reader.contigs[predict_data.indices[idx]]
-        out_file.write(f'{os.path.join(os.path.dirname(contig.file), contig.name)},{contig.length},'
-                       f'{contig.misassembly},{eval_data_predicted_max[idx]},'
-                       f'{eval_data_predicted_min[idx]},{eval_data_predicted_mean[idx]},'
-                       f'{eval_data_predicted_std[idx]},{eval_data_predicted_max[idx]}\n')
+    
+    if args.embeddings:
+        middle_output = Model(inputs=model.input, outputs=model.layers[args.emb_ind].output)
+        eval_data_emb = middle_output.predict(x=predict_data_tf,
+                                                 workers=args.n_procs,
+                                                 use_multiprocessing=True,
+                                                 max_queue_size=max(args.n_procs, 10),
+                                                 verbose=1)
+
+        eval_data_emb = predict_data.group_emb(eval_data_emb, np.mean)
+        
+        out_file = open(args.save_path + '/' + args.save_name + '.csv', 'w')
+        out_file.write('cont_name,length,label,embedding,score,min,mean,std,max\n')
+        for idx in range(len(eval_idx)):
+            contig = reader.contigs[predict_data.indices[idx]]
+            out_file.write(f'{os.path.join(os.path.dirname(contig.file), contig.name)},{contig.length},'
+                           f'{contig.misassembly},{eval_data_emb[idx]},{eval_data_predicted_max[idx]},'
+                           f'{eval_data_predicted_min[idx]},{eval_data_predicted_mean[idx]},'
+                           f'{eval_data_predicted_std[idx]},{eval_data_predicted_max[idx]}\n')        
+    else:
+        out_file = open(args.save_path + '/' + args.save_name + '.csv', 'w')
+        out_file.write('cont_name,length,label,score,min,mean,std,max\n')
+        for idx in range(len(eval_idx)):
+            contig = reader.contigs[predict_data.indices[idx]]
+            out_file.write(f'{os.path.join(os.path.dirname(contig.file), contig.name)},{contig.length},'
+                           f'{contig.misassembly},{eval_data_predicted_max[idx]},'
+                           f'{eval_data_predicted_min[idx]},{eval_data_predicted_mean[idx]},'
+                           f'{eval_data_predicted_std[idx]},{eval_data_predicted_max[idx]}\n')
 
     logging.info(f'Predictions saved to: {out_file}')
 

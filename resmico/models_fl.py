@@ -5,10 +5,11 @@ from timeit import default_timer as timer
 
 import numpy as np
 import tensorflow as tf
+from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, BatchNormalization
 from tensorflow.keras.layers import GlobalMaxPooling1D, GlobalAveragePooling1D, concatenate, AveragePooling1D, \
-    MaxPooling1D, Flatten
+    MaxPooling1D, Flatten, Layer
 from tensorflow.keras.layers import Conv1D, Dropout, Dense
 from tensorflow.keras.layers import Bidirectional, LSTM, GRU
 from tensorflow.python.ops import array_ops
@@ -40,24 +41,66 @@ class GlobalMaskedMaxPooling1D(GlobalMaxPooling1D):
         return new
 
 
-def get_convoluted_size(model: Model):
+@tf.keras.utils.register_keras_serializable()
+class ArgMaxSumPooling(Layer):
     """
-    Returns a lambda that computes the size of the padded/unpadded convolution layer output for a contig of a specific
-    length.
+    Reduces an input tensor of shape (batch_size, steps, channels) to a tensor of shape (batch_size, steps),
+    by summing the 'maximum features' at each step. A 'maximum feature' is a feature that has the largest value
+    across all steps. Note that it is possible that some steps have no maximum features at all, while other steps
+    may have multiple maximum features.
     """
-    convoluted_size = lambda x, pad: x
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.supports_masking = True
+        self.data_format = 'channels_last'
+
+    def call(self, inputs, mask=None):
+        channel_idx = 2 if self.data_format == 'channels_last' else 1
+        time_idx = 1 if self.data_format == 'channels_last' else 2
+        max_idx = K.argmax(inputs, axis=time_idx)  # shape (batch_size, channels), values in [0..steps)
+        max_idx_mask = K.one_hot(max_idx, inputs.shape[time_idx])  # shape (batch_size, channels, steps)
+        max_idx_mask = K.permute_dimensions(max_idx_mask, [0, 2, 1])  # shape (batch_size, steps, channels)
+
+        if mask is not None:
+            mask = tf.cast(mask, dtype=tf.float32)  # shape (batch_size, steps)
+            mask = array_ops.expand_dims(mask, channel_idx)
+            max_idx_mask *= mask  # shape (batch_size, steps, channels)
+        masked_input = inputs * max_idx_mask
+        input = K.sum(masked_input, axis=channel_idx, keepdims=True)
+        return input  # shape (batch_size, steps)
+
+    def compute_mask(self, inputs, mask=None):
+        return None
+
+
+def construct_convolution_lambda(model: Model):
+    """
+    Builds and returns a lambda that computes the size of the padded/unpadded convolution layer output 
+    for the given model. The function traverses the model layer by layer, and updates the lambda function 
+    whenever it sees a 1D convolution.
+    The returned lambda has two parameters:
+      - the contig length (int). The lambda will return the convolved contig length
+      - pad (bool): If true, positions that needed padding in order to be convolved are not masked out.
+        If false, any position that needed padding in order to be computed will be masked out.
+    """
+    result = lambda contig_len, pad: contig_len
     for layer in model.layers:
         if isinstance(layer, Conv1D):
             if layer.kernel_size[0] == 1:  # this is the residual layer that doesn't affect the output size
                 continue
-            is_valid = int(layer.padding == 'valid')
-            convoluted_size_n = lambda x, pad, f=convoluted_size, strides=layer.strides, kernel_size=layer.kernel_size, \
-                                       is_valid=is_valid: math.ceil(
-                (f(x, pad) - (kernel_size[0] - 1) * is_valid) / strides[0]) if pad else 1 + (
-                    f(x, pad) - kernel_size[0]) // strides[0]
+            # padding of a layer can be 'valid' or 'same'; if the padding is 'valid' (as in the first convolution
+            # layer of ResMiCo), then the output size is shrunk by (kernel_size-1)
+            kernel_size = layer.kernel_size[0]
+            stride = layer.strides[0]
+            output_reduction = kernel_size - 1 if layer.padding == 'valid' else 0
+            result_n = \
+                lambda x, pad, f=result, stride=stride, kernel_size=kernel_size, output_reduction=output_reduction: \
+                    math.ceil((f(x, pad) - output_reduction) / stride) if pad \
+                        else 1 + (f(x, pad) - kernel_size) // stride
 
-            convoluted_size = convoluted_size_n
-    return convoluted_size
+            result = result_n
+    return result
 
 
 class Resmico(object):
@@ -88,13 +131,9 @@ class Resmico(object):
         # for an input of given size; only defined for 'cnn_resnet'
         self.convoluted_size = None
 
-        if self.net_type == 'fixlen_cnn_resnet':
-            inlayer = Input(shape=(self.max_len, self.n_feat), name='input')
-        else:
-            inlayer = Input(shape=(None, self.n_feat), name='input', dtype='float32')
-
-        if config.binary_data:
-            mask = Input(shape=(None,), name='mask', dtype='bool')
+        self.fixed_length = self.is_fixed_length(self.net_type)
+        inlayer = Input(shape=(self.max_len if self.fixed_length else None, self.n_feat), name='input',
+                        dtype='float32')
 
         if self.net_type == 'cnn_globpool':
             x = Conv1D(self.filters, kernel_size=(10),
@@ -121,22 +160,12 @@ class Resmico(object):
             x = concatenate([maxP, avgP])
 
         elif self.net_type == 'lstm':
+            if config.binary_data:
+                mask = Input(shape=(None,), name='mask', dtype='bool')
             x = Bidirectional(LSTM(20, return_sequences=True), merge_mode="concat")(inlayer, mask=mask)
             x = Bidirectional(LSTM(40, return_sequences=True, dropout=self.dropout), merge_mode="ave")(x)
             x = Bidirectional(LSTM(60, return_sequences=True, dropout=self.dropout), merge_mode="ave")(x)
             x = Bidirectional(LSTM(80, return_sequences=False, dropout=self.dropout), merge_mode="concat")(x)
-
-        elif self.net_type == 'gru':
-            x = Bidirectional(GRU(20, return_sequences=True), merge_mode="concat")(inlayer, mask=mask)
-            x = Bidirectional(GRU(40, return_sequences=True, dropout=self.dropout), merge_mode="ave")(x)
-            x = Bidirectional(GRU(60, return_sequences=True, dropout=self.dropout), merge_mode="ave")(x)
-            x = Bidirectional(GRU(80, return_sequences=False, dropout=self.dropout), merge_mode="concat")(x)
-
-        elif self.net_type == 'gru_uni':
-            x = GRU(20, return_sequences=True)(inlayer, mask=mask)
-            x = GRU(40, return_sequences=True, dropout=self.dropout)(x)
-            x = GRU(60, return_sequences=True, dropout=self.dropout)(x)
-            x = GRU(80, return_sequences=False, dropout=self.dropout)(x)
 
         elif self.net_type == 'cnn_lstm':
             x = Conv1D(self.filters, kernel_size=(10),
@@ -153,7 +182,7 @@ class Resmico(object):
             x = Dropout(rate=self.dropout)(x)
             x = Bidirectional(LSTM(40, return_sequences=False, dropout=0.0), merge_mode="concat")(x)
 
-        elif self.net_type == 'cnn_resnet':
+        elif self.net_type == 'cnn_resnet' or self.net_type == 'cnn_resnet_argmax' or self.net_type == 'cnn_resnet_avg':
             x = BatchNormalization()(inlayer)
             x = Conv1D(self.filters, kernel_size=10,
                        input_shape=(None, self.n_feat),
@@ -166,15 +195,33 @@ class Resmico(object):
                                              kernel_size=self.ker_size)
                 num_filters *= 2
 
-            if config.mask_padding:
-                # the mask marks the convoluted positions that were not affected by padding
-                avgP = GlobalAveragePooling1D()(x, mask=mask)
-                maxP = GlobalMaskedMaxPooling1D()(x, mask=mask)
-            else:
-                avgP = GlobalAveragePooling1D()(x)
-                maxP = GlobalMaxPooling1D()(x)
+            # lambda function that computes the data size after applying all the convolutional
+            # layers with and without padding; if the 'pad' parameter is True, the output is computed
+            # for a convolutional layer with padding='same', otherwise for padding='valid'
+            # if we don't mask the zero-padded values, the convoluted size can be anything
+            tmp_model = Model(inputs=inlayer, outputs=x)  # dummy model used only in next line
+            self.convoluted_size = construct_convolution_lambda(tmp_model) if config.mask_padding else lambda x, pad: 1
+            if config.binary_data:
+                mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
+                mask = Input(shape=(mask_size,), name='mask', dtype='bool')
 
-            x = concatenate([maxP, avgP])
+            if self.net_type == 'cnn_resnet':
+                avgP = GlobalAveragePooling1D()(x, mask=mask if config.mask_padding else None)
+                if config.mask_padding:
+                    # the mask marks the convoluted positions that were not affected by padding
+                    maxP = GlobalMaskedMaxPooling1D()(x, mask=mask)
+                else:
+                    maxP = GlobalMaxPooling1D()(x)
+                x = concatenate([maxP, avgP])
+            elif self.net_type == 'cnn_resnet_argmax':
+                # avgP = GlobalAveragePooling1D()(x, mask=mask if config.mask_padding else None)
+                # argMaxP = ArgMaxSumPooling()(x, mask=(mask if config.mask_padding else None))
+                # x = concatenate([argMaxP, avgP])
+                x = ArgMaxSumPooling()(x, mask=(mask if config.mask_padding else None))  # shape (batch_size, steps)
+                x = utils.residual_block(x, downsample=False, filters=16, kernel_size=self.ker_size)
+                x = GlobalMaxPooling1D()(x)
+            else:  # cnn_resnet_avg
+                x = GlobalAveragePooling1D()(x, mask=mask if config.mask_padding else None)
 
         elif self.net_type == 'fixlen_cnn_resnet':
             x = BatchNormalization()(inlayer)
@@ -193,7 +240,29 @@ class Resmico(object):
             maxP = MaxPooling1D(pool_size=100, padding='valid')(x)
             x = concatenate([maxP, avgP])
             x = Flatten()(x)
-
+            
+        elif self.net_type == 'fixlen_resnet_maxglob':
+            x = BatchNormalization()(inlayer)
+            x = Conv1D(self.filters, kernel_size=10,
+                       input_shape=(self.max_len, self.n_feat),
+                       padding='valid', name='1st_conv')(x)
+            x = utils.relu_bn(x)
+            num_filters = self.filters
+            for i, num_blocks in enumerate(self._get_blocks(self.num_blocks)):
+                for j in range(num_blocks):
+                    x = utils.residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
+                                             kernel_size=self.ker_size)
+                num_filters *= 2 
+            #this is needed only to avoid errors, mask is not used later
+            tmp_model = Model(inputs=inlayer, outputs=x)  # dummy model used only in next line
+            self.convoluted_size = get_convoluted_size(tmp_model) if config.mask_padding else lambda x, pad: 1
+            if config.binary_data:
+                mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
+                mask = Input(shape=(mask_size,), name='mask', dtype='bool')
+            ###
+            x = MaxPooling1D(pool_size=624, padding='valid')(x)
+            x = Flatten()(x)
+            
         for _ in range(self.n_fc):
             x = Dense(self.n_hid, activation='relu')(x)
             x = Dropout(rate=self.dropout)(x)
@@ -209,18 +278,6 @@ class Resmico(object):
         self.net.compile(loss='binary_crossentropy',
                          optimizer=optimizer,
                          metrics=[utils.class_recall_0, utils.class_recall_1])
-        if config.mask_padding:
-            # lambda function that computes the data size after applying all the convolutional
-            # layers with and without padding; if the 'pad' parameter is True, the output is computed
-            # for a convolutional layer with padding='same', otherwise for padding='valid'
-            self.convoluted_size = get_convoluted_size(self.net)
-        else:
-            # if we don't mask the zero-padded values, the convoluted size can be anything
-            self.convoluted_size = lambda x, pad: 1
-
-        # self.reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
-        #                        monitor='val_loss', factor=0.8,
-        #                        patience=5, min_lr = 0.01 * self.lr_init)
 
     @staticmethod
     def _get_blocks(num_blocks: int):
@@ -232,6 +289,10 @@ class Resmico(object):
             return [2, 3, 5, 5, 2]
         if num_blocks == 6:
             return [2, 3, 5, 5, 3, 2]
+
+    @staticmethod
+    def is_fixed_length(network_type: str):
+        return network_type in ['fixlen_cnn_resnet', 'cnn_resnet_argmax', 'fixlen_resnet_maxglob']
 
     def predict(self, x, **kwargs):
         return self.net.predict(x, **kwargs)
@@ -307,7 +368,7 @@ class BinaryDataset(tf.keras.utils.Sequence):
     (as opposed to the old CSV files)
     """
 
-    def __init__(self, reader: ContigReader, feature_names: list[str], convoluted_size):
+    def __init__(self, reader: ContigReader, feature_names: list[str], convoluted_size, pad_to_max_len: bool):
         """
        Arguments:
            - reader: ContigReader instance with all the contig metadata
@@ -317,6 +378,7 @@ class BinaryDataset(tf.keras.utils.Sequence):
         self.feature_names = feature_names
         self.expanded_feature_names = feature_names.copy()
         self.convoluted_size = convoluted_size
+        self.pad_to_max_len = pad_to_max_len
         if 'ref_base' in self.expanded_feature_names:
             pos = self.expanded_feature_names.index('ref_base')
             self.expanded_feature_names[pos: pos + 1] = ['ref_base_A', 'ref_base_C', 'ref_base_G', 'ref_base_T']
@@ -329,7 +391,7 @@ class BinaryDataset(tf.keras.utils.Sequence):
 class BinaryDatasetTrain(BinaryDataset):
     def __init__(self, reader: ContigReader, indices: list[int], batch_size: int, feature_names: list[str],
                  max_len: int, num_translations: int, max_translation_bases: int, fraq_neg: float, do_cache: bool,
-                 show_progress: bool, convoluted_size):
+                 show_progress: bool, convoluted_size, pad_to_max_len: bool):
 
         """
         Arguments:
@@ -345,8 +407,10 @@ class BinaryDatasetTrain(BinaryDataset):
               read from disk
             - show_progress - if true, a progress bar will show the evaluation progress
             - convoluted_size - function that computes the size of the convoluted output for an input of size n
+            - pad_to_max_len - if true, all batches will be padded to max-len, even if the longest contig in the batch
+              is shorter (this guarantees fixed-length input)
         """
-        BinaryDataset.__init__(self, reader, feature_names, convoluted_size)
+        BinaryDataset.__init__(self, reader, feature_names, convoluted_size, pad_to_max_len)
         logging.info(
             f'Creating training data generator. Batch size: {batch_size}, Max length: {max_len} Frac neg: {fraq_neg}, '
             f'Features: {len(self.expanded_feature_names)}, Contigs: {len(indices)},  Caching: {do_cache}')
@@ -491,7 +555,7 @@ class BinaryDatasetTrain(BinaryDataset):
 
         features_data = self.reader.read_contigs(contig_data)
         max_contig_len = max([self.reader.contigs[i].length for i in batch_indices])
-        max_len = min(max_contig_len, self.max_len)
+        max_len = self.max_len if self.pad_to_max_len else min(max_contig_len, self.max_len)
         # Create the numpy array storing all the features for all the contigs in #batch_indices
         x = np.zeros((self.batch_size, max_len, len(features_data[0])), dtype=np.float32)
         # it's important to initialize the mask to all ones and then set to zero the padded values rather than the
@@ -526,7 +590,8 @@ class BinaryDatasetTrain(BinaryDataset):
 
 class BinaryDatasetEval(BinaryDataset):
     def __init__(self, reader: ContigReader, indices: list[int], feature_names: list[str], window: int, step: int,
-                 total_memory_bytes: int, cache_results: bool, show_progress: bool, convoluted_size):
+                 total_memory_bytes: int, cache_results: bool, show_progress: bool, convoluted_size,
+                 pad_to_max_len: bool):
 
         """
         Arguments:
@@ -541,9 +606,11 @@ class BinaryDatasetEval(BinaryDataset):
             cache_results - if true, data is cached in memory after the first evaluation step
             show_progress - if true, a progress bar will show the evaluation progress
             convoluted_size - lambda that computes the size of the convoluted output for an input of size n
+            pad_to_max_len - if true, all batches will be padded to max-len, even if the longest contig in the batch
+              is shorter (this guarantees fixed-length input)
         """
         logging.info(f'Creating evaluation data generator. Window: {window}, Step: {step}, Caching: {cache_results}')
-        BinaryDataset.__init__(self, reader, feature_names, convoluted_size)
+        BinaryDataset.__init__(self, reader, feature_names, convoluted_size, pad_to_max_len)
         self.indices = indices  # sorted(indices, key=lambda x: reader.contigs[x].length)
         self.window = window
         self.step = step
@@ -620,16 +687,47 @@ class BinaryDatasetEval(BinaryDataset):
                 j += chunk_count
         return grouped_y
 
+    def group_emb(self, y, method=np.mean):
+        """
+        Groups results for contigs chunked into multiple windows (because they were too long)
+        by applying mean across all windows
+        Params:
+            - y: the results for the chunked contigs that need to be grouped. 
+        Returns:
+            - the grouped y, containing one vector for each contig in #self.indices
+        """
+        total_len = 0
+        grouped_y_size = 0
+        for batch in self.chunk_counts:
+            total_len += sum(batch)
+            grouped_y_size += len(batch)
+        assert len(y) == total_len, f'y has length {len(y)}, chunk_counts total length is {total_len}'
+        assert grouped_y_size == len(self.indices), \
+            f'Index map has {grouped_y_size} elements, while indices has {len(self.indices)} elements'
+        grouped_y = np.empty(len(self.indices), dtype=object)
+        i = 0
+        j = 0
+        for batch in self.chunk_counts:
+            for chunk_count in batch:
+                if chunk_count > 1:
+                    arr = method(y[j:j + chunk_count], axis=0)
+                else:
+                    arr = y[j]
+                grouped_y[i] = '|'.join(str(elem) for elem in arr)
+                i += 1
+                j += chunk_count
+        return grouped_y
+
     def __len__(self):
         return len(self.batch_list)
 
     def __getitem__(self, batch_idx: int):
         """
         Return the mini-batch at index #index
-        The function returns a tuple (x,mask), where x has the shape (batch_size, max-contig-len, feature_count) and
+        The function returns a tuple ((x,mask),y), where x has the shape (batch_size, max-contig-len, feature_count) and
         mask has shape (batch_size, max-contig-len). The mask indicates which positions in the output of the last
         convolutional layer are not affected by padding (and should thus be considered by the maxpool and average pool
-        layers).
+        layers). The y value, representing the labels) is in this case unused and is a zero array of size batch_size.
         """
         start = timer()
         # files to process
@@ -659,12 +757,13 @@ class BinaryDatasetEval(BinaryDataset):
                 self.data[batch_idx] = all_stacked_features
 
         max_contig_len = max([self.reader.contigs[i].length for i in indices])
-        max_len = min(max_contig_len, self.window)
+        max_len = self.window if self.pad_to_max_len else min(max_contig_len, self.window)
 
         # the evaluation data for all contigs in this batch
         batch_size = sum(self.chunk_counts[batch_idx])
         x = np.zeros((batch_size, max_len, len(self.expanded_feature_names)), dtype=np.float32)
-        mask = np.zeros((batch_size, self.convoluted_size(max_len, True)), dtype=np.bool)
+        # the size of the convoluted output for the longest contig, including positions that needed partial padding
+        mask = np.zeros((batch_size, self.convoluted_size(max_len, pad=True)), dtype=np.bool)
         # traverse all contig features, break down into multiple contigs if too long, and create a numpy 3D array
         # of shape (contig_count, max_len, num_features) to be used for evaluation
         idx = 0
@@ -676,10 +775,11 @@ class BinaryDatasetEval(BinaryDataset):
                 if end_idx <= contig_len:
                     x[idx] = stacked_features[start_idx:end_idx]
                     assert max_len == self.window
-                    mask[idx][:self.convoluted_size(max_len, False)] = 1
+                    # keep only positions that didn't need padding in order to be computed (pad=False)
+                    mask[idx][:self.convoluted_size(max_len, pad=False)] = 1
                 else:
                     x[idx][:contig_len - start_idx] = stacked_features[start_idx:contig_len]
-                    mask[idx][:self.convoluted_size(contig_len - start_idx, False)] = 1
+                    mask[idx][:self.convoluted_size(contig_len - start_idx, pad=False)] = 1
                 start_idx += self.step
 
                 idx += 1

@@ -11,7 +11,6 @@ import struct
 from glob import glob
 
 import numpy as np
-
 from resmico import reader
 
 
@@ -61,6 +60,9 @@ def _post_process_features(features):
         result['ref_base_G'] = np.where(ref_base == 71, 1, 0)
         result['ref_base_T'] = np.where(ref_base == 84, 1, 0)
 
+    # coverage is uint16, but it needs to be cast to flaot32 because it's going to be normalized by mean/stdev later
+    if 'coverage' in features:
+        result['coverage'] = features['coverage'].astype(np.float32)
     _to_float_and_normalize(features, result, 'num_query_A', 10000)
     _to_float_and_normalize(features, result, 'num_query_C', 10000)
     _to_float_and_normalize(features, result, 'num_query_G', 10000)
@@ -79,7 +81,6 @@ def _post_process_features(features):
     _to_float_and_nan(features, result, 'max_al_score_Match', 127)
 
     _assign(result, features, [
-        'coverage',
         'mean_insert_size_Match',
         'stdev_insert_size_Match',
         'mean_mapq_Match',
@@ -111,7 +112,7 @@ def _read_contig_data(input_file, feature_names: list[str]):
         data['ref_base_C'] = np.where(ref_base == 67, 1, 0)
         data['ref_base_G'] = np.where(ref_base == 71, 1, 0)
         data['ref_base_T'] = np.where(ref_base == 84, 1, 0)
-        data['coverage'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16)
+        data['coverage'] = np.frombuffer(f.read(2 * contig_size), dtype=np.uint16).astype(np.float32)
         # everything is converted to float32, because frombuffer creates an immutable array, so the int values need to
         # be made mutable (in order to convert from fixed point back to float) and the float values need to be copied
         # (in order to make them writeable for normalization)
@@ -174,8 +175,9 @@ class ContigReader:
     Reads contig data from binary files written by ResMiCo-SM.
     """
 
-    def __init__(self, input_dir: str, feature_names: list[str], process_count: int, is_chunked: bool,
-                 no_cython: bool = False, stats_file: str = '', min_len: int = 0, min_avg_coverage: int = 0):
+    def __init__(self, input_dirs: str, feature_names: list[str], process_count: int, is_chunked: bool,
+                 no_cython: bool = False, stats_file: str = '', min_len: int = 0, min_avg_coverage: int = 0,
+                 feature_file_match: str = ''):
         """
         Arguments:
             - input_dir: location on disk where the feature data is stored
@@ -185,6 +187,8 @@ class ContigReader:
             - no_cython: whether to read data from disk using pure Python or using Cython bindings
             - stats_file: if present, specifies a stats file to read the statistics for each feature from
             - min_len: exclude all contigs shorter than min_len
+            - input_dir_match string that the directories for the feature files must match; useful for filtering
+              contigs with certain properties, such as sequencing depth, abundance, etc.
         """
         # means and stdevs are a map from feature name to the mean and standard deviation precomputed for that
         # feature across *all* contigs, stored as a tuple
@@ -203,22 +207,36 @@ class ContigReader:
         self.read_time = 0
         self.min_len = min_len
         self.min_avg_coverage = min_avg_coverage
+        self.feature_file_match = feature_file_match
 
         self.feature_mask: list[int] = [1 if feature in feature_names else 0 for feature in reader.feature_names]
 
         logging.info('Looking for stats/toc files...')
-        file_list = list(glob(input_dir + '/**/stats', recursive=True))
-        logging.info(f'Processing {len(file_list)} stats/toc files found in {input_dir} ...')
+        file_list = []
+        for input_dir in input_dirs.split(','):
+            fl = list(glob(input_dir + '/**/stats', recursive=True))
+            if feature_file_match:
+                count = len(fl)
+                fl = [f for f in fl if feature_file_match in f]
+                logging.info(
+                    f'Filtered for directories matching: {feature_file_match}. {len(file_list)} out of {count} kept')
+            file_list.extend(fl)
+            logging.info(f'Processing {len(fl)} stats/toc files found in {input_dir} ...')
         if not file_list:
             logging.info('Nothing to do.')
             exit(0)
+        elif ',' in input_dirs:
+            logging.info(f'A total of {len(file_list)} stats/toc files found')
 
         if stats_file == '':
             logging.info('Computing global means and standard deviations...')
             self._compute_mean_stdev(file_list)
-            out_file = os.path.join(input_dir, 'stats.json')
-            json.dump({'means': self.means, 'stdevs': self.stdevs}, open(out_file, 'w'), indent=2)
-            logging.info(f'Means and stdevs saved to: {out_file}')
+            if ',' not in input_dirs:
+                out_file = os.path.join(input_dirs, 'stats.json')
+                json.dump({'means': self.means, 'stdevs': self.stdevs}, open(out_file, 'w'), indent=2)
+                logging.info(f'Means and stdevs saved to: {out_file}')
+            else:
+                logging.info('Composed input dir: not writing stats.json')
         else:
             logging.info(f'Loading feature means and standard deviations from {stats_file}')
             means_stdevs = json.load(open(stats_file))
@@ -254,13 +272,12 @@ class ContigReader:
 
             features_raw = reader.read_contigs_py(file_names, lengths, offsets, sizes, self.feature_mask,
                                                   self.process_count)
+            # traverse features for each contig, convert to proper data type and normalize by mean/stdev if needed
             for f in features_raw:
                 features = _post_process_features(f)
-                if return_raw:
-                    result.append(features)
-                else:
+                if not return_raw:
                     self._normalize(features)
-                    result.append(features)
+                result.append(features)
         logging.debug(f'Contigs read in {(timer() - start):5.2f}s; read: {self.read_time:5.2f}s '
                       f'normalize: {self.normalize_time:5.2f}s')
         return result
@@ -434,15 +451,16 @@ class ContigReader:
                 logging.warning(
                     f'Could not find mean/standard deviation for feature: {feature_name}. Skipping normalization')
                 continue
-            # if np.isnan(sum(features[feature_name])):
-            #     logging.warning(f'Exception for feature {feature_name}')
-            #     print(features[feature_name])
             features[feature_name] -= self.means[feature_name]
 
             if features[feature_name].dtype != np.float32:  # we can do the division in place
                 features[feature_name] = features[feature_name].astype(np.float32)
-            features[feature_name] /= self.stdevs[feature_name]
-            # replace NANs with 0 (the new mean)
+            if self.stdevs[feature_name] > 1e-3:
+                features[feature_name] /= self.stdevs[feature_name]
+            else:
+                continue
+                logging.warning(f'Stdev for {feature_name} is too low ({self.stdevs[feature_name]}). Not normalizing')
+#             replace NANs with 0 (the new mean)
             nan_pos = np.isnan(features[feature_name])
             features[feature_name][nan_pos] = 0
         self.normalize_time += (timer() - start)

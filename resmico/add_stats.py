@@ -51,7 +51,8 @@ def main():
     reader = contig_reader.ContigReader(args.feature_files_path, args.features, args.n_procs, args.chunks,
                                         args.no_cython)
 
-    logging.info(f'Loaded metadata for {len(reader.contigs)} contigs. Loading actual contig data')
+    logging.info(f'Loaded metadata for {len(reader.contigs)} contigs. ')
+    logging.info('Loading actual contig data...')
     if len(reader.contigs) == 0:
         logging.info('Nothing to do')
         exit(0)
