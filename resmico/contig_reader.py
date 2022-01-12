@@ -5,10 +5,11 @@ import logging
 import math
 import mmap
 import os
-from pathlib import Path
-from timeit import default_timer as timer
+import statistics
 import struct
+
 from glob import glob
+from timeit import default_timer as timer
 
 import numpy as np
 from resmico import reader
@@ -359,6 +360,7 @@ class ContigReader:
         total_len = 0
         breakpoint_hist = np.zeros(50)
         excluded_count = 0
+        contig_lengths = []
         for fname in file_list:
             toc_file = fname[:-len('stats')] + 'toc'
             contig_fname = fname[:-len('stats')] + 'features_binary'
@@ -385,6 +387,7 @@ class ContigReader:
                     contig_info = ContigInfo(row[0], contig_fname, int(row[1]), offset, size_bytes, int(row[2]),
                                              breakpoints, avg_coverage)
                     if contig_info.length >= self.min_len and contig_info.avg_coverage >= self.min_avg_coverage:
+                        contig_lengths.append(contig_info.length)
                         total_len += contig_info.length
                         self.contigs.append(contig_info)
                     else:
@@ -394,6 +397,7 @@ class ContigReader:
 
         logging.info(
             f'Found {contig_count} contigs, {excluded_count} excluded, {total_len} total length, '
+            f'{statistics.median(contig_lengths)} median length, '
             f'memory needed (assuming fraq-neg=1) {total_len * reader.bytes_per_base / 1e9:6.2f}GB')
         logging.info(f'Breakpoint location histogram: {breakpoint_hist}')
 
