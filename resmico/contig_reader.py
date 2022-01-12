@@ -357,6 +357,7 @@ class ContigReader:
 
     def _load_contigs_metadata(self, file_list):
         contig_count = 0
+        contig_count_misassembled = 0
         total_len = 0
         breakpoint_hist = np.zeros(50)
         excluded_count = 0
@@ -393,11 +394,13 @@ class ContigReader:
                     else:
                         excluded_count += 1
                     offset += size_bytes
+                    if contig_info.misassembly:
+                        contig_count_misassembled += 1
                     contig_count += 1
 
         logging.info(
-            f'Found {contig_count} contigs, {excluded_count} excluded, {total_len} total length, '
-            f'{statistics.median(contig_lengths)} median length, '
+            f'Found {contig_count} contigs, {contig_count_misassembled} misassembled, {excluded_count} excluded, '
+            f'{total_len} total length, {statistics.median(contig_lengths)} median length, '
             f'memory needed (assuming fraq-neg=1) {total_len * reader.bytes_per_base / 1e9:6.2f}GB')
         logging.info(f'Breakpoint location histogram: {breakpoint_hist}')
 
