@@ -17,7 +17,7 @@ import pandas as pd
 from sklearn.metrics import average_precision_score
 from tensorflow.keras import backend as K
 from tensorflow.keras.callbacks import Callback
-from tensorflow.keras.layers import Input, Conv1D, ReLU, BatchNormalization, Add, AveragePooling2D, Flatten, Dense
+from tensorflow.keras.layers import Conv1D, ReLU, BatchNormalization, Add, Cropping1D
 
 
 def nested_dict():
@@ -1284,18 +1284,21 @@ def residual_block(x, downsample: bool, filters, kernel_size):
     y = Conv1D(kernel_size=kernel_size,
                strides=(1 if not downsample else 2),
                filters=filters,
-               padding="same")(x)
+               padding='valid' if downsample else 'same')(x)
     y = relu_bn(y)
     y = Conv1D(kernel_size=kernel_size,
                strides=1,
                filters=filters,
-               padding="same")(y)
+               padding='same')(y)
 
     if downsample:
         x = Conv1D(kernel_size=1,
                    strides=2,
                    filters=filters,
-                   padding="same")(x)
+                   padding='valid')(x)
+        # the additional cropping is needed in order to match the size of the y=Conv1D() output, since here we
+        # user kernel_size=1
+        x = Cropping1D((0,kernel_size//2))(x)
     out = Add()([x, y])
     out = relu_bn(out)
     return out

@@ -762,7 +762,7 @@ class BinaryDatasetEval(BinaryDataset):
         # the evaluation data for all contigs in this batch
         batch_size = sum(self.chunk_counts[batch_idx])
         x = np.zeros((batch_size, max_len, len(self.expanded_feature_names)), dtype=np.float32)
-        # the size of the convoluted output for the longest contig, including positions that needed partial padding
+        # the size of the convoluted output for the longest contig (including positions that needed partial padding)
         mask = np.zeros((batch_size, self.convoluted_size(max_len, pad=True)), dtype=np.bool)
         # traverse all contig features, break down into multiple contigs if too long, and create a numpy 3D array
         # of shape (contig_count, max_len, num_features) to be used for evaluation
