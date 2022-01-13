@@ -3,15 +3,11 @@ eval "$(conda shell.bash hook)"
 conda activate tfgpu
 module load cuda/11.1.1 cudnn/8.0.5 nccl/2.3.7-1
 
-N9K="/cluster/work/grlab/projects/projects2019-contig_quality/data/v2/resmico-sm/GTDBr202_n9k_train/features"
-N9K_D12="/cluster/work/grlab/projects/projects2019-contig_quality/data/v2/resmico-sm/GTDBr202_n9k_train_d12m/features"
-N9K_D20="/cluster/work/grlab/projects/projects2019-contig_quality/data/v2/resmico-sm/GTDBr202_n9k_train_d20m"
-N9K_CAMI="/cluster/work/grlab/projects/projects2019-contig_quality/data/v2/resmico-sm/GTDBr202_n9k_train_CAMI-err/features"
-N9K_GB07="/cluster/work/grlab/projects/projects2019-contig_quality/data/v2/resmico-sm/GTDBr202_n9k_train_gb0.7/features"
-N9K_BIG="/cluster/work/grlab/projects/projects2019-contig_quality/data/v2/resmico-sm/GTB_n9k_big"
-N9K_BIG_1REP="/cluster/work/grlab/projects/projects2019-contig_quality/data/v2/resmico-sm/GTB_n9k_big_1rep"
+N9K="/cluster/work/grlab/projects/projects2019-contig_quality/data/v2/resmico-sm/GTDBr202_n9k_train/"
+N9K_1REP="/cluster/work/grlab/projects/projects2019-contig_quality/data/v2/resmico-sm/GTDBr202_n9k_train_1rep"
+N9K_SMALL="/cluster/work/grlab/projects/projects2019-contig_quality/data/v2/resmico-sm/GTDBr202_n9k_train_1rep/GTDBr202_n9k_train/cami_err/features/"
 
-declare -a DATA_DIRS=("${N9K_BIG}") # "${N9K_D12}" "${N9K_D20}" "${N9K_CAMI}" "${N9K_GB07}")
+declare -a DATA_DIRS=("${N9K_SMALL}") 
 CODE_PATH="/cluster/home/ddanciu/resmico"  # replace with whatever directory your source code is in
 OUT_PATH="/cluster/home/ddanciu/tmp" # replace this with the desired output directory
 
@@ -106,8 +102,8 @@ do
   cd "${CODE_PATH}" || exit
 
   echo "Training command is: ${cmd3}"
-  # submit the job; when caching all data use 8 cores and 45000 mem
-  bsub -W 96:00 -n 8 -J resmico-n9k -R "span[hosts=1]" -R rusage[mem=20000,ngpus_excl_p=4,scratch=70000] -G ms_raets \
+  # the large training dataset takes 413GB
+  bsub -W 120:00 -n 8 -J resmico-n9k -R "span[hosts=1]" -R rusage[mem=20000,ngpus_excl_p=4,scratch=70000] -G ms_raets \
      -oo "${lsf_log_file}" "${cmd1}; ${cmd2}; ${cmd3} 2>&1 | tee ${log_file}; ${cmd4}"
 
   sleep 1
