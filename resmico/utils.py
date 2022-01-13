@@ -1289,7 +1289,7 @@ def residual_block(x, downsample: bool, filters, kernel_size):
     y = Conv1D(kernel_size=kernel_size,
                strides=1,
                filters=filters,
-               padding='same')(y)
+               padding='valid')(y)
 
     if downsample:
         x = Conv1D(kernel_size=1,
@@ -1299,6 +1299,7 @@ def residual_block(x, downsample: bool, filters, kernel_size):
         # the additional cropping is needed in order to match the size of the y=Conv1D() output, since here we
         # user kernel_size=1
         x = Cropping1D((0,kernel_size//2))(x)
+    x = Cropping1D((0, kernel_size-1))(x)
     out = Add()([x, y])
     out = relu_bn(out)
     return out

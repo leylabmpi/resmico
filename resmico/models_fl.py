@@ -255,7 +255,7 @@ class Resmico(object):
                 num_filters *= 2 
             #this is needed only to avoid errors, mask is not used later
             tmp_model = Model(inputs=inlayer, outputs=x)  # dummy model used only in next line
-            self.convoluted_size = get_convoluted_size(tmp_model) if config.mask_padding else lambda x, pad: 1
+            self.convoluted_size = construct_convolution_lambda(tmp_model) if config.mask_padding else lambda x, pad: 1
             if config.binary_data:
                 mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
                 mask = Input(shape=(mask_size,), name='mask', dtype='bool')
