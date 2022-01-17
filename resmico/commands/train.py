@@ -73,7 +73,7 @@ def parse_args(curr_args=None, subparsers=None):
     parser.add_argument('--n-folds', default=-1, type=int,
                         help='How many folds for CV. Use "-1" to skip & pool all data for training (default: %(default)s)')
     parser.add_argument('--lr-init', default=0.001, type=float,
-                        help='Size of test set (default: %(default)s)')
+                        help='Initial learning rate')
     parser.add_argument('--fraq-neg', default=1., type=float,
                         help='Portion of samples to keep in overrepresented class (default: %(default)s)')
     parser.add_argument('--cache', dest='cache', action='store_true',

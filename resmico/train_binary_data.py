@@ -41,9 +41,10 @@ def main(args):
     #     mc = ModelCheckpoint(model_file, save_freq="epoch", verbose=1)
 
     # tensorboard logs
-    tb_logs = tf.keras.callbacks.TensorBoard(log_dir=os.path.join(args.save_path, 'logs_final'),
+    tb_logs = tf.keras.callbacks.TensorBoard(log_dir=os.path.join(args.save_path, args.save_name),
                                              histogram_freq=0,
-                                             write_graph=True, write_images=True)
+                                             write_graph=True,
+                                             write_images=True)
 
     logging.info('Loading contig data...')
     reader = contig_reader.ContigReader(args.feature_files_path, args.features, args.n_procs, args.chunks,
