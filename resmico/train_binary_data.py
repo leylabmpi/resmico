@@ -162,7 +162,10 @@ def main(args):
         auc_val_prev = auc_val
         if auc_val > auc_val_best:
             if best_file:  # delete old best model
-                os.remove(best_file)
+                try:
+                    os.remove(best_file)
+                except OSError:
+                    logging.warning('Unable to remove: ' + best_file)
             auc_val_best = auc_val
             best_file = os.path.join(args.save_path, '_'.join(
                 ['mc_epoch', str(cur_epoch), 'aucPR', str(auc_val_best)[:5], args.save_name,
