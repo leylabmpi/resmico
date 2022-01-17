@@ -87,7 +87,7 @@ def construct_convolution_lambda(model: Model):
     result = lambda contig_len, pad: contig_len
     for layer in model.layers:
         if isinstance(layer, Conv1D):
-            if layer.kernel_size[0] == 1:  # this is the residual layer that doesn't affect the output size
+            if layer.kernel_size[0] == 1:  # the strided convolution in the residual layer, doesn't affect output size
                 continue
             # padding of a layer can be 'valid' or 'same'; if the padding is 'valid' (as in the first convolution
             # layer of ResMiCo), then the output size is shrunk by (kernel_size-1)
@@ -182,18 +182,19 @@ class Resmico(object):
             x = Dropout(rate=self.dropout)(x)
             x = Bidirectional(LSTM(40, return_sequences=False, dropout=0.0), merge_mode="concat")(x)
 
-        elif self.net_type == 'cnn_resnet' or self.net_type == 'cnn_resnet_argmax' or self.net_type == 'cnn_resnet_avg':
+        elif self.net_type in ['cnn_resnet', 'cnn_resnet_argmax', 'cnn_resnet_avg', 'cnn_resnet_residual_avg']:
             x = BatchNormalization()(inlayer)
             x = Conv1D(self.filters, kernel_size=10,
                        input_shape=(None, self.n_feat),
                        padding='valid', name='1st_conv')(x)
             x = utils.relu_bn(x)
             num_filters = self.filters
+            residual_block = utils.residual_block if self.net_type == 'cnn_resnet_residual_avg' else utils.residual_block_all_valid
             # for each block group, create the requested number of residual blocks
             for i, num_blocks in enumerate(self._get_blocks(self.num_blocks)):
                 for j in range(num_blocks):
-                    x = utils.residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
-                                             kernel_size=self.ker_size)
+                    x = residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
+                                       kernel_size=self.ker_size)
                 num_filters *= 2
 
             # lambda function that computes the data size after applying all the convolutional
@@ -241,7 +242,7 @@ class Resmico(object):
             maxP = MaxPooling1D(pool_size=100, padding='valid')(x)
             x = concatenate([maxP, avgP])
             x = Flatten()(x)
-            
+
         elif self.net_type == 'fixlen_resnet_maxglob':
             x = BatchNormalization()(inlayer)
             x = Conv1D(self.filters, kernel_size=10,
@@ -253,8 +254,8 @@ class Resmico(object):
                 for j in range(num_blocks):
                     x = utils.residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
                                              kernel_size=self.ker_size)
-                num_filters *= 2 
-            #this is needed only to avoid errors, mask is not used later
+                num_filters *= 2
+                # this is needed only to avoid errors, mask is not used later
             tmp_model = Model(inputs=inlayer, outputs=x)  # dummy model used only in next line
             self.convoluted_size = construct_convolution_lambda(tmp_model) if config.mask_padding else lambda x, pad: 1
             if config.binary_data:
@@ -263,7 +264,7 @@ class Resmico(object):
             ###
             x = MaxPooling1D(pool_size=624, padding='valid')(x)
             x = Flatten()(x)
-            
+
         for _ in range(self.n_fc):
             x = Dense(self.n_hid, activation='relu')(x)
             x = Dropout(rate=self.dropout)(x)
