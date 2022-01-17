@@ -19,6 +19,15 @@ max_len=10000
 num_translations=1
 max_translation_bases=0
 
+# guess the larges batch size such that the batch fits in GPU memory
+if ((max_len <= 10000)); then
+  batch_size=300
+elif ((max_len <= 15000)); then
+  batch_size=200
+else
+  batch_size=100
+fi
+
 POSITIONAL=()
 while [[ $# -gt 0 ]]; do
   key="$1"
@@ -89,7 +98,7 @@ do
 
   cmd3="/usr/bin/time python resmico train --binary-data --feature-files-path ${SCRATCH_DIR} \
       --save-path /cluster/home/ddanciu/tmp --n-procs 8 --log-level info \
-      --batch-size 300 --n-fc 1 --num-blocks 4 --fraq-neg 0.2  ${additional_params}  \
+      --batch-size ${batch_size} --n-fc 1 --num-blocks 4 --fraq-neg 0.2  ${additional_params}  \
       --max-len ${max_len} --gpu-eval-mem-gb 1 --features ${features_small} --n-epochs 100 \
       --num-translations ${num_translations} --max-translation-bases ${max_translation_bases} \
       --min-avg-coverage 0 --mask-padding --net-type cnn_resnet_avg"
