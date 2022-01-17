@@ -587,6 +587,7 @@ class BinaryDatasetTrain(BinaryDataset):
             self.cache[index] = (x, mask), np.array(y)
         if self.show_progress:
             utils.update_progress(index + 1, self.__len__(), 'Training: ', f' {(timer() - start):5.2f}s')
+        assert not np.any(np.isnan(x))  # TODO: remove once we trust input
         return (x, mask), np.array(y)
 
 
