@@ -189,6 +189,7 @@ class Resmico(object):
                        padding='valid', name='1st_conv')(x)
             x = utils.relu_bn(x)
             num_filters = self.filters
+            # for each block group, create the requested number of residual blocks
             for i, num_blocks in enumerate(self._get_blocks(self.num_blocks)):
                 for j in range(num_blocks):
                     x = utils.residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,

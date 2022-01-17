@@ -33,6 +33,11 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
     if args.val_ind_f:
         eval_idx = list(pd.read_csv(args.val_ind_f)['val_ind'])
         logging.info(f'Using {len(eval_idx)} indices in {args.val_ind_f} for prediction')
+    elif args.embeddings:
+        all_idx = np.arange(len(reader))
+        logging.info(f'Using 10k samples for embeddings')
+        np.random.shuffle(all_idx)
+        eval_idx = all_idx[:10000]
     else:
         logging.info(f'Using all indices for prediction')
         eval_idx = np.arange(len(reader))
