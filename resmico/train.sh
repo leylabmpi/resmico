@@ -101,7 +101,8 @@ do
   features_smaller="num_SNPs num_proper_Match num_orphans_Match mean_al_score_Match coverage stdev_insert_size_Match mean_mapq_Match seq_window_perc_gc seq_window_entropy"
 
   cmd3="/usr/bin/time python resmico train --binary-data --feature-files-path ${SCRATCH_DIR} \
-      --save-path /cluster/home/ddanciu/tmp --n-procs 8 --log-level info \
+      --save-path /cluster/home/ddanciu/tmp --save-name  resmico_${max_len}_${current_time} \
+      --n-procs 8 --log-level info \
       --batch-size ${batch_size} --n-fc 1 --num-blocks 4 --fraq-neg 0.2  ${additional_params}  \
       --max-len ${max_len} --gpu-eval-mem-gb 1 --features ${features_small} --n-epochs 100 \
       --num-translations ${num_translations} --max-translation-bases ${max_translation_bases} \
