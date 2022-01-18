@@ -175,8 +175,7 @@ def main(args):
             logging.info(f'New best model written to: {best_file}')
 
     logging.info('Saving trained model...')
-    x = [args.save_name, args.technology, 'model.h5']
-    outfile = os.path.join(args.save_path, '_'.join(x))
+    outfile = os.path.join(args.save_path, args.save_name + '_' + str(auc_val)[:5] + '_e' + str(args.n_epochs) + '.h5')
     resmico.save(outfile)
     logging.info(f'Latest model written to: {outfile}')
 
