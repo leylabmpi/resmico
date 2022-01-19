@@ -271,7 +271,8 @@ class Resmico(object):
 
         x = Dense(1, activation='sigmoid')(x)
 
-        optimizer = tf.keras.optimizers.Adam(lr=self.lr_init)
+        # need to clip the gradient for cnn_resnet_avg, otherwise we get NaNs in the weights
+        optimizer = tf.keras.optimizers.Adam(lr=self.lr_init, clipnorm=1.0, clipvalue=0.5)
         if config.binary_data:
             inputs = [inlayer, mask]
         else:
@@ -587,7 +588,6 @@ class BinaryDatasetTrain(BinaryDataset):
             self.cache[index] = (x, mask), np.array(y)
         if self.show_progress:
             utils.update_progress(index + 1, self.__len__(), 'Training: ', f' {(timer() - start):5.2f}s')
-        assert not np.any(np.isnan(x))  # TODO: remove once we trust input
         return (x, mask), np.array(y)
 
 

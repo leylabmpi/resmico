@@ -35,11 +35,6 @@ def main(args):
         resmico = Models.Resmico(args)
     resmico.print_summary()
 
-    #     # save model every epoch
-    #     model_file = os.path.join(args.save_path, '_'.join(['mc_epoch', "{epoch}", args.save_name, 'model.h5']))
-    #     logging.info(f'model will be saved to: {model_file}')
-    #     mc = ModelCheckpoint(model_file, save_freq="epoch", verbose=1)
-
     # tensorboard logs
     tb_logs = tf.keras.callbacks.TensorBoard(log_dir=os.path.join(args.save_path, args.save_name),
                                              histogram_freq=0,
