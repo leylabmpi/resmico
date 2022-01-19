@@ -271,7 +271,8 @@ class Resmico(object):
 
         x = Dense(1, activation='sigmoid')(x)
 
-        optimizer = tf.keras.optimizers.Adam(lr=self.lr_init)
+        # need to clip the gradient for cnn_resnet_avg, otherwise we get NaNs in the weights
+        optimizer = tf.keras.optimizers.Adam(lr=self.lr_init, clipnorm=1.0, clipvalue=0.5)
         if config.binary_data:
             inputs = [inlayer, mask]
         else:
