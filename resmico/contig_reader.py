@@ -452,7 +452,11 @@ class ContigReader:
 
     def _normalize(self, features):
         start = timer()
-        for feature_name in reader.float_feature_names:
+        has_new_metric = False
+        if 'coverage' in self.means and 'coverage' in self.stdevs:
+                has_new_metric = True
+        new_metric = ['coverage'] if has_new_metric else []
+        for feature_name in reader.float_feature_names + new_metric:
             if feature_name not in features:
                 continue
             if feature_name not in self.means or feature_name not in self.stdevs:

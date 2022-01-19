@@ -48,7 +48,7 @@ def main(args):
 
     logging.info('Loading contig data...')
     reader = contig_reader.ContigReader(args.feature_files_path, args.features, args.n_procs, args.chunks,
-                                        args.no_cython, min_avg_coverage=args.min_avg_coverage,
+                                        args.no_cython, args.stats_file, min_avg_coverage=args.min_avg_coverage,
                                         feature_file_match=args.feature_file_match)
 
     # separate data into 90% for training and 10% for evaluation
