@@ -252,7 +252,7 @@ class Resmico(object):
             num_filters = self.filters
             for i, num_blocks in enumerate(self._get_blocks(self.num_blocks)):
                 for j in range(num_blocks):
-                    x = utils.residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
+                    x = utils.old_residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
                                              kernel_size=self.ker_size)
                 num_filters *= 2
                 # this is needed only to avoid errors, mask is not used later
@@ -262,7 +262,7 @@ class Resmico(object):
                 mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
                 mask = Input(shape=(mask_size,), name='mask', dtype='bool')
             ###
-            x = MaxPooling1D(pool_size=624, padding='valid')(x)
+            x = MaxPooling1D(pool_size=597, padding='valid')(x)
             x = Flatten()(x)
 
         for _ in range(self.n_fc):
