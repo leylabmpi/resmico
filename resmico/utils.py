@@ -17,7 +17,7 @@ import pandas as pd
 from sklearn.metrics import average_precision_score
 from tensorflow.keras import backend as K
 from tensorflow.keras.callbacks import Callback
-from tensorflow.keras.layers import Input, Conv1D, ReLU, BatchNormalization, Add, AveragePooling2D, Flatten, Dense
+from tensorflow.keras.layers import Conv1D, ReLU, BatchNormalization, Add, Cropping1D, AveragePooling1D
 
 
 def nested_dict():
@@ -1279,26 +1279,91 @@ def relu_bn(inputs):
     bn = BatchNormalization()(relu)
     return bn
 
-
-def residual_block(x, downsample: bool, filters, kernel_size):
+'''
+Constructs the essential building unit of Resmico: the residual block. 
+'''
+# ### original with deterministic predictions
+def old_residual_block(x, downsample: bool, filters, kernel_size):
     y = Conv1D(kernel_size=kernel_size,
                strides=(1 if not downsample else 2),
                filters=filters,
-               padding="same")(x)
+               padding='valid' if downsample else 'same')(x)
     y = relu_bn(y)
     y = Conv1D(kernel_size=kernel_size,
                strides=1,
                filters=filters,
-               padding="same")(y)
+               padding='valid')(y)
 
     if downsample:
         x = Conv1D(kernel_size=1,
                    strides=2,
                    filters=filters,
-                   padding="same")(x)
+                   padding='valid')(x)
+        # the additional cropping is needed in order to match the size of the y=Conv1D() output, since here we
+        # user kernel_size=1
+        x = Cropping1D((0,kernel_size//2))(x)
+    x = Cropping1D((0, kernel_size-1))(x)
     out = Add()([x, y])
     out = relu_bn(out)
     return out
+
+def residual_block(x, downsample: bool, filters, kernel_size):
+    # output size is N-k+1 if not downsample, N/2 otherwise (because of padding='same')
+    y = Conv1D(kernel_size=kernel_size,
+               strides=(1 if not downsample else 2),
+               filters=filters,
+               padding='same' if downsample else 'valid')(x)
+    y = relu_bn(y)
+    # output size reduced again by k-1, so N-2*k+2 if not downsample, (N-k)/2 -k + 2 otherwise
+    y = Conv1D(kernel_size=kernel_size,
+               strides=1,
+               filters=filters,
+               padding='valid')(y)
+
+    # Adding the residual connection; need to adjust its size to match the size of the convolved input
+    if downsample:
+        # output size is N/2
+        x = AveragePooling1D(pool_size=2, strides=2, padding='same')(x)
+        x = Conv1D(kernel_size=1,
+                   strides=1,
+                   filters=filters,
+                   padding='valid')(x)
+        # cropping makes up for the difference in length between x and y
+        x = Cropping1D((0, kernel_size - 1))(x)
+    else:
+        # cropping makes up for the 2*(k-1) reduction in size caused by the convolutions
+        x = Cropping1D((0, 2*kernel_size - 2))(x)
+    out = Add()([x, y])
+    out = relu_bn(out)
+    return out
+
+'''
+Residual block with all valid pading
+'''
+def residual_block_all_valid(x, downsample: bool, filters, kernel_size):
+    y = Conv1D(kernel_size=kernel_size,
+               strides=(1 if not downsample else 2),
+               filters=filters,
+               padding='valid')(x)
+    y = relu_bn(y)
+    y = Conv1D(kernel_size=kernel_size,
+               strides=1,
+               filters=filters,
+               padding='valid')(y)
+
+    if downsample:
+        x = Conv1D(kernel_size=1,
+                   strides=2,
+                   filters=filters,
+                   padding='valid')(x)
+        # the cropping is needed to make up for the size difference caused by the convolutions on y
+        x = Cropping1D((0,kernel_size-1 + kernel_size//2))(x)
+    else:
+        x = Cropping1D((0, 2*kernel_size-2))(x)
+    out = Add()([x, y])
+    out = relu_bn(out)
+    return out
+
 
 
 # for predictions for long contigs

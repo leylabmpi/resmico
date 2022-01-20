@@ -87,7 +87,7 @@ def construct_convolution_lambda(model: Model):
     result = lambda contig_len, pad: contig_len
     for layer in model.layers:
         if isinstance(layer, Conv1D):
-            if layer.kernel_size[0] == 1:  # this is the residual layer that doesn't affect the output size
+            if layer.kernel_size[0] == 1:  # the strided convolution in the residual layer, doesn't affect output size
                 continue
             # padding of a layer can be 'valid' or 'same'; if the padding is 'valid' (as in the first convolution
             # layer of ResMiCo), then the output size is shrunk by (kernel_size-1)
@@ -182,17 +182,19 @@ class Resmico(object):
             x = Dropout(rate=self.dropout)(x)
             x = Bidirectional(LSTM(40, return_sequences=False, dropout=0.0), merge_mode="concat")(x)
 
-        elif self.net_type == 'cnn_resnet' or self.net_type == 'cnn_resnet_argmax' or self.net_type == 'cnn_resnet_avg':
+        elif self.net_type in ['cnn_resnet', 'cnn_resnet_argmax', 'cnn_resnet_avg', 'cnn_resnet_residual_avg']:
             x = BatchNormalization()(inlayer)
             x = Conv1D(self.filters, kernel_size=10,
                        input_shape=(None, self.n_feat),
                        padding='valid', name='1st_conv')(x)
             x = utils.relu_bn(x)
             num_filters = self.filters
+            residual_block = utils.residual_block if self.net_type == 'cnn_resnet_residual_avg' else utils.residual_block_all_valid
+            # for each block group, create the requested number of residual blocks
             for i, num_blocks in enumerate(self._get_blocks(self.num_blocks)):
                 for j in range(num_blocks):
-                    x = utils.residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
-                                             kernel_size=self.ker_size)
+                    x = residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
+                                       kernel_size=self.ker_size)
                 num_filters *= 2
 
             # lambda function that computes the data size after applying all the convolutional
@@ -240,7 +242,7 @@ class Resmico(object):
             maxP = MaxPooling1D(pool_size=100, padding='valid')(x)
             x = concatenate([maxP, avgP])
             x = Flatten()(x)
-            
+
         elif self.net_type == 'fixlen_resnet_maxglob':
             x = BatchNormalization()(inlayer)
             x = Conv1D(self.filters, kernel_size=10,
@@ -250,26 +252,27 @@ class Resmico(object):
             num_filters = self.filters
             for i, num_blocks in enumerate(self._get_blocks(self.num_blocks)):
                 for j in range(num_blocks):
-                    x = utils.residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
+                    x = utils.old_residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
                                              kernel_size=self.ker_size)
-                num_filters *= 2 
-            #this is needed only to avoid errors, mask is not used later
+                num_filters *= 2
+                # this is needed only to avoid errors, mask is not used later
             tmp_model = Model(inputs=inlayer, outputs=x)  # dummy model used only in next line
-            self.convoluted_size = get_convoluted_size(tmp_model) if config.mask_padding else lambda x, pad: 1
+            self.convoluted_size = construct_convolution_lambda(tmp_model) if config.mask_padding else lambda x, pad: 1
             if config.binary_data:
                 mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
                 mask = Input(shape=(mask_size,), name='mask', dtype='bool')
             ###
-            x = MaxPooling1D(pool_size=624, padding='valid')(x)
+            x = MaxPooling1D(pool_size=597, padding='valid')(x)
             x = Flatten()(x)
-            
+
         for _ in range(self.n_fc):
             x = Dense(self.n_hid, activation='relu')(x)
             x = Dropout(rate=self.dropout)(x)
 
         x = Dense(1, activation='sigmoid')(x)
 
-        optimizer = tf.keras.optimizers.Adam(lr=self.lr_init)
+        # need to clip the gradient for cnn_resnet_avg, otherwise we get NaNs in the weights
+        optimizer = tf.keras.optimizers.Adam(lr=self.lr_init, clipnorm=1.0, clipvalue=0.5)
         if config.binary_data:
             inputs = [inlayer, mask]
         else:
@@ -644,7 +647,7 @@ class BinaryDatasetEval(BinaryDataset):
             curr_chunk_count = 1 + max(0, math.ceil((contig_len - self.window) / self.step))
             batch_chunk_count += curr_chunk_count
             # check if the new contig still fits in memory; create a new batch if not
-            if current_indices and batch_chunk_count * self.window * bytes_per_base > total_memory_bytes:
+            if len(current_indices) > 300 or current_indices and batch_chunk_count * self.window * bytes_per_base > total_memory_bytes:
                 logging.debug(f'Added {len(counts)} contigs with {sum(counts)} chunks to evaluation batch')
                 batch_list.append(current_indices)
                 current_indices = []
@@ -762,7 +765,7 @@ class BinaryDatasetEval(BinaryDataset):
         # the evaluation data for all contigs in this batch
         batch_size = sum(self.chunk_counts[batch_idx])
         x = np.zeros((batch_size, max_len, len(self.expanded_feature_names)), dtype=np.float32)
-        # the size of the convoluted output for the longest contig, including positions that needed partial padding
+        # the size of the convoluted output for the longest contig (including positions that needed partial padding)
         mask = np.zeros((batch_size, self.convoluted_size(max_len, pad=True)), dtype=np.bool)
         # traverse all contig features, break down into multiple contigs if too long, and create a numpy 3D array
         # of shape (contig_count, max_len, num_features) to be used for evaluation

@@ -5,10 +5,11 @@ import logging
 import math
 import mmap
 import os
-from pathlib import Path
-from timeit import default_timer as timer
+import statistics
 import struct
+
 from glob import glob
+from timeit import default_timer as timer
 
 import numpy as np
 from resmico import reader
@@ -298,6 +299,7 @@ class ContigReader:
             if 'all_count' in stats and 'seq_window_perc_gc' in stats and 'seq_window_entropy' in stats and 'coverage' in stats:
                 has_new_metrics = True
 
+        has_new_metrics = False # TODO: remove
         new_metrics = ['coverage', 'seq_window_entropy', 'seq_window_perc_gc'] if has_new_metrics else []
 
         for feature_name in reader.float_feature_names + new_metrics:
@@ -355,9 +357,11 @@ class ContigReader:
 
     def _load_contigs_metadata(self, file_list):
         contig_count = 0
+        contig_count_misassembled = 0
         total_len = 0
         breakpoint_hist = np.zeros(50)
         excluded_count = 0
+        contig_lengths = []
         for fname in file_list:
             toc_file = fname[:-len('stats')] + 'toc'
             contig_fname = fname[:-len('stats')] + 'features_binary'
@@ -384,15 +388,19 @@ class ContigReader:
                     contig_info = ContigInfo(row[0], contig_fname, int(row[1]), offset, size_bytes, int(row[2]),
                                              breakpoints, avg_coverage)
                     if contig_info.length >= self.min_len and contig_info.avg_coverage >= self.min_avg_coverage:
+                        contig_lengths.append(contig_info.length)
                         total_len += contig_info.length
                         self.contigs.append(contig_info)
                     else:
                         excluded_count += 1
                     offset += size_bytes
+                    if contig_info.misassembly:
+                        contig_count_misassembled += 1
                     contig_count += 1
 
         logging.info(
-            f'Found {contig_count} contigs, {excluded_count} excluded, {total_len} total length, '
+            f'Found {contig_count} contigs, {contig_count_misassembled} misassembled, {excluded_count} excluded, '
+            f'{total_len} total length, {statistics.median(contig_lengths)} median length, '
             f'memory needed (assuming fraq-neg=1) {total_len * reader.bytes_per_base / 1e9:6.2f}GB')
         logging.info(f'Breakpoint location histogram: {breakpoint_hist}')
 
@@ -444,7 +452,11 @@ class ContigReader:
 
     def _normalize(self, features):
         start = timer()
-        for feature_name in reader.float_feature_names:
+        has_new_metric = False
+        if 'coverage' in self.means and 'coverage' in self.stdevs:
+                has_new_metric = True
+        new_metric = ['coverage'] if has_new_metric else []
+        for feature_name in reader.float_feature_names + new_metric:
             if feature_name not in features:
                 continue
             if feature_name not in self.means or feature_name not in self.stdevs:

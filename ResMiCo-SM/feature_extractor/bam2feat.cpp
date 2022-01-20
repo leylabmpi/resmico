@@ -63,14 +63,18 @@ int main(int argc, char *argv[]) {
         std::exit(1);
     }
 
-    if (FLAGS_misassembly_file.empty()) {
-        logger()->error("Please specify a metaQUAST misassembly file via --misassembly_file");
-        std::exit(1);
-    }
-    if (!std::filesystem::exists(FLAGS_misassembly_file)) {
+    std::unordered_map<std::string, std::vector<MisassemblyInfo>> mi_info;
+    if (fLS::FLAGS_misassembly_file.empty()) {
+        logger()->info(
+                "No metaQUAST misassembly file provided. Will not generate misassembly "
+                "position information in the toc files");
+    } else if (!std::filesystem::exists(FLAGS_misassembly_file)) {
         logger()->error("metaQUAST misassembly file does not seem to exist (or I can't see it): {}",
                         fLS::FLAGS_misassembly_file);
         std::exit(1);
+    } else {
+        logger()->info("Parsing mis-assembly info...");
+        mi_info = parse_misassembly_info(FLAGS_misassembly_file);
     }
 
     if (FLAGS_o.empty()) {
@@ -95,10 +99,6 @@ int main(int argc, char *argv[]) {
 
     logger()->info("Using {} threads, {} assembler, window of size {}", FLAGS_procs,
                    FLAGS_assembler, FLAGS_window);
-
-    logger()->info("Parsing mis-assembly info...");
-    std::unordered_map<std::string, std::vector<MisassemblyInfo>> mi_info
-            = parse_misassembly_info(FLAGS_misassembly_file);
 
     // Getting contig list
     if (!ends_with(FLAGS_bam_file, ".bam")) {

@@ -393,4 +393,5 @@ class TestResmico(unittest.TestCase):
         self.assertIsNotNone(model.convoluted_size)
         self.assertEqual(19, model.convoluted_size(512, False))
         self.assertEqual(83, model.convoluted_size(1024, False))
-        self.assertEqual(133, model.convoluted_size(1071, True))
+        # (((1071-9-8-5)//2-4-31-4)//2-4-31-4)//2-4-8
+        self.assertEqual(89, model.convoluted_size(1071, True))

@@ -103,3 +103,5 @@ venv/
 # Cython generated files
 resmico/reader.cpp
 resmico/Reader.html
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/

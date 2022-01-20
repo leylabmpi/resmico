@@ -18,7 +18,7 @@ cdef extern from "Python.h":
 # be normalized
 DEF N_FEATURES = 25
 feature_tuples = [('ref_base', np.uint8, np.float32, False),  # because we use one-hot encoding, so 4 bytes
-                  ('coverage', np.uint16, np.float32, True),  # converting to float32 bc it's going to be normalized
+                  ('coverage', np.uint16, np.float32, False),  # converting to float32 bc it's going to be normalized
                   ('num_query_A', np.uint16, np.float32, False),
                   ('num_query_C', np.uint16, np.float32, False),
                   ('num_query_G', np.uint16, np.float32, False),

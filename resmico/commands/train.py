@@ -52,7 +52,7 @@ def parse_args(curr_args=None, subparsers=None):
     parser.add_argument('--net-type', default='cnn_resnet', type=str,
                         help='Type of NN: lstm, cnn_globpool, cnn_resnet, cnn_lstm, fixlen_cnn_resnet'
                              ' (default: %(default)s)')
-    parser.add_argument('--num-blocks', default=5, type=int,
+    parser.add_argument('--num-blocks', default=4, type=int,
                         help='Number of residual blocks (3 or 4, 5, 6) (default: %(default)s)')
     parser.add_argument('--filters', default=16, type=int,
                         help='N of filters for first conv layer. Then x2 (default: %(default)s)')
@@ -62,7 +62,7 @@ def parse_args(curr_args=None, subparsers=None):
                         help='N of units in fully connected layers (default: %(default)s)')
     parser.add_argument('--n-conv', default=5, type=int,
                         help='N of conv layers (default: %(default)s)')
-    parser.add_argument('--n-fc', default=2, type=int,
+    parser.add_argument('--n-fc', default=1, type=int,
                         help='N of fully connected layers (default: %(default)s)')
     parser.add_argument('--n-epochs', default=10, type=int,
                         help='N of training epochs (default: %(default)s)')
@@ -73,7 +73,7 @@ def parse_args(curr_args=None, subparsers=None):
     parser.add_argument('--n-folds', default=-1, type=int,
                         help='How many folds for CV. Use "-1" to skip & pool all data for training (default: %(default)s)')
     parser.add_argument('--lr-init', default=0.001, type=float,
-                        help='Size of test set (default: %(default)s)')
+                        help='Initial learning rate')
     parser.add_argument('--fraq-neg', default=1., type=float,
                         help='Portion of samples to keep in overrepresented class (default: %(default)s)')
     parser.add_argument('--cache', dest='cache', action='store_true',

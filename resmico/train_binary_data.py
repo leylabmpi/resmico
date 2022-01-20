@@ -35,19 +35,15 @@ def main(args):
         resmico = Models.Resmico(args)
     resmico.print_summary()
 
-    #     # save model every epoch
-    #     model_file = os.path.join(args.save_path, '_'.join(['mc_epoch', "{epoch}", args.save_name, 'model.h5']))
-    #     logging.info(f'model will be saved to: {model_file}')
-    #     mc = ModelCheckpoint(model_file, save_freq="epoch", verbose=1)
-
     # tensorboard logs
-    tb_logs = tf.keras.callbacks.TensorBoard(log_dir=os.path.join(args.save_path, 'logs_final'),
+    tb_logs = tf.keras.callbacks.TensorBoard(log_dir=os.path.join(args.save_path, args.save_name),
                                              histogram_freq=0,
-                                             write_graph=True, write_images=True)
+                                             write_graph=True,
+                                             write_images=True)
 
     logging.info('Loading contig data...')
     reader = contig_reader.ContigReader(args.feature_files_path, args.features, args.n_procs, args.chunks,
-                                        args.no_cython, min_avg_coverage=args.min_avg_coverage,
+                                        args.no_cython, args.stats_file, min_avg_coverage=args.min_avg_coverage,
                                         feature_file_match=args.feature_file_match)
 
     # separate data into 90% for training and 10% for evaluation
@@ -162,7 +158,10 @@ def main(args):
         auc_val_prev = auc_val
         if auc_val > auc_val_best:
             if best_file:  # delete old best model
-                os.remove(best_file)
+                try:
+                    os.remove(best_file)
+                except OSError:
+                    logging.warning('Unable to remove: ' + best_file)
             auc_val_best = auc_val
             best_file = os.path.join(args.save_path, '_'.join(
                 ['mc_epoch', str(cur_epoch), 'aucPR', str(auc_val_best)[:5], args.save_name,
@@ -171,8 +170,7 @@ def main(args):
             logging.info(f'New best model written to: {best_file}')
 
     logging.info('Saving trained model...')
-    x = [args.save_name, args.technology, 'model.h5']
-    outfile = os.path.join(args.save_path, '_'.join(x))
+    outfile = os.path.join(args.save_path, args.save_name + '_' + str(auc_val)[:5] + '_e' + str(args.n_epochs) + '.h5')
     resmico.save(outfile)
     logging.info(f'Latest model written to: {outfile}')
 
