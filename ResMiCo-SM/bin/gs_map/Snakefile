@@ -175,7 +175,7 @@ rule map_bowtie2:
     output:
         bam = config['tmp_dir'] + 'gs_map/map/{genome}/{sample}.bam'
     params:
-        samtools = config['params']['samtools']
+        samtools = config['nonsim_params']['samtools']
     conda:
         '../envs/bowtie2.yaml'
     threads:
@@ -308,15 +308,43 @@ rule map_bam_subsample:
         {params.exe} -o {output.bam} -m {params.mc} {input.bam} \
           {input.fna} > {output.tsv} 2> {log}
         """
+
+rule map_sort_subsampled_bam:
+    """
+    Sorting subsampled bam
+    """
+    input:
+        bam = config['tmp_dir'] + 'gs_map/map-sub/{genome}/subsample/{sample}.bam',
+        tsv = map_dir + '{genome}/{sample}/contig_coverage.tsv'
+    output:
+        bam = temp(config['tmp_dir'] + 'gs_map/map-sort/{genome}/subsample/{sample}.bam'),
+    threads:
+        4
+    resources:
+        time = lambda wildcards, attempt: attempt ** 3 * 59,
+        n = lambda wildcards, threads: threads,
+        mem_gb_pt = lambda wildcards, attempt: attempt * 4
+    conda:
+        '../envs/bowtie2.yaml'
+    log:
+        log_dir + 'map/bam_subsample_sort/{genome}/{sample}.log'
+    benchmark:
+        benchmark_dir + 'map/bam_subsample_sort/{genome}/{sample}.txt'
+    shell:
+        """
+        export PATH=$CONDA_PREFIX/bin:$PATH
+        TMPDIR=`dirname {output.bam}`
+        samtools sort -@ {threads} -T $TMPDIR -o {output.bam} {input.bam} 2> {log} 1>&2
+        """
         
 rule map_bowtie2_index_subsampled_bam:
     """
     Indexing BAM
     """
     input:
-        bam = config['tmp_dir'] + 'gs_map/map-sub/{genome}/subsample/{sample}.bam'
+        bam = config['tmp_dir'] + 'gs_map/map-sort/{genome}/subsample/{sample}.bam'
     output:
-        bai = temp(config['tmp_dir'] + 'gs_map/map-sub/{genome}/subsample/{sample}.bam.bai')
+        bai = temp(config['tmp_dir'] + 'gs_map/map-sort/{genome}/subsample/{sample}.bam.bai')
     threads:
         4
     resources:
@@ -342,10 +370,15 @@ rule bam_to_DL_features:
     input:
         fna = config['tmp_dir'] + 'gs_map/genomes/{genome}.fna',
         fai = config['tmp_dir'] + 'gs_map/genomes/{genome}.fna.fai',
-        bam = config['tmp_dir'] + 'gs_map/map-sub/{genome}/subsample/{sample}.bam',
-        bai = config['tmp_dir'] + 'gs_map/map-sub/{genome}/subsample/{sample}.bam.bai'
+        bam = config['tmp_dir'] + 'gs_map/map-sort/{genome}/subsample/{sample}.bam',
+        bai = config['tmp_dir'] + 'gs_map/map-sort/{genome}/subsample/{sample}.bam.bai'
     output:
-        tsv = temp(config['tmp_dir'] + 'gs_map/feats/{genome}/{sample}/features.tsv')
+        toc = temp(config['tmp_dir'] + 'gs_map/feats/{genome}/{sample}/toc'),
+        tocc = temp(config['tmp_dir'] + 'gs_map/feats/{genome}/{sample}/toc_chunked'),   
+        sts = temp(config['tmp_dir'] + 'gs_map/feats/{genome}/{sample}/stats'),
+        tsv = temp(config['tmp_dir'] + 'gs_map/feats/{genome}/{sample}/features.tsv.gz'),
+        fb = temp(config['tmp_dir'] + 'gs_map/feats/{genome}/{sample}/features_binary'),
+        fbc = temp(config['tmp_dir'] + 'gs_map/feats/{genome}/{sample}/features_binary_chunked')
     params:
         exe = config['pipeline']['script_folder'] + 'bam2feat',
 	params = config['nonsim_params']['make_features']
@@ -364,22 +397,34 @@ rule bam_to_DL_features:
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
-        {params.exe} {params.params} --procs {threads} \
-          --batches 50 --chunks 10 --assembler None \
+        OUTDIR=`dirname {output.tsv}`
+        {params.exe} {params.params} \
+          --procs {threads} \
+          --assembler None \
           --bam_file {input.bam} \
           --fasta_file {input.fna} \
-          --o {output.tsv} \
+          --o $OUTDIR \
           2> {log} 1>&2
         """
 
-rule features_compress:
+rule features_copy:
     """
-    Compressing table
+    Copying feature info
     """
     input:
-        config['tmp_dir'] + 'gs_map/feats/{genome}/{sample}/features.tsv'
+        toc = config['tmp_dir'] + 'gs_map/feats/{genome}/{sample}/toc',
+        tocc = config['tmp_dir'] + 'gs_map/feats/{genome}/{sample}/toc_chunked',
+        sts = config['tmp_dir'] + 'gs_map/feats/{genome}/{sample}/stats',
+        tsv = config['tmp_dir'] + 'gs_map/feats/{genome}/{sample}/features.tsv.gz',
+        fb = config['tmp_dir'] + 'gs_map/feats/{genome}/{sample}/features_binary',
+        fbc = config['tmp_dir'] + 'gs_map/feats/{genome}/{sample}/features_binary_chunked'
     output:
-        map_dir + '{genome}/{sample}/features.tsv.gz'
+        toc = map_dir + '{genome}/{sample}/toc',
+        tocc = map_dir + '{genome}/{sample}/toc_chunked',
+        sts = map_dir + '{genome}/{sample}/stats',
+        tsv = map_dir + '{genome}/{sample}/features.tsv.gz',
+        fb = map_dir + '{genome}/{sample}/features_binary',
+        fbc = map_dir + '{genome}/{sample}/features_binary_chunked'
     params:
         ionice = config['params']['ionice']
     resources:
@@ -391,7 +436,12 @@ rule features_compress:
         benchmark_dir + 'features_compress/{genome}/{sample}.txt'
     shell:
         """
-        ionice {params.ionice} gzip -c {input} > {output} 2> {log}
+        ionice {params.ionice} cp -f {input.toc} {output.toc} 2> {log} 1>&2
+        ionice {params.ionice} cp -f {input.tocc} {output.tocc} 2> {log} 1>&2
+        ionice {params.ionice} cp -f {input.sts} {output.sts} 2> {log} 1>&2
+        ionice {params.ionice} cp -f {input.tsv} {output.tsv} 2> {log} 1>&2
+        ionice {params.ionice} cp -f {input.fb} {output.fb} 2> {log} 1>&2
+        ionice {params.ionice} cp -f {input.fbc} {output.fbc} 2> {log} 1>&2
         """
 
 def all_feat_tables(wildcards):
@@ -432,7 +482,7 @@ rule bam_copy:
     Copying BAM to final output
     """
     input:
-        config['tmp_dir'] + 'gs_map/map-sub/{genome}/subsample/{sample}.bam',
+        config['tmp_dir'] + 'gs_map/map-sort/{genome}/subsample/{sample}.bam',
     output:
         map_dir + '{genome}/{sample}.bam'
     params:
