@@ -28,14 +28,16 @@ params:
     sim_reps: 1
     community:
       richness:
-        - 0.8      
+        - 0.5
+        - 0.8
       abundance_distribution:
+        - "mean:10,sigma:1"
         - "mean:10,sigma:2"
       random_seed: 8192
       other_sim_params: --group-bias 0
     reads: 
       length:
-        - 150
+        - 100
       depth:
         - 1000000
       other_sim_params: --art-paired --art-mflen 270 --art-sdev 50 --rndSeed 8712
@@ -45,11 +47,11 @@ params:
       keep_reads: True # False
   # coverage
   nonpareil:
-    params: -T kmer
+    params: Skip #-T kmer
     summary: 1e9   # this is target seq. depth
   # assemblying metagenomes
   assemblers:
-    metaspades: -k auto --only-assembler
+    metaspades: Skip #-k auto --only-assembler
     megahit: --min-count 1 --min-contig-len 1000
   # assembly filtering
   contigs:
@@ -82,6 +84,8 @@ nonsim_params:
   subsample_reads: 5000000
   # read quality filtering
   skewer: -n -l 70 -q 25
+  # samtools settings
+  samtools: ""
   # max per-contig coverage
   max_coverage: 20
   # keep bam files?

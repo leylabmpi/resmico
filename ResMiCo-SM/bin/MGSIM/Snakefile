@@ -207,48 +207,117 @@ rule MGSIM_read_filter:
         mv {params.read1} {output.read1} 2>> {log} 1>&2
         mv {params.read2} {output.read2} 2>> {log} 1>&2
         """
+
+def final_reads_input(wildcards):
+    read = 'R1' if wildcards.read == 'Read1' else 'R2'
+    return J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+             '{read_depth}', 'sim_reads', f'{read}.fq')    
+
+rule MGSIM_read_quality:
+    """
+    Checking read quality
+    """
+    input:
+        final_reads_input
+    output:
+        tsv = temp(J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                     '{read_depth}', '{read}', 'seqkit_stats.tsv'))
+    resources:
+        time = lambda wildcards, attempt: attempt ** 3 * 59,
+        mem_gb_pt = lambda wildcards, attempt: attempt ** 3 + 7        
+    log:
+        J(log_dir, 'MGSIM', 'read_quality', '{richness}', '{abund_dist}', '{rep}',
+          '{read_length}', '{read_depth}', '{read}.log')
+    shell:
+        """
+        seqkit stats -T -a {input} > {output.tsv} 2> {log}
+        """
+
+def MGSIM_read_quality_summary_input(wildcards):
+    F = []
+    for read in ['Read1', 'Read2']:
+        F += Expand(J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                       '{read_depth}', f'{read}', 'seqkit_stats.tsv'),
+                    config['sim_params'])
+    return F
         
-rule MGSIM_compress_read1:
+localrules: MGSIM_read_quality_summary
+rule MGSIM_read_quality_summary:
+    """
+    Summarizing read quality info
+    """
+    input:
+        tsv = MGSIM_read_quality_summary_input
+    output:
+        tsv = J(mgsim_dir, 'sim_reads', 'seqkit_stats.tsv')
+    run:
+        import os
+        header_written = False
+        with open(output.tsv, 'w') as outF:
+            for infile in input.tsv:
+                D = os.path.split(infile)[0]
+                D,read = os.path.split(D)
+                D,read_depth = os.path.split(D)
+                D,read_length = os.path.split(D)
+                D,rep = os.path.split(D)
+                D,abund_dist = os.path.split(D)
+                richness = os.path.split(D)[1]
+                with open(infile) as inF:
+                    for i,line in enumerate(inF):
+                        line = line.split('\t')
+                        if i == 0:
+                            if header_written:
+                                continue
+                            else:
+                                header_written = True
+                                line = ['richness', 'abundance_distribution', 'rep',
+                                        'read_length', 'read_depth', 'read'] + line[1:]
+                        else:
+                            line = [richness, abund_dist, rep, read_length,
+                                    read_depth, read] + line[1:]
+                        outF.write('\t'.join(line))                                                                        
+
+rule MGSIM_compress_reads:
     """
     Compressing reads
     """
     input:
-        J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-          '{read_depth}', 'sim_reads', 'R1.fq')
+        final_reads_input
     output:
         J(mgsim_dir, 'sim_reads', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-          '{read_depth}', 'Read1.fq.gz')
+          '{read_depth}', '{read}.fq.gz')
     params:
         ionice = config['params']['ionice']
     resources:
-        time = lambda wildcards, attempt: attempt ** 3 * 59
+        time = lambda wildcards, attempt: attempt ** 3 * 59,
+        mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 7         
     log:
-        J(log_dir, 'MGSIM', 'compress_read1', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}.log')
+        J(log_dir, 'MGSIM', 'compress_reads', '{richness}', '{abund_dist}', '{rep}',
+          '{read_length}', '{read_depth}', '{read}.log')
     shell:
         """
         ionice {params.ionice} gzip -c {input} > {output} 2> {log}
         """
 
-rule MGSIM_compress_read2:
-    """
-    Compressing reads
-    """
-    input:
-        J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-          '{read_depth}', 'sim_reads', 'R2.fq')
-    output:
-        J(mgsim_dir, 'sim_reads', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-          '{read_depth}', 'Read2.fq.gz')
-    params:
-        ionice = config['params']['ionice']
-    resources:
-        time = lambda wildcards, attempt: attempt ** 3 * 59
-    log:
-        J(log_dir, 'MGSIM', 'compress_read2', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}.log')
-    shell:
-        """
-        ionice {params.ionice} gzip -c {input} > {output} 2> {log}
-        """
+# rule MGSIM_compress_read2:
+#     """
+#     Compressing reads
+#     """
+#     input:
+#         J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+#           '{read_depth}', 'sim_reads', 'R2.fq')
+#     output:
+#         J(mgsim_dir, 'sim_reads', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+#           '{read_depth}', 'Read2.fq.gz')
+#     params:
+#         ionice = config['params']['ionice']
+#     resources:
+#         time = lambda wildcards, attempt: attempt ** 3 * 59
+#     log:
+#         J(log_dir, 'MGSIM', 'compress_read2', '{richness}', '{abund_dist}', '{rep}',
+#           '{read_length}', '{read_depth}.log')
+#     shell:
+#         """
+#         ionice {params.ionice} gzip -c {input} > {output} 2> {log}
+#         """
           
