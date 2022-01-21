@@ -781,16 +781,17 @@ class BinaryDatasetEval(BinaryDataset):
                     assert max_len == self.window
                     # keep only positions that didn't need padding in order to be computed (pad=False)
                     mask[idx][:self.convoluted_size(max_len, pad=False)] = 1
+                    idx += 1
                 else:
                     # force at least 1000 bases in the last chunk, as the network hasn't seen contigs shorter than 1K
                     if self.window >= 1000 and contig_len - start_idx < 1000:
                         start_idx = contig_len - 1000
                     x[idx][:contig_len - start_idx] = stacked_features[start_idx:contig_len]
                     mask[idx][:self.convoluted_size(contig_len - start_idx, pad=False)] = 1
+                    idx += 1
                     break
 
                 start_idx += self.step
-                idx += 1
 
         if self.show_progress:
             utils.update_progress(batch_idx + 1, self.__len__(), 'Evaluating: ',
