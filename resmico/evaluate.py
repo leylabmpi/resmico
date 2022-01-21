@@ -72,7 +72,7 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
                                      workers=args.n_procs,
                                      use_multiprocessing=True,
                                      max_queue_size=max(args.n_procs, 10),
-                                     verbose=1)
+                                     verbose=0)
     eval_data_predicted_min = predict_data.group(eval_data_flat_y, min)
     eval_data_predicted_mean = predict_data.group(eval_data_flat_y, np.mean)
     eval_data_predicted_std = predict_data.group(eval_data_flat_y, np.std)

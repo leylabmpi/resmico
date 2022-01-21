@@ -25,21 +25,22 @@ params:
   # simulating metagenomes
   MGSIM:
     genome_download: ""
-    sim_reps: 3
+    sim_reps: 1
     community:
       richness:
-        - 0.8        
+        - 0.8      
       abundance_distribution:
         - "mean:10,sigma:2"
       random_seed: 8192
       other_sim_params: --group-bias 0
     reads: 
       length:
-        - 100
         - 150
       depth:
         - 1000000
       other_sim_params: --art-paired --art-mflen 270 --art-sdev 50 --rndSeed 8712
+                        --art-qprof1 data/art_error_profiles/HiSeq2500L150R1.txt
+                        --art-qprof2 data/art_error_profiles/HiSeq2500L150R2.txt
       skewer: -n -l 70 -q 25
       keep_reads: True # False
   # coverage
@@ -69,10 +70,10 @@ params:
     make: --window 6
   # state-of-the-art
   SotA:
-    ALE: ""
-    VALET: ""  
+    ALE: Skip #""
+    VALET: Skip #""  
     metaMIC:
-      extract: --mlen 1000
+      extract: Skip #--mlen 1000
       predict: --mlen 1000 --slen 500 -a MEGAHIT
 
 # params just for creating feature tables for non-simulated data

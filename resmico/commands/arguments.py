@@ -59,6 +59,7 @@ def add_common_args(parser: argparse.ArgumentParser):
         'seq_window_perc_gc',
         'num_proper_SNP',
     ])
+    parser.add_argument('--stats-file', default='', help='File containing the feature means/stdevs of the training set')
     parser.add_argument('--mask-padding', default=False,
                         help='If enabled, values affected by padding will be masked out in the convolution output',
                         dest='mask_padding', action='store_true')

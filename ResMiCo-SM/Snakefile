@@ -125,11 +125,15 @@ def Expand(file_template, param_df, debug=False):
 include: snake_dir + 'bin/Snakefile'
 include: snake_dir + 'bin/ll_pipeline_utils/Snakefile'
 if config['just_features']:
+    print('\33[36mCreating feature tables for real metagenomes + (contigs|MAGs)\x1b[0m')    
     include: snake_dir + 'bin/gs_map/Snakefile'
 else:
+    print('\33[36mSimulating metagenome assemblies\x1b[0m') 
     if config['reads_tbl'] is None:
+        print('\33[36mNo reads provided. Reads will be simulated\x1b[0m')
         include: snake_dir + 'bin/MGSIM/Snakefile'
     else:
+        print('\33[36mReads provided. No reads will be simulated\x1b[0m')
         include: snake_dir + 'bin/reads/Snakefile'
     include: snake_dir + 'bin/coverage/Snakefile'
     include: snake_dir + 'bin/assembly/Snakefile'

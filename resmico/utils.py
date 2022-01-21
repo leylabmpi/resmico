@@ -1282,6 +1282,31 @@ def relu_bn(inputs):
 '''
 Constructs the essential building unit of Resmico: the residual block. 
 '''
+# ### original with deterministic predictions
+def old_residual_block(x, downsample: bool, filters, kernel_size):
+    y = Conv1D(kernel_size=kernel_size,
+               strides=(1 if not downsample else 2),
+               filters=filters,
+               padding='valid' if downsample else 'same')(x)
+    y = relu_bn(y)
+    y = Conv1D(kernel_size=kernel_size,
+               strides=1,
+               filters=filters,
+               padding='valid')(y)
+
+    if downsample:
+        x = Conv1D(kernel_size=1,
+                   strides=2,
+                   filters=filters,
+                   padding='valid')(x)
+        # the additional cropping is needed in order to match the size of the y=Conv1D() output, since here we
+        # user kernel_size=1
+        x = Cropping1D((0,kernel_size//2))(x)
+    x = Cropping1D((0, kernel_size-1))(x)
+    out = Add()([x, y])
+    out = relu_bn(out)
+    return out
+
 def residual_block(x, downsample: bool, filters, kernel_size):
     # output size is N-k+1 if not downsample, N/2 otherwise (because of padding='same')
     y = Conv1D(kernel_size=kernel_size,
