@@ -765,29 +765,34 @@ class BinaryDatasetEval(BinaryDataset):
         # the evaluation data for all contigs in this batch
         batch_size = sum(self.chunk_counts[batch_idx])
         x = np.zeros((batch_size, max_len, len(self.expanded_feature_names)), dtype=np.float32)
-        # the size of the convoluted output for the longest contig (including positions that needed partial padding)
+        # the size of the convoluted output (the output that goes into the max/avg global pooling layer)
+        # for the longest contig (including positions that needed partial padding)
         mask = np.zeros((batch_size, self.convoluted_size(max_len, pad=True)), dtype=np.bool)
         # traverse all contig features, break down into multiple contigs if too long, and create a numpy 3D array
-        # of shape (contig_count, max_len, num_features) to be used for evaluation
+        # of shape (batch_size, max_len, num_features) to be used for evaluation
         idx = 0
         for stacked_features in all_stacked_features:
             contig_len = stacked_features.shape[0]
             start_idx = 0
             while True:
                 end_idx = start_idx + self.window
-                if end_idx <= contig_len:
+                if end_idx < contig_len:
                     x[idx] = stacked_features[start_idx:end_idx]
                     assert max_len == self.window
                     # keep only positions that didn't need padding in order to be computed (pad=False)
                     mask[idx][:self.convoluted_size(max_len, pad=False)] = 1
+                    idx += 1
                 else:
+                    # force at least 1000 bases in the last chunk, as the network hasn't seen contigs shorter than 1K
+                    if self.window >= 1000 and contig_len - start_idx < 1000:
+                        start_idx = contig_len - 1000
                     x[idx][:contig_len - start_idx] = stacked_features[start_idx:contig_len]
                     mask[idx][:self.convoluted_size(contig_len - start_idx, pad=False)] = 1
+                    idx += 1
+                    break
+
                 start_idx += self.step
 
-                idx += 1
-                if end_idx >= contig_len:
-                    break
         if self.show_progress:
             utils.update_progress(batch_idx + 1, self.__len__(), 'Evaluating: ',
                                   f' {(timer() - start):5.2f}s  {stack_time:5.2f}s')
