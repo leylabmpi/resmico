@@ -298,26 +298,3 @@ rule MGSIM_compress_reads:
         """
         ionice {params.ionice} gzip -c {input} > {output} 2> {log}
         """
-
-# rule MGSIM_compress_read2:
-#     """
-#     Compressing reads
-#     """
-#     input:
-#         J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-#           '{read_depth}', 'sim_reads', 'R2.fq')
-#     output:
-#         J(mgsim_dir, 'sim_reads', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-#           '{read_depth}', 'Read2.fq.gz')
-#     params:
-#         ionice = config['params']['ionice']
-#     resources:
-#         time = lambda wildcards, attempt: attempt ** 3 * 59
-#     log:
-#         J(log_dir, 'MGSIM', 'compress_read2', '{richness}', '{abund_dist}', '{rep}',
-#           '{read_length}', '{read_depth}.log')
-#     shell:
-#         """
-#         ionice {params.ionice} gzip -c {input} > {output} 2> {log}
-#         """
-          

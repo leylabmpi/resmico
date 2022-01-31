@@ -6,8 +6,8 @@ genomes_file: tests/data/genomes_n10.tsv
 reads_file: Skip
 
 # Output directory
-output_dir: tests/output_n10/
-#output_dir: tests/output_Samp2-MAG3/
+output_dir: tests/output/n10/
+#output_dir: tests/output/Samp2-MAG3/
 
 # Temporary output directory (/dev/shm/ for shared memory)
 #tmp_dir: /tmp/
@@ -43,7 +43,7 @@ params:
       other_sim_params: --art-paired --art-mflen 270 --art-sdev 50 --rndSeed 8712
                         --art-qprof1 data/art_error_profiles/HiSeq2500L150R1.txt
                         --art-qprof2 data/art_error_profiles/HiSeq2500L150R2.txt
-      skewer: -n -l 70 -q 25
+      skewer: -n -l 70 -q 25 --format sanger
       keep_reads: True # False
   # coverage
   nonpareil:
