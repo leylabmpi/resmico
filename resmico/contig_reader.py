@@ -373,8 +373,10 @@ class ContigReader:
                 rd = csv.reader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
                 next(rd)  # skip CSV header: Assembler, Contig_name, MissassembleCount, ContigLen
                 for row in rd:
-                    size_bytes = int(row[3])
                     # the fields in row are: name, length (bases), misassembly_count, size_bytes, breakpoints
+                    contig_name = row[0]
+                    contig_len = int(row[1])
+                    size_bytes = int(row[3])
                     breakpoints = []
                     if len(row) >= 5:  # breakpoints is present; TODO: remove this once all datasets have it
                         if row[4] != '-':
@@ -384,13 +386,12 @@ class ContigReader:
                                 breakpoints.append((int(start_stop[0]), int(start_stop[1])))
                                 mid = int(start_stop[0] + start_stop[1] / 2)
                                 # since contigs can be reversed, chose the breakpoint closer to the edge
-                                contig_len = int(row[1])
                                 if contig_len - mid < mid:
                                     mid = contig_len - mid
                                 breakpoint_hist[min(49, mid) // 200] += 1
                     avg_coverage = float(row[5]) if len(row) >= 6 else 100
 
-                    contig_info = ContigInfo(row[0], contig_fname, contig_len, offset, size_bytes, int(row[2]),
+                    contig_info = ContigInfo(contig_name, contig_fname, contig_len, offset, size_bytes, int(row[2]),
                                              breakpoints, avg_coverage)
                     if contig_info.length >= self.min_len and contig_info.avg_coverage >= self.min_avg_coverage:
                         contig_lengths.append(contig_info.length)
