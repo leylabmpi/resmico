@@ -202,7 +202,8 @@ rule map_subsample_bam:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
         if [ `{params.exe_empty} {input.fna}` -eq 0 ]; then
-          {params.exe} -o {output.bam} -m {params.mc} {input.bam} {input.fna} > {output.tsv} 2> {log}
+          {params.exe} -o {output.bam} -m {params.mc} \
+            {input.bam} {input.fna} > {output.tsv} 2> {log}
         else
           echo "Input is empty; skipping" > {log}
           touch {output.bam} {output.tsv} 2>> {log}
@@ -252,11 +253,11 @@ rule map_index_subsampled_bam:
     Mapping reads from origin sample to the metagenome assembly contigs
     """
     input:
-        bam = config['tmp_dir'] + \
-              'map/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.bam'
+        bam = J(config['tmp_dir'], 'map', '{richness}', '{abund_dist}', '{rep}',
+                '{read_length}', '{read_depth}', '{assembler}.bam')
     output:
-        bai = config['tmp_dir'] + \
-              'map/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.bam.bai'
+        bai = J(config['tmp_dir'], 'map', '{richness}', '{abund_dist}', '{rep}',
+                '{read_length}', '{read_depth}', '{assembler}.bam.bai')
     params:
         exe = config['pipeline']['script_folder'] + 'is_empty.py'
     threads:
@@ -268,11 +269,11 @@ rule map_index_subsampled_bam:
     conda:
         '../envs/bowtie2.yaml'
     log:
-        log_dir + \
-            'map/index_subsampled_bam/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.log'
+        J(log_dir, 'map', 'index_subsampled_bam', '{richness}', '{abund_dist}', '{rep}',
+          '{read_length}', '{read_depth}', '{assembler}.log')
     benchmark:
-        benchmark_dir + \
-            'map/index_subsampled_bam/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.txt'
+        J(benchmark_dir, 'map', 'index_subsampled_bam', '{richness}', '{abund_dist}', '{rep}',
+          '{read_length}', '{read_depth}', '{assembler}.txt')
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH

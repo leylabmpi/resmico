@@ -1307,40 +1307,10 @@ def old_residual_block(x, downsample: bool, filters, kernel_size):
     out = relu_bn(out)
     return out
 
-def residual_block(x, downsample: bool, filters, kernel_size):
-    # output size is N-k+1 if not downsample, N/2 otherwise (because of padding='same')
-    y = Conv1D(kernel_size=kernel_size,
-               strides=(1 if not downsample else 2),
-               filters=filters,
-               padding='same' if downsample else 'valid')(x)
-    y = relu_bn(y)
-    # output size reduced again by k-1, so N-2*k+2 if not downsample, (N-k)/2 -k + 2 otherwise
-    y = Conv1D(kernel_size=kernel_size,
-               strides=1,
-               filters=filters,
-               padding='valid')(y)
-
-    # Adding the residual connection; need to adjust its size to match the size of the convolved input
-    if downsample:
-        # output size is N/2
-        x = AveragePooling1D(pool_size=2, strides=2, padding='same')(x)
-        x = Conv1D(kernel_size=1,
-                   strides=1,
-                   filters=filters,
-                   padding='valid')(x)
-        # cropping makes up for the difference in length between x and y
-        x = Cropping1D((0, kernel_size - 1))(x)
-    else:
-        # cropping makes up for the 2*(k-1) reduction in size caused by the convolutions
-        x = Cropping1D((0, 2*kernel_size - 2))(x)
-    out = Add()([x, y])
-    out = relu_bn(out)
-    return out
-
 '''
 Residual block with all valid pading
 '''
-def residual_block_all_valid(x, downsample: bool, filters, kernel_size):
+def residual_block(x, downsample: bool, filters, kernel_size):
     y = Conv1D(kernel_size=kernel_size,
                strides=(1 if not downsample else 2),
                filters=filters,

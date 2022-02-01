@@ -299,7 +299,7 @@ class ContigReader:
             if 'all_count' in stats and 'seq_window_perc_gc' in stats and 'seq_window_entropy' in stats and 'coverage' in stats:
                 has_new_metrics = True
 
-        has_new_metrics = False # TODO: remove
+        has_new_metrics = False  # TODO: remove
         new_metrics = ['coverage', 'seq_window_entropy', 'seq_window_perc_gc'] if has_new_metrics else []
 
         for feature_name in reader.float_feature_names + new_metrics:
@@ -382,10 +382,15 @@ class ContigReader:
                             for break_point in all_breakpoints:
                                 start_stop = break_point.split('-')
                                 breakpoints.append((int(start_stop[0]), int(start_stop[1])))
-                                breakpoint_hist[min(49, (int(start_stop[0]) + int(start_stop[1])) // 200)] += 1
+                                mid = int(start_stop[0] + start_stop[1] / 2)
+                                # since contigs can be reversed, chose the breakpoint closer to the edge
+                                contig_len = int(row[1])
+                                if contig_len - mid < mid:
+                                    mid = contig_len - mid
+                                breakpoint_hist[min(49, mid) // 200] += 1
                     avg_coverage = float(row[5]) if len(row) >= 6 else 100
 
-                    contig_info = ContigInfo(row[0], contig_fname, int(row[1]), offset, size_bytes, int(row[2]),
+                    contig_info = ContigInfo(row[0], contig_fname, contig_len, offset, size_bytes, int(row[2]),
                                              breakpoints, avg_coverage)
                     if contig_info.length >= self.min_len and contig_info.avg_coverage >= self.min_avg_coverage:
                         contig_lengths.append(contig_info.length)
@@ -454,7 +459,7 @@ class ContigReader:
         start = timer()
         has_new_metric = False
         if 'coverage' in self.means and 'coverage' in self.stdevs:
-                has_new_metric = True
+            has_new_metric = True
         new_metric = ['coverage'] if has_new_metric else []
         for feature_name in reader.float_feature_names + new_metric:
             if feature_name not in features:
@@ -472,7 +477,7 @@ class ContigReader:
             else:
                 continue
                 logging.warning(f'Stdev for {feature_name} is too low ({self.stdevs[feature_name]}). Not normalizing')
-#             replace NANs with 0 (the new mean)
+            #             replace NANs with 0 (the new mean)
             nan_pos = np.isnan(features[feature_name])
             features[feature_name][nan_pos] = 0
         self.normalize_time += (timer() - start)
