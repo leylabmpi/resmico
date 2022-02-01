@@ -1,9 +1,13 @@
+def ref_genome_rename_input(wildcards):
+    x = config['genomes_tbl'].loc[config['genomes_tbl'].Taxon == wildcards.genome,'Fasta']
+    return x.unique().tolist()
+    
 rule ref_genome_rename:
     """
     Renaming genome fasta file names & sequence headers
     """
     input:
-        fna = lambda wildcards: config['genomes_tbl'].loc[config['genomes_tbl'].Taxon == wildcards.genome,'Fasta'].unique().tolist()
+        fna = ref_genome_rename_input
     output:
         fna = config['tmp_dir'] + 'gs_map/genomes/{genome}.fna'
     params:
@@ -17,16 +21,21 @@ rule ref_genome_rename:
         export PATH=$CONDA_PREFIX/bin:$PATH
         {params.exe} {input.fna} > {output.fna} 2> {log}
         """
+
+def gs_map_reads(wildcards):
+    read = 'Read1' if wildcards.read == 'R1' else 'Read2'
+    x = config['genomes_tbl'].loc[config['genomes_tbl'].Sample == wildcards.sample, read]
+    return x.unique().tolist()
         
 if not skipped(config['nonsim_params']['subsample_reads']):
-    rule subsample_read1:
+    rule subsample_reads:
         """
         Subsampling reads
         """
         input:
-            reads = lambda wildcards: config['genomes_tbl'].loc[config['genomes_tbl'].Sample == wildcards.sample, 'Read1'].unique().tolist()
+            fq = gs_map_reads
         output:
-            reads = temp(config['tmp_dir'] + 'gs_map/reads/subsample/{sample}/R1.fq')
+            fq = temp(config['tmp_dir'] + 'gs_map/reads/subsample/{sample}/{read}.fq')
         params:
             n = config['nonsim_params']['subsample_reads']
         threads:
@@ -38,42 +47,14 @@ if not skipped(config['nonsim_params']['subsample_reads']):
         conda:
             '../envs/bowtie2.yaml'
         log:
-            log_dir + 'subsample_read1/{sample}.log'
+            log_dir + 'subsample_reads/{sample}/{read}.log'
         benchmark:
-            benchmark_dir + 'subsample_read1/{sample}.txt'
+            benchmark_dir + 'subsample_reads/{sample}/{read}.txt'
         shell:
             """
             export PATH=$CONDA_PREFIX/bin:$PATH
             seqkit sample --two-pass -j {threads} -n {params.n} \
-              {input.reads} > {output.reads} 2> {log}
-            """
-    rule subsample_read2:
-        """
-        Subsampling reads
-        """
-        input:
-            reads = lambda wildcards: config['genomes_tbl'].loc[config['genomes_tbl'].Sample == wildcards.sample, 'Read2'].unique().tolist()
-        output:
-            reads = temp(config['tmp_dir'] + 'gs_map/reads/subsample/{sample}/R2.fq')
-        params:
-            n = config['nonsim_params']['subsample_reads']
-        threads:
-            4
-        resources:
-            time = lambda wildcards, attempt: attempt ** 3 * 59,
-            n = lambda wildcards, threads: threads,
-	    mem_gb_pt = lambda wildcards, attempt: attempt ** 3 * 4 + 8
-        conda:
-            '../envs/bowtie2.yaml'
-        log:
-            log_dir + 'subsample_read2/{sample}.log'
-        benchmark:
-            benchmark_dir + 'subsample_read2/{sample}.txt'
-        shell:
-            """
-            export PATH=$CONDA_PREFIX/bin:$PATH
-            seqkit sample --two-pass -j {threads} -n {params.n} \
-              {input.reads} > {output.reads} 2> {log}
+              {input.fq} > {output.fq} 2> {log}
             """
 else:
     localrules: copy_reads
@@ -82,21 +63,18 @@ else:
         Copying reads to temp directory
         """
         input:
-            read1 = lambda wildcards: config['genomes_tbl'].loc[config['genomes_tbl'].Sample == wildcards.sample, 'Read1'].unique().tolist(),
-            read2 = lambda wildcards: config['genomes_tbl'].loc[config['genomes_tbl'].Sample == wildcards.sample, 'Read2'].unique().tolist()
+            fq = gs_map_reads
         output:
-            read1 = temp(config['tmp_dir'] + 'gs_map/reads/subsample/{sample}/R1.fq'),
-            read2 = temp(config['tmp_dir'] + 'gs_map/reads/subsample/{sample}/R2.fq')
+            fq = temp(config['tmp_dir'] + 'gs_map/reads/subsample/{sample}/{read}.fq')
         params:
             ionice = config['params']['ionice']
         log:
-            log_dir + 'copy_reads/{sample}.log'
+            log_dir + 'copy_reads/{sample}/{read}.log'
         benchmark:
-            benchmark_dir + 'copy_reads/{sample}.txt'
+            benchmark_dir + 'copy_reads/{sample}/{read}.txt'
         shell:
             """
-            ionice {params.ionice} seqkit seq {input.read1} > {output.read1} 2> {log}
-            ionice {params.ionice} seqkit seq {input.read2} > {output.read2} 2>> {log}
+            ionice {params.ionice} seqkit seq {input.fq} > {output.fq} 2> {log}
             """
 
 rule map_read_filter:
@@ -202,32 +180,6 @@ rule map_bowtie2:
           samtools sort -@ {threads} -T $TMPDIR -o - \
           > {output.bam} 2>> {log.sam}
         """
-
-# rule map_shuffle_bam:
-#     """
-#     Shuffle BAM for downstream subsampling
-#     """
-#     input:
-#         bam = config['tmp_dir'] + 'gs_map/map_raw/{genome}/{sample}.bam'
-#     output:
-#         bam = config['tmp_dir'] + 'gs_map/map/{genome}/{sample}.bam'
-#     threads:
-#         4
-#     resources:
-#         time = lambda wildcards, attempt: attempt ** 3 * 59,
-#         n = lambda wildcards, threads: threads,
-#         mem_gb_pt = lambda wildcards, attempt: attempt * 2
-#     conda:
-#         '../envs/bowtie2.yaml'
-#     log:
-#         log_dir + 'map/shuff_bam/{genome}/{sample}.log'
-#     benchmark:
-#         benchmark_dir + 'map/shuff_bam/{genome}/{sample}.txt'
-#     shell:
-#         """
-#         export PATH=$CONDA_PREFIX/bin:$PATH
-#         samtools bamshuf -@ {threads} -o {output.bam} {input.bam} 2> {log} 1>&2
-#         """        
         
 rule map_index_bam:
     """
@@ -448,7 +400,7 @@ def all_feat_tables(wildcards):
     genomes_tbl = config['genomes_tbl']
     out_files = []
     for i,x in genomes_tbl.iterrows():
-        f = '{genome}/{sample}/features.tsv.gz'
+        f = J('{genome}', '{sample}', 'features.tsv.gz')
 	f = f.format(genome=x['Taxon'], sample=x['Sample'])
 	f = map_dir + f
 	out_files.append(f)
