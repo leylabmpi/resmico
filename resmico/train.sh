@@ -5,9 +5,9 @@ module load cuda/11.1.1 cudnn/8.0.5 nccl/2.3.7-1
 
 N9K="/cluster/work/grlab/projects/projects2019-contig_quality/data/v2/resmico-sm/GTDBr202_n9k_train/"
 N9K_1REP="/cluster/work/grlab/projects/projects2019-contig_quality/data/v2/resmico-sm/GTDBr202_n9k_train_1rep"
-N9K_SMALL="/cluster/work/grlab/projects/projects2019-contig_quality/data/v2/resmico-sm/GTDBr202_n9k_train_1rep/GTDBr202_n9k_train/cami_err/features/"
+N9K_SMALL="/cluster/work/grlab/projects/projects2019-contig_quality/data/v2/resmico-sm/GTDBr202_n9k_train_1rep/GTDBr202_n9k_train/cami_err/features/0.005555/"
 
-declare -a DATA_DIRS=("${N9K_SMALL}") 
+declare -a DATA_DIRS=("${N9K}") 
 CODE_PATH="/cluster/home/ddanciu/resmico"  # replace with whatever directory your source code is in
 OUT_PATH="/cluster/home/ddanciu/tmp" # replace this with the desired output directory
 
@@ -94,18 +94,20 @@ do
   # defining various sets of features
   features_small="ref_base num_query_A num_query_C num_query_G num_query_T num_SNPs num_proper_Match num_orphans_Match mean_al_score_Match coverage stdev_insert_size_Match mean_mapq_Match" # seq_window_perc_gc seq_window_entropy
 
-  features_smaller="num_SNPs num_proper_Match num_orphans_Match mean_al_score_Match coverage stdev_insert_size_Match mean_mapq_Match seq_window_perc_gc seq_window_entropy"
+  features_smaller="mean_al_score_Match mean_mapq_Match num_orphans_Match mean_insert_size_Match min_al_score_Match num_proper_Match min_insert_size_Match num_proper_SNP coverage"
 
   cmd3="/usr/bin/time python resmico train --binary-data --feature-files-path ${SCRATCH_DIR} \
       --save-path /cluster/home/ddanciu/tmp --save-name  resmico_${max_len}_${current_time} \
       --n-procs 8 --log-level info \
       --batch-size ${batch_size} --n-fc 1 --num-blocks 4 --fraq-neg 0.2  ${additional_params}  \
-      --max-len ${max_len} --gpu-eval-mem-gb 1 --features ${features_small} --n-epochs 100 \
+      --max-len ${max_len} --gpu-eval-mem-gb 1 --features ${features_smaller} --n-epochs 100 \
       --num-translations ${num_translations} --max-translation-bases ${max_translation_bases} \
-      --min-avg-coverage 0 --mask-padding --net-type cnn_resnet_avg"
+      --min-avg-coverage 0 --mask-padding --net-type cnn_resnet_avg \
+      --lr-init 0.0001 \
+      --val-ind-f ${DATA_DIR}/evaluation_indices_fixed.csv \
+      --stats-file ${DATA_DIR}/stats_cov.json" # also contains coverage stats
 #      --feature-file-match '/1/'"
 
-# --val-ind-f ${DATA_DIR}/val_ind.csv
 
   cmd4="echo Cleaning scratch directory...; rm -rf ${SCRATCH_DIR}"
 
@@ -113,7 +115,7 @@ do
 
   echo "Training command is: ${cmd3}"
   # the large training dataset takes 413GB
-  bsub -W 120:00 -n 8 -J resmico-n9k -R "span[hosts=1]" -R rusage[mem=20000,ngpus_excl_p=4,scratch=70000] -G ms_raets \
+  bsub -W 120:00 -n 8 -J 15k-all-clip -R "span[hosts=1]" -R rusage[mem=50000,ngpus_excl_p=4,scratch=80000] -G ms_raets \
      -oo "${lsf_log_file}" "${cmd1}; ${cmd2}; ${cmd3} 2>&1 | tee ${log_file}; ${cmd4}"
 
   sleep 1
