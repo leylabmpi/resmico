@@ -25,18 +25,14 @@ rule asmbl_metaSPAdes:
     metaSPAdes assembly 
     """
     input:
-    	read1 = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}',
-                  '{read_length}', '{read_depth}', 'sim_reads', 'R1.fq'),
-	read2 = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}',
-                  '{read_length}', '{read_depth}', 'sim_reads', 'R2.fq')
+    	read1 = J(config['tmp_dir'], P(5), 'sim_reads', 'R1.fq'),
+	read2 = J(config['tmp_dir'], P(5), 'sim_reads', 'R2.fq')
     output:
-        contigs = temp(J(config['tmp_dir'], 'asmbl', 'metaspades', '{richness}',
-                         '{abund_dist}', '{rep}', '{read_length}', '{read_depth}',
+        contigs = temp(J(config['tmp_dir'], 'asmbl', 'metaspades', P(5),
                          'contigs.fasta'))
     params:
         params = config['params']['assemblers']['metaspades'],
-        tmp_dir = J(config['tmp_dir'], 'asmbl', 'metaspades_tmp', '{richness}',
-                    '{abund_dist}', '{rep}', '{read_length}', '{read_depth}')
+        tmp_dir = J(config['tmp_dir'], 'asmbl', 'metaspades_tmp', P(5))
     conda:
         '../envs/assembly.yaml'
     threads:
@@ -52,11 +48,9 @@ rule asmbl_metaSPAdes:
                                         unit='per_thread_gb'),
         attempt = lambda wildcards, attempt, threads, input: attempt
     log:
-        J(log_dir, 'asmbl', 'metaspades', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}.log')
+        J(log_dir, 'asmbl', 'metaspades', P(5) + '.log')
     benchmark:
-        J(benchmark_dir, 'asmbl', 'metaspades', '{richness}', '{abund_dist}',
-          '{rep}', '{read_length}', '{read_depth}.txt')
+        J(bmk_dir, 'asmbl', 'metaspades', P(5) + '.txt')
     shell:
         """
         OUTDIR=`dirname {output.contigs}`
@@ -82,13 +76,10 @@ rule asmbl_megahit:
     metahit assembly 
     """
     input:
-    	read1 = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                  '{read_depth}', 'sim_reads', 'R1.fq'),
-    	read2 = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                  '{read_depth}', 'sim_reads', 'R2.fq')
+    	read1 = J(config['tmp_dir'], P(5), 'sim_reads', 'R1.fq'),
+    	read2 = J(config['tmp_dir'], P(5), 'sim_reads', 'R2.fq')
     output:
-        contigs = temp(J(config['tmp_dir'], 'asmbl', 'megahit', '{richness}', '{abund_dist}',
-                         '{rep}', '{read_length}', '{read_depth}', 'contigs.fasta'))
+        contigs = temp(J(config['tmp_dir'], 'asmbl', 'megahit', P(5), 'contigs.fasta'))
     params:
         params = config['params']['assemblers']['megahit']
     conda:
@@ -105,11 +96,9 @@ rule asmbl_megahit:
                     denovo_asmbl_memory(wildcards, attempt, threads, input, \
                                         unit='per_thread_gb')
     log:
-        J(log_dir, 'asmbl', 'megahit', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}.log')
+        J(log_dir, 'asmbl', 'megahit', P(5) + '.log')
     benchmark:
-        J(benchmark_dir, 'asmbl', 'megahit', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}.txt')
+        J(benchmark_dir, 'asmbl', 'megahit', P(5) + '.txt')
     shell:
         """
         OUTDIR=`dirname {output.contigs}`
@@ -131,11 +120,9 @@ rule asmbl_contig_length_filter:
     Filtering out short length contigs
     """
     input:
-        J(config['tmp_dir'], 'asmbl', '{assembler}', '{richness}', '{abund_dist}',
-          '{rep}', '{read_length}', '{read_depth}', 'contigs.fasta')
+        J(config['tmp_dir'], 'asmbl', '{assembler}', P(5), 'contigs.fasta')
     output:
-        temp(J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-               '{read_depth}', '{assembler}', 'contigs_filtered.fasta'))
+        temp(J(config['tmp_dir'], P(6), 'contigs_filtered.fasta'))
     params:
         exe = J(config['pipeline']['script_folder'], 'contig_len_cutoff.py'),
         cutoff = config['params']['contigs']['length_cutoff']
@@ -145,11 +132,9 @@ rule asmbl_contig_length_filter:
         time = lambda wildcards, attempt: attempt ** 2 * 60 * 6,
         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 8
     log:
-        J(log_dir, 'asmbl', 'contig_length_filter', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}', '{assembler}.log')
+        J(log_dir, 'asmbl', 'contig_length_filter', P(6) + '.log')
     benchmark:
-        J(benchmark_dir, 'asmbl', 'contig_length_filter', '{richness}', '{abund_dist}',
-          '{rep}', '{read_length}', '{read_depth}', '{assembler}.txt')
+        J(benchmark_dir, 'asmbl', 'contig_length_filter', P(6) + '.txt')
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
@@ -161,19 +146,16 @@ rule asmbl_contig_compress:
     Compressing contigs
     """
     input:
-        J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-          '{read_depth}', '{assembler}', 'contigs_filtered.fasta')
+        J(config['tmp_dir'], P(6), 'contigs_filtered.fasta')
     output:
-        J(asmbl_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-          '{read_depth}', '{assembler}', 'contigs_filtered.fasta.gz')
+        J(asmbl_dir, P(6), 'contigs_filtered.fasta.gz')
     params:
         ionice = config['params']['ionice']
     resources:
         time = lambda wildcards, attempt: attempt ** 3 * 59,
         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 5
     log:
-        J(log_dir, 'asmbl', 'contig_compress', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}', '{assembler}.log')
+        J(log_dir, 'asmbl', 'contig_compress', P(6) + '.log')
     shell:
         """
         ionice {params.ionice} gzip -c {input} > {output} 2> {log}

@@ -10,15 +10,6 @@ import pandas as pd
 import random
 import itertools
 
-def skipped(x):
-    return str(x).strip().lower().startswith('skip')
-def is_true(x):
-    if x is None:
-        return False
-    else:
-        return str(x).strip().lower() == 'true'
-def J(*args):
-    return os.path.join(*args)
 
 # setup
 random.seed(21212)
@@ -28,7 +19,6 @@ if len(config.keys()) == 0:
 config['pipeline']['email'] = config['email']
 ## dirs 
 snake_dir = config['pipeline']['snakemake_folder']
-include: snake_dir + 'bin/dirs'
 config['output_dir'] = config['output_dir'].rstrip('/') + '/'
 ## temp_dir
 config['tmp_dir'] = os.path.join(config['tmp_dir'], 'resmico-sm_' + \
@@ -38,67 +28,47 @@ try:
     os.makedirs(config['tmp_dir'])
 except FileExistsError:
     pass
+## dirs/utils
+include: snake_dir + 'bin/ll_pipeline_utils/Snakefile'
+include: snake_dir + 'bin/dirs'
 
 ## Load
 ### Genomes file
 config['genomes_tbl'] = pd.read_csv(config['genomes_file'], sep='\t', comment='#')
-#### Taxon
-for x in ['Taxon']:
-    if x not in config['genomes_tbl'].columns:
-        msg = 'Column "{}" not found in genomes file'
-        raise ValueError(msg.format(x))
+### table type
+def has_cols(df, columns):
+    return all([x in df.columns for x in columns])
+if has_cols(config['genomes_tbl'], ['Taxon', 'Fasta', 'Sample', 'Read1', 'Read2']):
+    config['input_type'] = 'real data'
+elif has_cols(config['genomes_tbl'], ['Fasta', 'Sample', 'Read1', 'Read2']):
+    config['input_type'] = 'provided simulation reads'
+elif has_cols(config['genomes_tbl'], ['Taxon', 'Fasta']):
+    config['input_type'] = 'simulation'
+else:
+    msg = 'Cannot determine input table type from the columns; see the README'
+    raise ValueError(msg)
+msg ='\33[35mInput data type determined from table columns: {}\x1b[0m'
+print(msg.format(config['input_type']))
+    
+
+### Input data formatting
 func = lambda x: re.sub('[^A-Za-z0-9_]+', '_', x)
-config['genomes_tbl']['Taxon'] = config['genomes_tbl']['Taxon'].apply(func)
-#### Genome fasta
-if 'Fasta' not in config['genomes_tbl'].columns:
-    F = lambda x: os.path.join(genomes_dir, x + '.fna')
-    config['genomes_tbl']['Fasta'] = config['genomes_tbl']['Taxon'].apply(F)
-else:
-    config['params']['MGSIM']['genome_download'] = 'Skip'
-#### Sample metagenome
-if 'Sample' in config['genomes_tbl'].columns:
-    if 'Read1' not in config['genomes_tbl'].columns:
-        raise IOError('"Read1" column not found in input table!')
-    if 'Read2' not in config['genomes_tbl'].columns:
-        sys.stderr.write('WARNING: no "Read2" column in the input table!\n')
-    config['just_features'] = True
-else:
-    config['just_features'] = False
-### Reads file (using genomes + pre-simulated reads)
-if not skipped(config['reads_file']):
-    config['reads_tbl'] = pd.read_csv(config['reads_file'], sep='\t', comment='#')
-    for col in ['Sample', 'Read1', 'Read2']:
-        if col not in config['reads_tbl'].columns:
-            raise IOError('"{}" column not found in reads table!'.format(col))
-else:
-    config['reads_tbl'] = None
+if 'Taxon' in config['genomes_tbl'].columns:
+    config['genomes_tbl']['Taxon'] = config['genomes_tbl']['Taxon'].apply(func)
+for col in ['Fasta', 'Read1', 'Read2']:
+    if col in config['genomes_tbl'].columns:
+        for F in config['genomes_tbl'][col].tolist():
+            if not os.path.isfile(F):
+                raise IOError(f'Cannot find file: {F}')
     
 # Config calculated parameters
-## if user provided
 config['sim_params'] = {'richness' : [], 'abund_dist' : [],
                         'read_depth' : [], 'read_length' : [],
                         'rep' : [], 'assembler' : []}
 df_dtypes = {'richness' : str, 'abund_dist' : [],
              'read_depth' : int, 'read_length' : [],
              'rep' : int, 'assembler' : str}
-if config['just_features']:
-    config['taxa_unique'] = config['genomes_tbl'].Taxon.unique().tolist()
-    config['samples_unique'] = config['genomes_tbl'].Sample.unique().tolist()
-else:
-    if config['reads_tbl'] is None:
-        richness = config['params']['MGSIM']['community']['richness']
-        abund_dist = [re.sub(r'[:,]+', '-', x) for x in config['params']['MGSIM']['community']['abundance_distribution']]
-        read_length = config['params']['MGSIM']['reads']['length']    
-        read_depth = config['params']['MGSIM']['reads']['depth']
-        reps = [x+1 for x in range(config['params']['MGSIM']['sim_reps'])]
-        assemblers = [k for k,v in config['params']['assemblers'].items() if not skipped(v)]
-    else:
-        richness = config['reads_tbl'].Sample.tolist()
-        abund_dist = ['NA']
-        read_length = ['NA']
-        read_depth = ['NA']
-        reps = ['NA']
-        assemblers = [k for k,v in config['params']['assemblers'].items() if not skipped(v)]
+def pairwise_params(config, richness, abund_dist, read_length, read_depth, reps, assemblers):
     for x in itertools.product(richness, abund_dist, read_length, read_depth, reps, assemblers):
         config['sim_params']['richness'].append(x[0])
         config['sim_params']['abund_dist'].append(x[1])
@@ -106,48 +76,62 @@ else:
         config['sim_params']['read_depth'].append(x[3])
         config['sim_params']['rep'].append(x[4])
         config['sim_params']['assembler'].append(x[5])
-## data.frame of all varying simulation parameters
-config['sim_params'] = pd.DataFrame.from_dict(config['sim_params'])
+    config['sim_params'] = pd.DataFrame.from_dict(config['sim_params'])
+## flow control
+if config['input_type'] == 'simulation':
+    # simulation parameters
+    richness = config['params']['MGSIM']['community']['richness']
+    abund_dist = [re.sub(r'[:,]+', '-', x) for x in config['params']['MGSIM']['community']['abundance_distribution']]
+    read_length = config['params']['MGSIM']['reads']['length']    
+    read_depth = config['params']['MGSIM']['reads']['depth']
+    reps = [x+1 for x in range(config['params']['MGSIM']['sim_reps'])]
+    assemblers = [k for k,v in config['params']['assemblers'].items() if not skipped(v)]
+    pairwise_params(config, richness, abund_dist, read_length, read_depth, reps, assemblers)
+elif config['input_type'] == 'provided simulation reads':
+    richness = config['genomes_tbl'].Sample.tolist()
+    abund_dist = ['NA']
+    assemblers = [k for k,v in config['params']['assemblers'].items() if not skipped(v)]
+    read_length = ['NA']
+    read_depth = ['NA']
+    reps = ['NA']
+    pairwise_params(config, richness, abund_dist, read_length, read_depth, reps, assemblers)
+elif config['input_type'] == 'real data':
+    config['sim_params'] = config['genomes_tbl'].copy()
+    config['sim_params'].rename(columns={'Sample' : 'richness', 'Taxon' : 'abund_dist'}, inplace=True)
+    for col in ['assembler', 'read_length', 'read_depth', 'rep']:
+        config['sim_params'][col] = 'NA'
+    cols = ['richness', 'abund_dist', 'assembler', 'read_length', 'read_depth', 'rep']
+    config['sim_params'] = config['sim_params'][cols]
+else:
+    raise ValueError('Input data type not recognized!') 
 
-
-def Expand(file_template, param_df, debug=False):
-    """
-    Using colnames as kwargs for file_template.format() 
-    """
-    func = lambda x: file_template.format(**x)
-    files = param_df.apply(func, axis=1).tolist()
-    if debug is True:
-        print('\n'.join(files))
-        print('----------')
-    return(files)
 
 ## Modular snakefiles
 include: snake_dir + 'bin/Snakefile'
-include: snake_dir + 'bin/ll_pipeline_utils/Snakefile'
-if config['just_features']:
-    print('\33[36mCreating feature tables for real metagenomes + (contigs|MAGs)\x1b[0m')    
-    include: snake_dir + 'bin/gs_map/Snakefile'
-else:
-    print('\33[36mSimulating metagenome assemblies\x1b[0m') 
-    if config['reads_tbl'] is None:
-        print('\33[36mNo reads provided. Reads will be simulated\x1b[0m')
-        include: snake_dir + 'bin/MGSIM/Snakefile'
-    else:
-        print('\33[36mReads provided. No reads will be simulated\x1b[0m')
-        include: snake_dir + 'bin/reads/Snakefile'
+if config['input_type'] == 'simulation':
+    include: snake_dir + 'bin/MGSIM/Snakefile'
+elif config['input_type'] == 'provided simulation reads':
+    include: snake_dir + 'bin/reads/Snakefile'
+elif config['input_type'] == 'real data':
+    include: snake_dir + 'bin/real_data/Snakefile'
+if config['input_type'] in ('simulation', 'provided simulation reads'):
     include: snake_dir + 'bin/coverage/Snakefile'
     include: snake_dir + 'bin/assembly/Snakefile'
     include: snake_dir + 'bin/true_errors/Snakefile'
-    include: snake_dir + 'bin/map/Snakefile'
-    include: snake_dir + 'bin/features/Snakefile'
-    include: snake_dir + 'bin/SotA/Snakefile'
+## all input types
+include: snake_dir + 'bin/map/Snakefile'
+include: snake_dir + 'bin/features/Snakefile'
+include: snake_dir + 'bin/SotA/Snakefile'
 
+# constraining wildcards
 wildcard_constraints:
     rep='[^/]+',
     richness='[^/]+',
     read_depth='[^/]+',
-    assembler='[^/]+'
-    
+    assembler='[^/]+',
+    read='R[12]'
+
+# final files
 localrules: all
 rule all:
     input:
