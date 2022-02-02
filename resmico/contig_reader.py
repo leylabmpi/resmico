@@ -360,6 +360,7 @@ class ContigReader:
         contig_count_misassembled = 0
         total_len = 0
         breakpoint_hist = np.zeros(50, np.int32)
+        breakpoint_relpos_hist = np.zeros(20, np.int32)
         excluded_count = 0
         contig_lengths = []
         for fname in file_list:
@@ -386,6 +387,9 @@ class ContigReader:
                                 breakpoints.append((int(start_stop[0]), int(start_stop[1])))
                                 mid = (int(start_stop[0]) + int(start_stop[1])) // 2
                                 # since contigs can be reversed, chose the breakpoint closer to the edge
+                                # (or simply duplicate the breakpoint in case of relative position histogram)
+                                breakpoint_relpos_hist[int(mid * 20 / contig_len)] += 1
+                                breakpoint_relpos_hist[int((contig_len - mid) *20 / contig_len)] += 1
                                 if contig_len - mid < mid:
                                     mid = contig_len - mid
                                 breakpoint_hist[min(49, mid // 200)] += 1
@@ -409,6 +413,7 @@ class ContigReader:
             f'{total_len} total length, {statistics.median(contig_lengths)} median length, '
             f'memory needed (assuming fraq-neg=1) {total_len * reader.bytes_per_base / 1e9:6.2f}GB')
         logging.info(f'Breakpoint location histogram: {",".join([str(x) for x in breakpoint_hist])}')
+        logging.info(f'Breakpoint relative position histogram: {",".join([str(x) for x in breakpoint_relpos_hist])}')
 
     def read_file(self, fname):
         toc_file = fname[:-len('stats')] + 'toc'
