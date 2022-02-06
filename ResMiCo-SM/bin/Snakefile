@@ -52,6 +52,7 @@ def all_which_input(wildcards):
         F += Expand(J(mgsim_dir, 'sim_reads', '{richness}', '{abund_dist}', '{rep}',
                       '{read_length}', '{read_depth}', 'Read2.fq.gz'),
                     config['sim_params'])
+        F.append(J(mgsim_dir, 'sim_reads', 'seqkit_stats.tsv'))
         
     # coverage
     if not skipped(config['params']['nonpareil']['params']):
