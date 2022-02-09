@@ -1,5 +1,9 @@
 def bam2feat_input(wildcards):
-    d = map_subsample_bam_input(wildcards)
+    d = map_bowtie2_input(wildcards)
+    # adding subsampled bam files
+    d['bam'] = J(config['tmp_dir'], 'map', P() + '.bam')
+    d['bai'] = J(config['tmp_dir'], 'map', P() + '.bam.bai')
+    # if ground-truth
     if config['input_type'] != 'real data':
         d['fasta'] = J(true_errors_dir, P(), 'combined_reference', 'contigs_reports',
                        'contigs_filtered.mis_contigs.fa'),
@@ -13,6 +17,12 @@ def bam2feat_masmbl(wildcards):
     else:
         F = J(true_errors_dir, P(), 'combined_reference', 'contigs_reports',
               'contigs_report_contigs_filtered.mis_contigs.info')
+        F= F.format(richness = wildcards.richness,
+                    abund_dist = wildcards.abund_dist,
+                    rep = wildcards.rep,
+                    read_length = wildcards.read_length,
+                    read_depth = wildcards.read_depth,
+                    assembler = wildcards.assembler)
         return '--misassembly_file ' + F
 
 rule bam2feat:

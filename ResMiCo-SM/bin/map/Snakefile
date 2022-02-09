@@ -276,9 +276,11 @@ rule map_bam_copy:
     Copying bam to permanent dir
     """
     input:
-        J(config['tmp_dir'], 'map', P() + '.bam')
+        bam = J(config['tmp_dir'], 'map', P() + '.bam'),
+        bai = J(config['tmp_dir'], 'map', P() + '.bam.bai')
     output:
-        J(map_dir, P() + '.bam')
+        bam = J(map_dir, P(), 'mapped.bam'),
+        bai = J(map_dir, P(), 'mapped.bam.bai')
     params:
         ionice = config['params']['ionice']
     resources:
@@ -288,7 +290,64 @@ rule map_bam_copy:
         J(log_dir, 'map', 'bam_copy', P() + '.log')
     shell:
         """
-        ionice {params.ionice} cp -f {input} {output} 2> {log}
+        ionice {params.ionice} cp -f {input.bam} {output.bam} 2> {log} 1>&2
+        ionice {params.ionice} cp -f {input.bai} {output.bai} 2>> {log} 1>&2
         """
+
+rule map_bam2bigwig:
+    """
+    Converting bam to bigwig
+    """
+    input:
+        bam = J(config['tmp_dir'], 'map', P() + '.bam'),
+        bai = J(config['tmp_dir'], 'map', P() + '.bam.bai')
+    output:
+        bw = J(map_dir, P(), 'mapped.bw')
+    params:
+        ionice = config['params']['ionice']
+    threads:
+        4
+    resources:
+        time = lambda wildcards, attempt: attempt ** 3 * 59,
+        n = lambda wildcards, threads: threads,
+        mem_gb_pt = lambda wildcards, attempt: attempt * 12
+    conda:
+        '../envs/bowtie2.yaml'
+    log:
+        J(log_dir, 'map', 'bam2bigwig', P() + '.log')
+    benchmark:
+        J(benchmark_dir, 'map', 'bam2bigwig', P() + '.txt')
+    shell:
+        """
+        export PATH=$CONDA_PREFIX/bin:$PATH
+        ionice {params.ionice} \
+          bamCoverage -p {threads} -b {input.bam} -o {output.bw} 2> {log} 1>&2
+        """
+
+def map_copy_fai_input(wildcards):
+    d = map_samtools_faidx_input(wildcards)
+    d['fai'] = J(config['tmp_dir'], P(), 'contigs_filtered.fasta.fai')
+    return d
         
+rule map_copy_fai:
+    """
+    Copying fai + associated fasta to final directory
+    """
+    input:
+        unpack(map_copy_fai_input)
+    output:
+        fna = J(map_dir, P(), 'contigs.fasta'),
+        fai = J(map_dir, P(), 'contigs.fasta.fai')
+    params:
+        ionice = config['params']['ionice']
+    resources:
+        time = lambda wildcards, attempt: attempt ** 3 * 59,
+        mem_gb_pt = lambda wildcards, attempt: attempt * 8
+    log:
+        J(log_dir, 'map', 'copy_fai', P() + '.log')
+    shell:
+        """
+        ionice {params.ionice} cp -f {input.fna} {output.fna} 2> {log} 1>&2
+        ionice {params.ionice} cp -f {input.fai} {output.fai} 2>> {log} 1>&2
+        """
 

@@ -1,11 +1,13 @@
 # Input table
 ## Table of genomes
-#genomes_file: tests/data/genomes_n10.tsv
-genomes_file: tests/data/Samp3-MAG3.tsv
+genomes_file: tests/data/genomes_n10.tsv
+#genomes_file: tests/data/Samp3-MAG3.tsv
+#genomes_file: tmp/ERS396506.tsv
 
 # Output directory
-#output_dir: tests/output/n10/
-output_dir: tests/output/Samp3-MAG3/
+output_dir: tests/output/n10/
+#output_dir: tests/output/Samp3-MAG3/
+#output_dir: tmp/ERS396506/
 
 # Temporary output directory (/dev/shm/ for shared memory)
 #tmp_dir: /tmp/
@@ -64,22 +66,24 @@ params:
     samtools: ""
     bowtie2: ""
     max_coverage: 20
-    keep_bam: False
+    keep_bam: True
+    keep_faidx: True
+    create_bigwig: False
   # creating ResMiCo feature tables
   feature_table:
     make: --window 6
   # state-of-the-art
   SotA:
-    ALE: ""
-    VALET: Skip #""  
+    ALE: Skip # ""
+    VALET: Skip # ""
     metaMIC:
-      extract: --mlen 1000
+      extract: Skip #--mlen 1000
       predict: --mlen 1000 --slen 500 -a MEGAHIT
 
 # params just for creating feature tables for non-simulated data
 nonsim_params:
   # max number of reads to use
-  subsample_reads: 1000000
+  subsample_reads: Skip #1000000
 
 # snakemake pipeline
 pipeline:

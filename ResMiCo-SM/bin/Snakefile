@@ -40,12 +40,15 @@ def chpt_mq_ref_genomes(wildcards):
     return files
 
 def all_bam_files(wildcards):
+    """
+    Final bam files
+    """
     genomes_tbl = config['genomes_tbl']
     out_files = []
     for i,x in genomes_tbl.iterrows():
         f = '{genome}/{sample}.bam'
 	f = f.format(genome=x['Taxon'], sample=x['Sample'])
-	f = map_dir + f
+	f = J(map_dir, f)
 	out_files.append(f)
     return out_files
 
@@ -82,8 +85,16 @@ def which_input_metaquast(F, config):
     return F
 
 def which_input_map(F, config):
+    # bam files
     if is_true(config['params']['map']['keep_bam']):
-        F += Expand(J(map_dir, P() + '.bam'), config['sim_params']) 
+        F += Expand(J(map_dir, P(), 'mapped.bam'), config['sim_params'])
+    # bigwig files
+    if is_true(config['params']['map']['create_bigwig']):
+        F += Expand(J(map_dir, P(), 'mapped.bw'), config['sim_params'])
+    # indexed reference contigs 
+    if is_true(config['params']['map']['keep_faidx']):
+        F += Expand(J(map_dir, P(), 'contigs.fasta'), config['sim_params'])
+        F += Expand(J(map_dir, P(), 'contigs.fasta.fai'), config['sim_params'])    
     # feature table
     if not skipped(config['params']['feature_table']['make']):   
         F.append(J(features_dir, 'feature_files.tsv'))
