@@ -242,7 +242,7 @@ class Resmico(object):
             x = concatenate([maxP, avgP])
             x = Flatten()(x)
 
-        elif self.net_type == 'fixlen_resnet_maxglob':
+        elif self.net_type == 'fixlen_resnet_maxglob': #used for shap feature importance v2
             x = BatchNormalization()(inlayer)
             x = Conv1D(self.filters, kernel_size=10,
                        input_shape=(self.max_len, self.n_feat),
@@ -262,6 +262,28 @@ class Resmico(object):
                 mask = Input(shape=(mask_size,), name='mask', dtype='bool')
             ###
             x = MaxPooling1D(pool_size=597, padding='valid')(x)
+            x = Flatten()(x)
+            
+        elif self.net_type == 'fixlen_resnet_avgglob': #used for shap feature importance v2
+            x = BatchNormalization()(inlayer)
+            x = Conv1D(self.filters, kernel_size=10,
+                       input_shape=(self.max_len, self.n_feat),
+                       padding='valid', name='1st_conv')(x)
+            x = utils.relu_bn(x)
+            num_filters = self.filters
+            for i, num_blocks in enumerate(self._get_blocks(self.num_blocks)):
+                for j in range(num_blocks):
+                    x = utils.residual_block(x, downsample=(j == 0 and i != 0), filters=num_filters,
+                                                 kernel_size=self.ker_size)
+                num_filters *= 2
+                # this is needed only to avoid errors, mask is not used later
+            tmp_model = Model(inputs=inlayer, outputs=x)  # dummy model used only in next line
+            self.convoluted_size = construct_convolution_lambda(tmp_model) if config.mask_padding else lambda x, pad: 1
+            if config.binary_data:
+                mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
+                mask = Input(shape=(mask_size,), name='mask', dtype='bool')
+            ###
+            x = AveragePooling1D(pool_size=1205, padding='valid')(x)
             x = Flatten()(x)
 
         for _ in range(self.n_fc):
@@ -294,7 +316,7 @@ class Resmico(object):
 
     @staticmethod
     def is_fixed_length(network_type: str):
-        return network_type in ['fixlen_cnn_resnet', 'cnn_resnet_argmax', 'fixlen_resnet_maxglob']
+        return network_type in ['fixlen_cnn_resnet', 'cnn_resnet_argmax', 'fixlen_resnet_maxglob', 'fixlen_resnet_avgglob']
 
     def predict(self, x, **kwargs):
         return self.net.predict(x, **kwargs)
