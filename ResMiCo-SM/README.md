@@ -5,7 +5,7 @@ Snakemake pipeline for 2 main purposes:
 1. Generating synthetic metagenome data from a set of reference genomes
 2. Creating feature tables for ResMiCo training/testing/application
 
-## setup
+## Setup
 
 You just need a conda env with snakemake & pandas installed.
 Snakemake will install all other dependencies via conda.
@@ -14,25 +14,51 @@ Snakemake will install all other dependencies via conda.
 
 ### Genomes table
 
-* Required
-* Tab-delimited table
-* Must have the following columns:
+This tab-delimited table differs in which columns are required depending
+on the scenario:
+
+1. Simulations from ground-truth reference genomes. 
+  - Reads are simulated from the genomes
+  - Metagenome communities are simulated (taxon abundances)
+2. Simulations using use-generated reads & reference genomes (no read simulation).
+  - The reads are assumed to be pre-generated via simulation
+  - Ground-truth reference genomes are still provided
+  - This is useful for testing other simulation datasets (e.g., CAMI)
+3. Generating ResMiCo input feature tables for real genome assemblies (e.g., MAGs).
+  - Required in order to run ResMiCo on real data (no ground truth)
+
+#### Scenario 1 (simulating metagenome reads)
+
+* Required columns:
   * `Taxon`
-    * Taxon name
+    * Unique name for the genome assembly
   * `Fasta`
     * Genome assembly fasta file path
+    
+#### Scenario 2 (user-provided reads for the simulation)
 
-### Reads table
-
-* Only needed if using pre-generated reads (instead of simulating them in the pipeline)
-* Tab-delimited table
-* Must have the following columns:
+* Required columns:
+  * `Taxon`
+  * `Fasta`
   * `Sample`
-    * Sample name
   * `Read1`
-    * Read1 fastq file path
   * `Read2`
-    * Read2 fastq file path
+
+#### Scenario 3 (processing real assemblies)
+
+* Required columns:
+  * `Taxon`
+    * Unique name for the (meta)genome assembly
+  * `Fasta`
+    * (Meta)genome assembly fasta file path (contigs)
+  * `Sample`
+    * Unique name for the metagenome (raw or QC'd reads)
+  * `Read1`
+    * Path to the forward read fastq file
+  * `Read2`
+    * Path to the reverse read fastq file
+
+
 
 ### bam2feat
 

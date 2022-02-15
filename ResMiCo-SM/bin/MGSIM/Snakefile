@@ -1,36 +1,36 @@
-if not skipped(config['params']['MGSIM']['genome_download']):
-    localrules: MGSIM_genome_download    
-    rule MGSIM_genome_download:
-        """
-        Using MGSIM to download the genomes
-        """
-        input:
-            tbl = config['genomes_file']
-        output:
-            tbl = genomes_dir + 'genomes.tsv',
-            fna = config['genomes_tbl']['Fasta']
-        params:
-            params = config['params']['MGSIM']['genome_download'],
-            outdir = config['tmp_dir'] + 'ref_genomes'
-        conda:
-            '../envs/MGSIM.yaml'
-        threads:
-            12            
-        log:
-            log_dir + 'MGSIM/genome_download.log'
-        benchmark:
-            benchmark_dir + 'MGSIM/genome_download.txt'
-        shell:
-            """
-            export PATH=$CONDA_PREFIX/bin:$PATH
-            OUTDIR="{params.outdir}"
-	    rm -rf $OUTDIR 2> {log}
-            mkdir -p $OUTDIR 2>> {log}
+# if not skipped(config['params']['MGSIM']['genome_download']):
+#     localrules: MGSIM_genome_download    
+#     rule MGSIM_genome_download:
+#         """
+#         Using MGSIM to download the genomes
+#         """
+#         input:
+#             tbl = ancient(config['genomes_file'])
+#         output:
+#             tbl = genomes_dir + 'genomes.tsv',
+#             fna = config['genomes_tbl']['Fasta']
+#         params:
+#             params = config['params']['MGSIM']['genome_download'],
+#             outdir = config['tmp_dir'] + 'ref_genomes'
+#         conda:
+#             '../envs/MGSIM.yaml'
+#         threads:
+#             12            
+#         log:
+#             log_dir + 'MGSIM/genome_download.log'
+#         benchmark:
+#             benchmark_dir + 'MGSIM/genome_download.txt'
+#         shell:
+#             """
+#             export PATH=$CONDA_PREFIX/bin:$PATH
+#             OUTDIR="{params.outdir}"
+# 	    rm -rf $OUTDIR 2> {log}
+#             mkdir -p $OUTDIR 2>> {log}
 
-            MGSIM genome_download {params.params} \
-              -n {threads} -d $OUTDIR -r \
-              {input.tbl} > {output.tbl} 2>> {log}
-            """
+#             MGSIM genome_download {params.params} \
+#               -n {threads} -d $OUTDIR -r \
+#               {input.tbl} > {output.tbl} 2>> {log}
+#             """
 
 localrules: MGSIM_genome_rename
 checkpoint MGSIM_genome_rename:
@@ -38,19 +38,19 @@ checkpoint MGSIM_genome_rename:
     Renaming genome fasta file names & sequence headers
     """
     input:
-        tbl = config['genomes_file'],
+        tbl = ancient(config['genomes_file']),
         fna = config['genomes_tbl']['Fasta']
     output:
-        tbl = genomes_dir + 'genomes.tsv'
+        tbl = J(genomes_dir, 'genomes.tsv')
     params:
-        exe = config['pipeline']['script_folder'] + 'rename_genomes.py',
-        outdir = config['tmp_dir'] + 'ref_genomes'
+        exe = J(config['pipeline']['script_folder'], 'rename_genomes.py'),
+        outdir = J(config['tmp_dir'], 'ref_genomes')
     conda:
         '../envs/MGSIM.yaml'
     log:
-        log_dir + 'MGSIM/genome_rename.log'
+        J(log_dir, 'MGSIM', 'genome_rename.log')
     benchmark:
-        benchmark_dir + 'MGSIM/genome_rename.txt'
+        J(bmk_dir, 'MGSIM', 'genome_rename.txt')
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
@@ -80,11 +80,11 @@ rule MGSIM_communities:
     Using MGSIM to simulate communities
     """
     input:
-        tsv = genomes_dir + 'genomes.tsv',
+        tsv = J(genomes_dir, 'genomes.tsv'),
         fna = chpt_ref_genomes
     output:
-        abund = J(mgsim_dir, '{richness}', '{abund_dist}', '{rep}', 'comm_abund.txt'),
-        wAbund = J(mgsim_dir, '{richness}', '{abund_dist}', '{rep}', 'comm_wAbund.txt')
+        abund = J(mgsim_dir, P(3), 'comm_abund.txt'),
+        wAbund = J(mgsim_dir, P(3), 'comm_wAbund.txt')
     params:
         richness = lambda wildcards: wildcards.richness,
         abund_dist = abund_dist_format,
@@ -96,9 +96,9 @@ rule MGSIM_communities:
         time = lambda wildcards, attempt: attempt ** 3 * 59,
         mem_gb_pt = lambda wildcards, attempt: attempt * 4 + 4
     log:
-        J(log_dir, 'MGSIM', 'communities', '{richness}', '{abund_dist}', '{rep}.log')
+        J(log_dir, 'MGSIM', 'communities', P(3) + '.log')
     benchmark:
-        J(benchmark_dir, 'MGSIM', 'communities', '{richness}', '{abund_dist}', '{rep}.txt')
+        J(bmk_dir, 'MGSIM', 'communities', P(3) + '.txt')
     shell:
         """       
         export PATH=$CONDA_PREFIX/bin:$PATH
@@ -121,10 +121,8 @@ rule MGSIM_reads:
         tbl = genomes_dir + 'genomes.tsv',
         fna = chpt_ref_genomes
     output:
-        read1 = temp(J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}',
-                       '{read_length}', '{read_depth}', 'sim_reads', 'illumina', '1', 'R1.fq')),
-        read2 = temp(J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}',
-                       '{read_length}', '{read_depth}', 'sim_reads', 'illumina', '1', 'R2.fq'))
+        read1 = temp(J(config['tmp_dir'], P(5), 'sim_reads', 'illumina', '1', 'R1.fq')),
+        read2 = temp(J(config['tmp_dir'], P(5), 'sim_reads', 'illumina', '1', 'R2.fq'))
     params:
         params = config['params']['MGSIM']['reads']['other_sim_params'],
         read_length = lambda wildcards: wildcards.read_length,
@@ -138,11 +136,9 @@ rule MGSIM_reads:
         n = lambda wildcards, threads: threads,
         mem_gb_pt = lambda wildcards, attempt: attempt * 2 + 2
     log:
-        J(log_dir, 'MGSIM', 'reads', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}.log')
+        J(log_dir, 'MGSIM', 'reads', P(5) + '.log')
     benchmark:
-        J(benchmark_dir, 'MGSIM', 'reads', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}.txt')
+        J(bmk_dir, 'MGSIM', 'reads', P(5) + '.txt')
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
@@ -170,21 +166,15 @@ rule MGSIM_read_filter:
     Filtering reads via Skewer
     """
     input:
-        read1 = J(config['tmp_dir'] + '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                  '{read_depth}', 'sim_reads', 'illumina', '1', 'R1.fq'),
-        read2 = J(config['tmp_dir'] + '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                  '{read_depth}', 'sim_reads', 'illumina', '1', 'R2.fq')
+        read1 = J(config['tmp_dir'], P(5), 'sim_reads', 'illumina', '1', 'R1.fq'),
+        read2 = J(config['tmp_dir'], P(5), 'sim_reads', 'illumina', '1', 'R2.fq')
     output:
-        read1 = temp(J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                       '{read_depth}', 'sim_reads', 'R1.fq')),
-        read2 = temp(J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                       '{read_depth}', 'sim_reads', 'R2.fq')),
+        read1 = temp(J(config['tmp_dir'], P(5), 'sim_reads', 'R1.fq')),
+        read2 = temp(J(config['tmp_dir'], P(5), 'sim_reads', 'R2.fq')),
     params:
         skewer = config['params']['MGSIM']['reads']['skewer'],
-        read1 = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                  '{read_depth}', 'sim_reads', 'trimmed-pair1.fastq'),
-        read2 = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                  '{read_depth}', 'sim_reads', 'trimmed-pair2.fastq')
+        read1 = J(config['tmp_dir'], P(5), 'sim_reads', 'trimmed-pair1.fastq'),
+        read2 = J(config['tmp_dir'], P(5), 'sim_reads', 'trimmed-pair2.fastq')
     conda:
         '../envs/bowtie2.yaml'
     threads:
@@ -194,11 +184,9 @@ rule MGSIM_read_filter:
         n = lambda wildcards, threads: threads,
         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 3
     log:
-        J(log_dir, 'MGSIM', 'read_filter', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}.log')
+        J(log_dir, 'MGSIM', 'read_filter', P(5) + '.log')
     benchmark:
-        J(benchmark_dir, 'MGSIM', 'read_filter', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}.txt')
+        J(benchmark_dir, 'MGSIM', 'read_filter', P(5) + '.txt')
     shell:
         """
         OUTDIR=`dirname {params.read1}`
@@ -210,8 +198,7 @@ rule MGSIM_read_filter:
 
 def final_reads_input(wildcards):
     read = 'R1' if wildcards.read == 'Read1' else 'R2'
-    return J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-             '{read_depth}', 'sim_reads', f'{read}.fq')    
+    return J(config['tmp_dir'], P(5), 'sim_reads', f'{read}.fq')    
 
 rule MGSIM_read_quality:
     """
@@ -220,14 +207,12 @@ rule MGSIM_read_quality:
     input:
         final_reads_input
     output:
-        tsv = temp(J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                     '{read_depth}', '{read}', 'seqkit_stats.tsv'))
+        tsv = temp(J(config['tmp_dir'], P(5), '{read}', 'seqkit_stats.tsv'))
     resources:
         time = lambda wildcards, attempt: attempt ** 3 * 59,
         mem_gb_pt = lambda wildcards, attempt: attempt ** 3 + 7        
     log:
-        J(log_dir, 'MGSIM', 'read_quality', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}', '{read}.log')
+        J(log_dir, 'MGSIM', 'read_quality', P(5), '{read}.log')
     shell:
         """
         seqkit stats -T -a {input} > {output.tsv} 2> {log}
@@ -236,8 +221,7 @@ rule MGSIM_read_quality:
 def MGSIM_read_quality_summary_input(wildcards):
     F = []
     for read in ['Read1', 'Read2']:
-        F += Expand(J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                       '{read_depth}', f'{read}', 'seqkit_stats.tsv'),
+        F += Expand(J(config['tmp_dir'], P(5), f'{read}', 'seqkit_stats.tsv'),
                     config['sim_params'])
     return F
         
@@ -275,7 +259,7 @@ rule MGSIM_read_quality_summary:
                         else:
                             line = [richness, abund_dist, rep, read_length,
                                     read_depth, read] + line[1:]
-                        outF.write('\t'.join(line))                                                                        
+                        outF.write('\t'.join(line))  
 
 rule MGSIM_compress_reads:
     """
@@ -284,16 +268,14 @@ rule MGSIM_compress_reads:
     input:
         final_reads_input
     output:
-        J(mgsim_dir, 'sim_reads', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-          '{read_depth}', '{read}.fq.gz')
+        J(mgsim_dir, 'sim_reads', P(5), '{read}.fq.gz')
     params:
         ionice = config['params']['ionice']
     resources:
         time = lambda wildcards, attempt: attempt ** 3 * 59,
         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 7         
     log:
-        J(log_dir, 'MGSIM', 'compress_reads', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}', '{read}.log')
+        J(log_dir, 'MGSIM', 'compress_reads', P(5), '{read}.log')
     shell:
         """
         ionice {params.ionice} gzip -c {input} > {output} 2> {log}

@@ -1,9 +1,27 @@
+def P(n_params = 99):
+    """
+    Syntax sugar for creating paths that include parameters
+    """
+    x = ['{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}', '{assembler}']
+    return os.path.join(*x[:n_params])
+
+def Expand(file_template, param_df, debug=False):
+    """
+    Using colnames as kwargs for file_template.format() 
+    """
+    func = lambda x: file_template.format(**x)
+    files = param_df.apply(func, axis=1).tolist()
+    if debug is True:
+        print('\n'.join(files))
+        print('----------')
+    return(files)
+
 def chpt_ref_genomes(wildcards):
     """
     Checkpointing for compiled ref genome files for metaQUAST 
     """
     chpt_out = checkpoints.MGSIM_genome_rename.get(**wildcards).output[0]
-    d = os.path.join(config['tmp_dir'] + 'ref_genomes')
+    d = os.path.join(config['tmp_dir'], 'ref_genomes')
     files = glob.glob(os.path.join(d, '*.fna'))
     if len(files) < 1:
         sys.stderr.write('WARNING: No ref genomes found. This is generally OK\n')
@@ -22,111 +40,120 @@ def chpt_mq_ref_genomes(wildcards):
     return files
 
 def all_bam_files(wildcards):
+    """
+    Final bam files
+    """
     genomes_tbl = config['genomes_tbl']
     out_files = []
     for i,x in genomes_tbl.iterrows():
         f = '{genome}/{sample}.bam'
 	f = f.format(genome=x['Taxon'], sample=x['Sample'])
-	f = map_dir + f
+	f = J(map_dir, f)
 	out_files.append(f)
     return out_files
 
-def all_which_input(wildcards):
-    F = []
+def which_input_reads(F, config):
+    F += Expand(J(mgsim_dir, 'sim_reads', P(5), 'Read1.fq.gz'),
+                config['sim_params'])
+    F += Expand(J(mgsim_dir, 'sim_reads', P(5), 'Read2.fq.gz'),
+                config['sim_params'])
+    F.append(J(mgsim_dir, 'sim_reads', 'seqkit_stats.tsv'))
+    return F
 
-    # no simulation (gs_map)
-    if config['just_features']:
-        # feature table        
-        F.append(map_dir + 'feature_files.tsv')
-        # keep BAM files?
-        if str(config['nonsim_params']['keep_bam']).lower() == 'true':
-            F += all_bam_files(wildcards)
-        return F
-    
-    # reads
-    if (str(config['params']['MGSIM']['reads']['keep_reads']).lower() == 'true' and
-        config['reads_tbl'] is None):
-        F += Expand(J(mgsim_dir, 'sim_reads', '{richness}', '{abund_dist}', '{rep}',
-                      '{read_length}', '{read_depth}', 'Read1.fq.gz'),
-                    config['sim_params'])
-        F += Expand(J(mgsim_dir, 'sim_reads', '{richness}', '{abund_dist}', '{rep}',
-                      '{read_length}', '{read_depth}', 'Read2.fq.gz'),
-                    config['sim_params'])
-        F.append(J(mgsim_dir, 'sim_reads', 'seqkit_stats.tsv'))
-        
-    # coverage
-    if not skipped(config['params']['nonpareil']['params']):
-        F += Expand(J(coverage_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                      '{read_depth}', 'nonpareil.npo'),
-                   config['sim_params'])  
-        if not skipped(config['params']['nonpareil']['summary']):
-            F.append(coverage_dir + 'nonpareil/all_summary.RDS')
-            F.append(coverage_dir + 'nonpareil/all_summary.txt')
-            F.append(coverage_dir + 'nonpareil/all_curve.pdf')
-            
-    # MG assemblies
-    F += Expand(J(asmbl_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                  '{read_depth}', '{assembler}', 'contigs_filtered.fasta.gz'),
+def which_input_coverage(F, config):
+    F += Expand(J(coverage_dir, P(5), 'nonpareil.npo'),
+                config['sim_params'])  
+    if not skipped(config['params']['nonpareil']['summary']):
+        F.append(J(coverage_dir, 'nonpareil', 'all_summary.RDS'))
+        F.append(J(coverage_dir, 'nonpareil', 'all_summary.txt'))
+        F.append(J(coverage_dir, 'nonpareil', 'all_curve.pdf'))
+    return F
+
+def which_input_asmbl(F, config):
+    F += Expand(J(asmbl_dir, P(), 'contigs_filtered.fasta.gz'),
                config['sim_params'])
-    
-    ## metaquast
-    if not skipped(config['params']['asmbl_errors']['metaquast']):        
-        F += Expand(J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                      '{read_depth}', '{assembler}', 'metaquast.done'),
+    return F
+
+def which_input_metaquast(F, config):
+    F += Expand(J(true_errors_dir, P(), 'metaquast.done'),
+                config['sim_params'])
+    if not is_true(config['params']['asmbl_errors']['keep_genomes']):
+        F += Expand(J(true_errors_dir, P(3), 'metaquast_cleanup.done'),
                     config['sim_params'])
-        if not is_true(config['params']['asmbl_errors']['keep_genomes']):
-            F += Expand(J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}',
-                          'metaquast_cleanup.done'),
-                        config['sim_params'])
-            if config['reads_tbl'] is None:
-                F.append(genomes_dir + 'genomes_rm.done')
-        
-    # read mapping to contigs
-    if not skipped(config['params']['map']['samtools']):
-        if str(config['params']['map']['keep_bam']).lower() == 'true':
-            F += Expand(J(map_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                          '{read_depth}', '{assembler}.bam'),
-                        config['sim_params']) 
-        # feature table
-        if not skipped(config['params']['feature_table']['make']):   
-            F.append(features_dir + 'feature_files.tsv')
-            
-    # State of the Art
-    ## ALE
-    if not skipped(config['params']['SotA']['ALE']):
-        F += Expand(J(ale_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                      '{read_depth}', '{assembler}', 'ALE_results.txt.gz'),
+        if config['input_type'] != 'provided simulation reads':
+            F.append(J(genomes_dir, 'genomes_rm.done'))
+    return F
+
+def which_input_map(F, config):
+    # bam files
+    if is_true(config['params']['map']['keep_bam']):
+        F += Expand(J(map_dir, P(), 'mapped.bam'), config['sim_params'])
+    # bigwig files
+    if is_true(config['params']['map']['create_bigwig']):
+        F += Expand(J(map_dir, P(), 'mapped.bw'), config['sim_params'])
+    # indexed reference contigs 
+    if is_true(config['params']['map']['keep_faidx']):
+        F += Expand(J(map_dir, P(), 'contigs.fasta'), config['sim_params'])
+        F += Expand(J(map_dir, P(), 'contigs.fasta.fai'), config['sim_params'])    
+    # feature table
+    if not skipped(config['params']['feature_table']['make']):   
+        F.append(J(features_dir, 'feature_files.tsv'))
+    return F
+
+def which_input_sota(F, config):
+    if noSkip(config['params']['SotA']['ALE']):
+        F += Expand(J(ale_dir, P(), 'ALE_results.txt.gz'),
                     config['sim_params']) 
     ## VALET
-    if not skipped(config['params']['SotA']['VALET']):
-        F += Expand(J(valet_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                      '{read_depth}', '{assembler}', 'summary.tsv'),
+    if noSkip(config['params']['SotA']['VALET']):
+        F += Expand(J(valet_dir, P(), 'summary.tsv'),
                    config['sim_params'])
     ## metaMIC
-    if (not skipped(config['params']['SotA']['metaMIC']['extract']) and
-        not skipped(config['params']['SotA']['metaMIC']['predict'])):
-        F += Expand(J(metamic_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                      '{read_depth}', '{assembler}', 'metaMIC', 'metaMIC_contig_score.txt.gz'),
+    if (noSkip(config['params']['SotA']['metaMIC']['extract']) and
+        noSkip(config['params']['SotA']['metaMIC']['predict'])):
+        F += Expand(J(metamic_dir, P(), 'metaMIC', 'metaMIC_contig_score.txt.gz'),
                     config['sim_params'])
-        F += Expand(J(metamic_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                      '{read_depth}', '{assembler}', 'metaMIC',
-                      'metaMIC_corrected_contigs.fa.gz'),
+        F += Expand(J(metamic_dir, P(), 'metaMIC', 'metaMIC_corrected_contigs.fa.gz'),
                     config['sim_params'])
-        F += Expand(J(metamic_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                      '{read_depth}', '{assembler}', 'metaMIC', 'anomaly_score.txt.gz'),
+        F += Expand(J(metamic_dir, P(), 'metaMIC', 'anomaly_score.txt.gz'),
                     config['sim_params'])
-        F += Expand(J(metamic_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                      '{read_depth}', '{assembler}', 'metaMIC',
-                      'misassembly_breakpoint.txt.gz'),
+        F += Expand(J(metamic_dir, P(), 'metaMIC', 'misassembly_breakpoint.txt.gz'),
                     config['sim_params'])
-        F += Expand(J(metamic_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                      '{read_depth}', '{assembler}', 'metaMIC', 'feature_matrix',
-                      'window_fea_matrix.txt.gz'),
+        F += Expand(J(metamic_dir, P(), 'metaMIC', 'feature_matrix', 'window_fea_matrix.txt.gz'),
                     config['sim_params'])
-        F += Expand(J(metamic_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                      '{read_depth}', '{assembler}', 'metaMIC', 'temp', 'read_breakpoint',
+        F += Expand(J(metamic_dir, P(), 'metaMIC', 'temp', 'read_breakpoint',
                       'read_breakpoint_per_base.txt.gz'),
-                    config['sim_params'])        
+                    config['sim_params'])
+    return F
+
+def all_which_input(wildcards):
+    F = []
+    
+    # reads
+    if config['input_type'] == 'simulation':
+        if is_true(config['params']['MGSIM']['reads']['keep_reads']):
+            F = which_input_reads(F, config)
+
+    # simulations (simulated or user-provided reads)
+    if config['input_type'] != 'real data':
+        # coverage
+        if noSkip(config['params']['nonpareil']['params']):
+            F = which_input_coverage(F, config)
+            
+        # MG assemblies
+        F = which_input_asmbl(F, config)
+    
+        # metaquast
+        if noSkip(config['params']['asmbl_errors']['metaquast']):
+            F = which_input_metaquast(F, config)
+            
+    # read mapping to contigs
+    if noSkip(config['params']['map']['samtools']):
+        F = which_input_map(F, config)
+            
+    # State of the Art    
+    F = which_input_sota(F, config)
+        
     # return
     return F
 

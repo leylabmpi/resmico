@@ -1,41 +1,49 @@
-rule bam_to_DL_features:
+def bam2feat_input(wildcards):
+    d = map_bowtie2_input(wildcards)
+    # adding subsampled bam files
+    d['bam'] = J(config['tmp_dir'], 'map', P() + '.bam')
+    d['bai'] = J(config['tmp_dir'], 'map', P() + '.bam.bai')
+    # if ground-truth
+    if config['input_type'] != 'real data':
+        d['fasta'] = J(true_errors_dir, P(), 'combined_reference', 'contigs_reports',
+                       'contigs_filtered.mis_contigs.fa'),
+        d['masmbl'] = J(true_errors_dir, P(), 'combined_reference', 'contigs_reports',
+                        'contigs_report_contigs_filtered.mis_contigs.info')
+    return d
+
+def bam2feat_masmbl(wildcards):
+    if config['input_type'] == 'real data':
+        return ''
+    else:
+        F = J(true_errors_dir, P(), 'combined_reference', 'contigs_reports',
+              'contigs_report_contigs_filtered.mis_contigs.info')
+        F= F.format(richness = wildcards.richness,
+                    abund_dist = wildcards.abund_dist,
+                    rep = wildcards.rep,
+                    read_length = wildcards.read_length,
+                    read_depth = wildcards.read_depth,
+                    assembler = wildcards.assembler)
+        return '--misassembly_file ' + F
+
+rule bam2feat:
     """
     Converting bam to features
     """
     input:
-        fna = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                '{read_depth}', '{assembler}', 'contigs_filtered.fasta'),
-	fai = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                '{read_depth}', '{assembler}', 'contigs_filtered.fasta.fai'),
-        bam = J(config['tmp_dir'], 'map', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                '{read_depth}', '{assembler}.bam'),
-        bai = J(config['tmp_dir'], 'map', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                '{read_depth}', '{assembler}.bam.bai'),
-        fasta = J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                  '{read_depth}', '{assembler}', 'combined_reference', 'contigs_reports',
-                  'contigs_filtered.mis_contigs.fa'),
-        masmbl = J(true_errors_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                   '{read_depth}', '{assembler}', 'combined_reference', 'contigs_reports',
-                   'contigs_report_contigs_filtered.mis_contigs.info')
+        unpack(bam2feat_input)
     output:
-        toc = temp(J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
-                     '{read_length}', '{read_depth}', '{assembler}', 'toc')),
-        tocc = temp(J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
-                      '{read_length}', '{read_depth}', '{assembler}', 'toc_chunked')),         
-        sts = temp(J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
-                     '{read_length}', '{read_depth}', '{assembler}', 'stats')),
-        tsv = temp(J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
-                     '{read_length}', '{read_depth}', '{assembler}', 'features.tsv.gz')),
-        fb = temp(J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
-                    '{read_length}', '{read_depth}', '{assembler}', 'features_binary')),
-        fbc = temp(J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
-                     '{read_length}', '{read_depth}', '{assembler}',
-                     'features_binary_chunked'))
+        toc = temp(J(config['tmp_dir'], 'feats', P(), 'toc')),
+        tocc = temp(J(config['tmp_dir'], 'feats', P(), 'toc_chunked')),         
+        sts = temp(J(config['tmp_dir'], 'feats', P(), 'stats')),
+        tsv = temp(J(config['tmp_dir'], 'feats', P(), 'features.tsv.gz')),
+        fb = temp(J(config['tmp_dir'], 'feats', P(), 'features_binary')),
+        fbc = temp(J(config['tmp_dir'], 'feats', P(), 'features_binary_chunked'))
     params:
         exe = config['pipeline']['script_folder'] + 'bam2feat', 
 	params = config['params']['feature_table']['make'],
         assembler = lambda wildcards: wildcards.assembler,
-        exe_empty = config['pipeline']['script_folder'] + 'is_empty.py'
+        exe_empty = config['pipeline']['script_folder'] + 'is_empty.py',
+        masmbl = bam2feat_masmbl
     threads:
         8
     resources:
@@ -45,23 +53,19 @@ rule bam_to_DL_features:
     conda:
         '../envs/bowtie2.yaml'
     log:
-        J(log_dir, 'bam_to_DL_features', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-          '{read_depth}', '{assembler}.log')
+        J(log_dir, 'bam_to_DL_features', P() + '.log')
     benchmark:
-        J(benchmark_dir, 'bam_to_DL_features', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}', '{assembler}.txt')
+        J(bmk_dir, 'bam_to_DL_features', P() + '.txt')
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
         OUTDIR=`dirname {output.tsv}`
         if [ `{params.exe_empty} {input.fna}` -eq 0 ]; then
-          {params.exe} {params.params} \
-            --procs {threads} \
+          {params.exe} {params.params} {params.masmbl} \
+            --procs {threads} --o $OUTDIR \
             --assembler {params.assembler} \
             --bam_file {input.bam} \
             --fasta_file {input.fna} \
-            --misassembly_file {input.masmbl} \
-            --o $OUTDIR \
             2>> {log} 1>&2
         else
           echo "Input empty; skipping" > {log}
@@ -74,42 +78,28 @@ rule features_copy:
     Copyin over feature table info
     """
     input:
-        toc = J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
-                '{read_length}', '{read_depth}', '{assembler}', 'toc'),
-        tocc = J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
-                 '{read_length}', '{read_depth}', '{assembler}', 'toc_chunked'),   
-        sts = J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
-                '{read_length}', '{read_depth}', '{assembler}', 'stats'),
-        tsv = J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
-                '{read_length}', '{read_depth}', '{assembler}', 'features.tsv.gz'),
-        fb = J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
-               '{read_length}', '{read_depth}', '{assembler}', 'features_binary'),
-        fbc = J(config['tmp_dir'], 'feats', '{richness}', '{abund_dist}', '{rep}',
-                '{read_length}', '{read_depth}', '{assembler}', 'features_binary_chunked')
+        toc = J(config['tmp_dir'], 'feats', P(), 'toc'),
+        tocc = J(config['tmp_dir'], 'feats', P(), 'toc_chunked'),   
+        sts = J(config['tmp_dir'], 'feats', P(), 'stats'),
+        tsv = J(config['tmp_dir'], 'feats', P(), 'features.tsv.gz'),
+        fb = J(config['tmp_dir'], 'feats', P(), 'features_binary'),
+        fbc = J(config['tmp_dir'], 'feats', P(), 'features_binary_chunked')
     output:
-        toc = J(features_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                '{read_depth}', '{assembler}', 'toc'),
-        tocc = J(features_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                '{read_depth}', '{assembler}', 'toc_chunked'),
-        sts = J(features_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                '{read_depth}', '{assembler}', 'stats'),
-        tsv = J(features_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                '{read_depth}', '{assembler}', 'features.tsv.gz'),
-        fb = J(features_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-               '{read_depth}', '{assembler}', 'features_binary'),
-        fbc = J(features_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                '{read_depth}', '{assembler}', 'features_binary_chunked')
+        toc = J(features_dir, P(), 'toc'),
+        tocc = J(features_dir, P(), 'toc_chunked'),
+        sts = J(features_dir, P(), 'stats'),
+        tsv = J(features_dir, P(), 'features.tsv.gz'),
+        fb = J(features_dir, P(), 'features_binary'),
+        fbc = J(features_dir, P(), 'features_binary_chunked')
     params:
         ionice = config['params']['ionice']
     resources:
         time = lambda wildcards, attempt: attempt ** 3 * 59,
         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 * 8
     log:
-        J(log_dir, 'features_copy', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-          '{read_depth}', '{assembler}.log')
+        J(log_dir, 'features_copy', P() + '.log')
     benchmark:
-        J(benchmark_dir, 'features_copy', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-          '{read_depth}', '{assembler}.txt')
+        J(bmk_dir, 'features_copy', P() + '.txt')
     shell:
         """
         ionice {params.ionice} cp -f {input.toc} {output.toc} 2> {log}
@@ -126,8 +116,7 @@ rule features_file_table:
     Creating a table that lists all feature files
     """
     input:
-        feats = Expand(J(features_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                         '{read_depth}', '{assembler}', 'features.tsv.gz'),
+        feats = Expand(J(features_dir, P(), 'features.tsv.gz'),
                        config['sim_params'])
     output:
         tsv = features_dir + 'feature_files.tsv'
