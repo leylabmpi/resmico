@@ -4,6 +4,7 @@ from libc.stdlib cimport malloc, free
 
 from array import array
 from libc.stdint cimport uint32_t
+from libc.stdint cimport uint64_t
 from libc.stdint cimport uint16_t
 from libc.stdint cimport uint8_t
 
@@ -59,18 +60,18 @@ assert len(feature_sizes) == N_FEATURES
 assert len(feature_types) == N_FEATURES
 
 cdef extern from 'contig_reader.hpp':
-    cdef void read_contig_features(const char *fname, uint32_t offset, uint32_t size_bytes,
+    cdef void read_contig_features(const char *fname, uint64_t offset, uint32_t size_bytes,
                           uint32_t length_bases, uint32_t num_features,
                           uint16_t b_per_base, uint8_t *feature_mask,
                           uint8_t *feature_sizes_bytes, char **features) nogil
-    cdef void read_contig_features_buf(const char *fname, uint32_t offset, uint32_t size_bytes,
+    cdef void read_contig_features_buf(const char *fname, uint64_t offset, uint32_t size_bytes,
                                    uint32_t length_bases, uint32_t num_features,
                                    uint16_t b_per_base, uint8_t *feature_mask,
                                    uint8_t *feature_sizes_bytes, char *buf, char ** features, int thread) nogil
 
 
 @cython.boundscheck(False)
-cdef read_contig_cpp(const char* file_name, uint32_t length, uint32_t offset, uint32_t size, uint8_t[:] feature_mask):
+cdef read_contig_cpp(const char* file_name, uint32_t length, uint64_t offset, uint32_t size, uint8_t[:] feature_mask):
     cdef uint32_t[2] lengths = {1, length}
     cdef char[:] view
     np_data = [None] * N_FEATURES
@@ -114,7 +115,7 @@ def read_contigs_py(file_names:list[bytes], py_lengths: list[int],  py_offsets: 
     cdef uint32_t contig_count = len(file_names)
     cdef int max_len = max(py_lengths)
     cdef int[:] lengths = array('i', py_lengths)
-    cdef int[:] offsets = array('i', py_offsets)
+    cdef uint64_t[:] offsets = array('L', py_offsets)
     cdef int[:] sizes = array('i', py_sizes)
     cdef uint8_t[:] feature_mask = array('B', py_feature_mask)
     # the buffer used by the C++ code to write the features into; one buffer per contig; for each contig one buffer
