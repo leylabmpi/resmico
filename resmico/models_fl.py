@@ -805,8 +805,8 @@ class BinaryDatasetEval(BinaryDataset):
                     idx += 1
                 else:
                     # force at least 1000 bases in the last chunk, as the network hasn't seen contigs shorter than 1K
-                    if self.window >= 1000 and contig_len - start_idx < 1000:
-                        start_idx = contig_len - 1000
+                    if contig_len > self.window and contig_len - start_idx < 5000:
+                        start_idx = contig_len - 5000
                     x[idx][:contig_len - start_idx] = stacked_features[start_idx:contig_len]
                     mask[idx][:self.convoluted_size(contig_len - start_idx, pad=False)] = 1
                     idx += 1

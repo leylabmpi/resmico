@@ -44,7 +44,7 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
 
     predict_data = Models.BinaryDatasetEval(reader, eval_idx, args.features, args.max_len, max(250, args.max_len - 500),
                                             int(args.gpu_eval_mem_gb * 1e9 * 0.8), cache_results=False,
-                                            show_progress=False, convoluted_size=convoluted_size,
+                                            show_progress=True, convoluted_size=convoluted_size,
                                             pad_to_max_len=is_fixed_length)
 
     eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in predict_data.indices])
