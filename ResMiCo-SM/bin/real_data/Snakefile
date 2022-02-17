@@ -89,7 +89,8 @@ rule ref_genome_rename:
     output:
         fna = temp(config['tmp_dir'] + 'genomes/{abund_dist}.fna')
     params:
-        exe = config['pipeline']['script_folder'] + 'rename_genome.py'
+        exe = config['pipeline']['script_folder'] + 'rename_genome.py',
+        contig_len = config['params']['contigs']['length_cutoff']
     log:
         log_dir + 'ref_genome_rename/{abund_dist}.log'
     benchmark:
@@ -97,7 +98,8 @@ rule ref_genome_rename:
     shell:
         """        
         export PATH=$CONDA_PREFIX/bin:$PATH
-        {params.exe} {input.fna} > {output.fna} 2> {log}
+        {params.exe} --length {params.contig_len} \
+          {input.fna} > {output.fna} 2> {log}
         """
         
 localrules: ref_genome_symlink
