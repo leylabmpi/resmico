@@ -1,34 +1,37 @@
+def map_samtools_faidx_input(wildcards):
+    d = {}
+    if config['input_type'] == 'real data':
+        d['base'] = J(config['tmp_dir'], 'genomes', '{abund_dist}.fna')
+    d['fna'] = J(config['tmp_dir'], P(), 'contigs_filtered.fasta')
+    return d
+
 rule map_samtools_faidx:
     """
     Running samtools faidx on contigs (indexing)
     """
     input:
-        J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-          '{read_depth}', '{assembler}', 'contigs_filtered.fasta')
+        unpack(map_samtools_faidx_input)
     output:
-        temp(J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-               '{read_depth}', '{assembler}', 'contigs_filtered.fasta.fai'))
+        fai = temp(J(config['tmp_dir'], P(), 'contigs_filtered.fasta.fai'))
     params:
-        exe = config['pipeline']['script_folder'] + 'is_empty.py'
+        exe = J(config['pipeline']['script_folder'], 'is_empty.py')
     resources:
         time = lambda wildcards, attempt: attempt ** 3 * 59,
         mem_gb_pt = lambda wildcards, attempt: attempt * 12
     conda:
         '../envs/bowtie2.yaml'
     log:
-        J(log_dir, 'map', 'samtools_faidx', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}', '{assembler}.log')
+        J(log_dir, 'map', 'samtools_faidx', P() + '.log')
     benchmark:
-        J(benchmark_dir, 'map', 'samtools_faidx', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}', '{assembler}.txt')
+        J(bmk_dir, 'map', 'samtools_faidx', P() + '.txt')
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
-        if [ `{params.exe} {input}` -eq 0 ]; then
-          samtools faidx {input} 2> {log} 1>&2
+        if [ `{params.exe} {input.fna}` -eq 0 ]; then
+          samtools faidx {input.fna} 2> {log} 1>&2
         else
           echo "Input is empty; skipping" > {log}
-          touch {output} 2>> {log}
+          touch {output.fai} 2>> {log}
         fi
         """
 
@@ -37,13 +40,11 @@ rule map_bowtie2_build:
     Building bowtie2 index for metagenome assembly contigs
     """
     input:
-        J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-          '{read_depth}', '{assembler}', 'contigs_filtered.fasta')
+        unpack(map_samtools_faidx_input)
     output:
-        J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-          '{read_depth}', '{assembler}', 'map_bowtie2_build.done')
+        J(config['tmp_dir'], P(), 'map_bowtie2_build.done')
     params:
-        exe = config['pipeline']['script_folder'] + 'is_empty.py'
+        exe = J(config['pipeline']['script_folder'], 'is_empty.py')
     threads:
         8
     resources:
@@ -53,46 +54,51 @@ rule map_bowtie2_build:
     conda:
         '../envs/bowtie2.yaml'
     log:
-        J(log_dir, 'map', 'bowtie2_build', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}', '{assembler}.log')
+        J(log_dir, 'map', 'bowtie2_build', P() + '.log')
     benchmark:
-        J(benchmark_dir, 'map', 'bowtie2_build', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}', '{assembler}.txt')
+        J(bmk_dir, 'map', 'bowtie2_build', P() + '.txt')
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
-	PREF=`echo {input} | perl -pe 's/\.[^.]+$//'`
+	PREF=`echo {input.fna} | perl -pe 's/\.[^.]+$//'`
 
-        if [ `{params.exe} {input}` -eq 0 ]; then
+        if [ `{params.exe} {input.fna}` -eq 0 ]; then
           bowtie2-build --threads {threads} \
-            {input} $PREF 2> {log} 1>&2
+            {input.fna} $PREF 2> {log} 1>&2
         else
           echo "Input is empty; skipping" > {log}
         fi
-
         touch {output} 2>> {log}
         """
+
+def map_bowtie2_input(wildcards):
+    # ref contigs
+    d = map_samtools_faidx_input(wildcards)
+    d['done'] = J(config['tmp_dir'], P(), 'map_bowtie2_build.done')
+    # reads
+    if config['input_type'] == 'real data':
+        if skipped(config['nonsim_params']['subsample_reads']):
+            d['base_read1'] = J(config['tmp_dir'], 'reads', '{richness}', 'R1.fq')
+            d['base_read2'] = J(config['tmp_dir'], 'reads', '{richness}', 'R2.fq')        
+        else:
+            d['base_read1'] = J(config['tmp_dir'], 'reads_sub', '{richness}', 'R1.fq')
+            d['base_read2'] = J(config['tmp_dir'], 'reads_sub', '{richness}', 'R2.fq')        
+    d['read1'] = J(config['tmp_dir'], P(5), 'sim_reads', 'R1.fq'),
+    d['read2'] = J(config['tmp_dir'], P(5), 'sim_reads', 'R2.fq')
+    return d
         
 rule map_bowtie2:
     """
     Mapping reads from all samples to the metagenome assembly contigs
     """
     input:
-        ref = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                '{read_depth}', '{assembler}', 'contigs_filtered.fasta'),
-	done = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                 '{read_depth}', '{assembler}', 'map_bowtie2_build.done'),
-        read1 = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                  '{read_depth}', 'sim_reads', 'R1.fq'),
-        read2 = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                  '{read_depth}', 'sim_reads', 'R2.fq')
+        unpack(map_bowtie2_input)
     output:
-        bam = temp(J(config['tmp_dir'], 'map_tmp', '{richness}', '{abund_dist}', '{rep}',
-                     '{read_length}', '{read_depth}', '{assembler}.bam'))
+        bam = temp(J(config['tmp_dir'], 'map_tmp', P() + '.bam'))
     params:
         samtools = config['params']['map']['samtools'],
         bt2 = config['params']['map']['bowtie2'],
-        exe = config['pipeline']['script_folder'] + 'is_empty.py'
+        exe = J(config['pipeline']['script_folder'], 'is_empty.py')
     conda:
         '../envs/bowtie2.yaml'
     threads:
@@ -102,21 +108,18 @@ rule map_bowtie2:
         n = lambda wildcards, threads: threads,
         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 3
     log:
-        bt2 = J(log_dir, 'map', 'bowtie2', '{richness}', '{abund_dist}', '{rep}',
-                '{read_length}', '{read_depth}', '{assembler}.log'),
-        sam = J(log_dir, 'map', 'bowtie2_samtools', '{richness}', '{abund_dist}', '{rep}',
-                '{read_length}', '{read_depth}', '{assembler}.log')
+        bt2 = J(log_dir, 'map', 'bowtie2', P() + '.log'),
+        sam = J(log_dir, 'map', 'bowtie2_samtools', P() + '.log')
     benchmark:
-        J(benchmark_dir, 'map', 'bowtie2', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}', '{assembler}.txt')
+        J(benchmark_dir, 'map', 'bowtie2', P() + '.txt')
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
         rm -f {log.sam} 2> {log}
-	PREF=`echo {input.ref} | perl -pe 's/\.[^.]+$//'`
+	PREF=`echo {input.fna} | perl -pe 's/\.[^.]+$//'`
         TMPDIR=`dirname {output.bam}`
         
-        if [ `{params.exe} {input.ref}` -eq 0 ]; then
+        if [ `{params.exe} {input.fna}` -eq 0 ]; then
           bowtie2 {params.bt2} -p {threads} -q --no-unal \
             -x $PREF -1 {input.read1} -2 {input.read2} 2>> {log.bt2} | \
             samtools view {params.samtools} -h -o - 2>> {log.sam}| \
@@ -133,13 +136,11 @@ rule map_index_bam:
     Mapping reads from origin sample to the metagenome assembly contigs
     """
     input:
-        bam = J(config['tmp_dir'], 'map_tmp', '{richness}', '{abund_dist}', '{rep}',
-                '{read_length}', '{read_depth}', '{assembler}.bam')
+        bam = J(config['tmp_dir'], 'map_tmp', P() + '.bam')
     output:
-        bai = temp(J(config['tmp_dir'], 'map_tmp', '{richness}', '{abund_dist}', '{rep}',
-                     '{read_length}', '{read_depth}', '{assembler}.bam.bai'))
+        bai = temp(J(config['tmp_dir'], 'map_tmp', P() + '.bam.bai'))
     params:
-        exe = config['pipeline']['script_folder'] + 'is_empty.py'
+        exe = J(config['pipeline']['script_folder'], 'is_empty.py')
     threads:
         8
     resources:
@@ -149,11 +150,9 @@ rule map_index_bam:
     conda:
         '../envs/bowtie2.yaml'
     log:
-        J(log_dir, 'map', 'index_bam', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}', '{assembler}.log')
+        J(log_dir, 'map', 'index_bam', P() + '.log')
     benchmark:
-        J(benchmark_dir, 'map', 'index_bam', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}', '{assembler}.txt')
+        J(bmk_dir, 'map', 'index_bam', P() + '.txt')
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
@@ -165,39 +164,34 @@ rule map_index_bam:
         fi
         """
 
+def map_subsample_bam_input(wildcards):
+    d = map_bowtie2_input(wildcards)
+    d['bam'] = J(config['tmp_dir'], 'map_tmp', P() + '.bam'),
+    d['bai'] = J(config['tmp_dir'], 'map_tmp', P() + '.bam.bai')
+    return d
+        
 rule map_subsample_bam:
     """
     Subsampling BAM to max per-contig coverage
     """
     input:
-        fna = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                '{read_depth}', '{assembler}', 'contigs_filtered.fasta'),
-        fai = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                '{read_depth}', '{assembler}', 'contigs_filtered.fasta.fai'),
-        bam = J(config['tmp_dir'], 'map_tmp', '{richness}', '{abund_dist}', '{rep}',
-                '{read_length}', '{read_depth}', '{assembler}.bam'),
-        bai = J(config['tmp_dir'], 'map_tmp', '{richness}', '{abund_dist}', '{rep}',
-                '{read_length}', '{read_depth}', '{assembler}.bam.bai')
+        unpack(map_subsample_bam_input)
     output:
-        bam = temp(J(config['tmp_dir'], 'map-sub', '{richness}', '{abund_dist}', '{rep}',
-                     '{read_length}', '{read_depth}', '{assembler}.bam')),
-        tsv = J(map_dir, '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-                '{read_depth}', '{assembler}', 'contig_coverage.tsv')
+        bam = temp(J(config['tmp_dir'], 'map-sub', P() + '.bam')),
+        tsv = J(map_dir, P(), 'contig_coverage.tsv')
     params:
         mc = config['params']['map']['max_coverage'],
-        exe = config['pipeline']['script_folder'] + 'bam_subsample.py',
-        exe_empty = config['pipeline']['script_folder'] + 'is_empty.py'
+        exe = J(config['pipeline']['script_folder'], 'bam_subsample.py'),
+        exe_empty = J(config['pipeline']['script_folder'], 'is_empty.py')
     resources:
         time = lambda wildcards, attempt: attempt ** 3 * 59,
         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 * 12
     conda:
         '../envs/bowtie2.yaml'
     log:
-        J(log_dir, 'map', 'bam_subsample', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}', '{assembler}.log')
+        J(log_dir, 'map', 'bam_subsample', P() + '.log')
     benchmark:
-        J(benchmark_dir, 'map', 'bam_subsample', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}', '{assembler}.txt')
+        J(bmk_dir, 'map', 'bam_subsample', P() + '.txt')
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
@@ -215,13 +209,11 @@ rule map_sort_subsampled_bam:
     Mapping reads from origin sample to the metagenome assembly contigs
     """
     input:
-        J(config['tmp_dir'], 'map-sub', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-          '{read_depth}', '{assembler}.bam')
+        J(config['tmp_dir'], 'map-sub', P() + '.bam')
     output:
-        temp(J(config['tmp_dir'], 'map', '{richness}', '{abund_dist}', '{rep}', '{read_length}',
-               '{read_depth}', '{assembler}.bam'))
+        temp(J(config['tmp_dir'], 'map', P() + '.bam'))
     params:
-        exe = config['pipeline']['script_folder'] + 'is_empty.py'
+        exe = J(config['pipeline']['script_folder'], 'is_empty.py')
     threads:
         4
     resources:
@@ -231,11 +223,9 @@ rule map_sort_subsampled_bam:
     conda:
         '../envs/bowtie2.yaml'
     log:
-        J(log_dir, 'map', 'sort_subsampled_bam', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}', '{assembler}.log')
+        J(log_dir, 'map', 'sort_subsampled_bam', P() + '.log')
     benchmark:
-        J(benchmark_dir, 'map', 'sort_subsampled_bam', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}', '{assembler}.txt')
+        J(bmk_dir, 'map', 'sort_subsampled_bam', P() + '.txt')
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
@@ -253,13 +243,11 @@ rule map_index_subsampled_bam:
     Mapping reads from origin sample to the metagenome assembly contigs
     """
     input:
-        bam = J(config['tmp_dir'], 'map', '{richness}', '{abund_dist}', '{rep}',
-                '{read_length}', '{read_depth}', '{assembler}.bam')
+        bam = J(config['tmp_dir'], 'map', P() + '.bam')
     output:
-        bai = J(config['tmp_dir'], 'map', '{richness}', '{abund_dist}', '{rep}',
-                '{read_length}', '{read_depth}', '{assembler}.bam.bai')
+        bai = J(config['tmp_dir'], 'map', P() + '.bam.bai')
     params:
-        exe = config['pipeline']['script_folder'] + 'is_empty.py'
+        exe = J(config['pipeline']['script_folder'], 'is_empty.py')
     threads:
         8
     resources:
@@ -269,11 +257,9 @@ rule map_index_subsampled_bam:
     conda:
         '../envs/bowtie2.yaml'
     log:
-        J(log_dir, 'map', 'index_subsampled_bam', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}', '{assembler}.log')
+        J(log_dir, 'map', 'index_subsampled_bam', P() + '.log')
     benchmark:
-        J(benchmark_dir, 'map', 'index_subsampled_bam', '{richness}', '{abund_dist}', '{rep}',
-          '{read_length}', '{read_depth}', '{assembler}.txt')
+        J(benchmark_dir, 'map', 'index_subsampled_bam', P() + '.txt')
     shell:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
@@ -290,19 +276,78 @@ rule map_bam_copy:
     Copying bam to permanent dir
     """
     input:
-        config['tmp_dir'] + 'map/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.bam'
+        bam = J(config['tmp_dir'], 'map', P() + '.bam'),
+        bai = J(config['tmp_dir'], 'map', P() + '.bam.bai')
     output:
-        map_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.bam'
+        bam = J(map_dir, P(), 'mapped.bam'),
+        bai = J(map_dir, P(), 'mapped.bam.bai')
     params:
         ionice = config['params']['ionice']
     resources:
         time = lambda wildcards, attempt: attempt ** 3 * 59,
         mem_gb_pt = lambda wildcards, attempt: attempt * 2 + 4
     log:
-        log_dir + 'map/bam_copy/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.log'
+        J(log_dir, 'map', 'bam_copy', P() + '.log')
     shell:
         """
-        ionice {params.ionice} cp -f {input} {output} 2> {log}
+        ionice {params.ionice} cp -f {input.bam} {output.bam} 2> {log} 1>&2
+        ionice {params.ionice} cp -f {input.bai} {output.bai} 2>> {log} 1>&2
         """
+
+rule map_bam2bigwig:
+    """
+    Converting bam to bigwig
+    """
+    input:
+        bam = J(config['tmp_dir'], 'map', P() + '.bam'),
+        bai = J(config['tmp_dir'], 'map', P() + '.bam.bai')
+    output:
+        bw = J(map_dir, P(), 'mapped.bw')
+    params:
+        ionice = config['params']['ionice']
+    threads:
+        4
+    resources:
+        time = lambda wildcards, attempt: attempt ** 3 * 59,
+        n = lambda wildcards, threads: threads,
+        mem_gb_pt = lambda wildcards, attempt: attempt * 12
+    conda:
+        '../envs/bowtie2.yaml'
+    log:
+        J(log_dir, 'map', 'bam2bigwig', P() + '.log')
+    benchmark:
+        J(benchmark_dir, 'map', 'bam2bigwig', P() + '.txt')
+    shell:
+        """
+        export PATH=$CONDA_PREFIX/bin:$PATH
+        ionice {params.ionice} \
+          bamCoverage -p {threads} -b {input.bam} -o {output.bw} 2> {log} 1>&2
+        """
+
+def map_copy_fai_input(wildcards):
+    d = map_samtools_faidx_input(wildcards)
+    d['fai'] = J(config['tmp_dir'], P(), 'contigs_filtered.fasta.fai')
+    return d
         
+rule map_copy_fai:
+    """
+    Copying fai + associated fasta to final directory
+    """
+    input:
+        unpack(map_copy_fai_input)
+    output:
+        fna = J(map_dir, P(), 'contigs.fasta'),
+        fai = J(map_dir, P(), 'contigs.fasta.fai')
+    params:
+        ionice = config['params']['ionice']
+    resources:
+        time = lambda wildcards, attempt: attempt ** 3 * 59,
+        mem_gb_pt = lambda wildcards, attempt: attempt * 8
+    log:
+        J(log_dir, 'map', 'copy_fai', P() + '.log')
+    shell:
+        """
+        ionice {params.ionice} cp -f {input.fna} {output.fna} 2> {log} 1>&2
+        ionice {params.ionice} cp -f {input.fai} {output.fai} 2>> {log} 1>&2
+        """
 

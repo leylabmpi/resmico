@@ -8,3 +8,4 @@ dependencies:
 - bioconda::samtools
 - bioconda::bowtie2
 - bioconda::pysam
+- bioconda::deeptools

@@ -1,13 +1,13 @@
 # Input table
 ## Table of genomes
 genomes_file: tests/data/genomes_n10.tsv
-#genomes_file: tests/data/Samp2-MAG3.tsv
-## If using pre-generated reads
-reads_file: Skip
+#genomes_file: tests/data/Samp3-MAG3.tsv
+#genomes_file: tmp/ERS396506.tsv
 
 # Output directory
 output_dir: tests/output/n10/
-#output_dir: tests/output/Samp2-MAG3/
+#output_dir: tests/output/Samp3-MAG3/
+#output_dir: tmp/ERS396506/
 
 # Temporary output directory (/dev/shm/ for shared memory)
 #tmp_dir: /tmp/
@@ -24,7 +24,7 @@ params:
   ionice: -c 3
   # simulating metagenomes
   MGSIM:
-    genome_download: ""
+#    genome_download: ""
     sim_reps: 1
     community:
       richness:
@@ -44,14 +44,14 @@ params:
                         --art-qprof1 data/art_error_profiles/HiSeq2500L150R1.txt
                         --art-qprof2 data/art_error_profiles/HiSeq2500L150R2.txt
       skewer: -n -l 70 -q 25 --format sanger
-      keep_reads: True # False
+      keep_reads: False
   # coverage
   nonpareil:
-    params: Skip #-T kmer
+    params: -T kmer
     summary: 1e9   # this is target seq. depth
   # assemblying metagenomes
   assemblers:
-    metaspades: Skip #-k auto --only-assembler
+    metaspades: -k auto --only-assembler
     megahit: --min-count 1 --min-contig-len 1000
   # assembly filtering
   contigs:
@@ -67,13 +67,15 @@ params:
     bowtie2: ""
     max_coverage: 20
     keep_bam: True
+    keep_faidx: True
+    create_bigwig: False
   # creating ResMiCo feature tables
   feature_table:
     make: --window 6
   # state-of-the-art
   SotA:
-    ALE: Skip #""
-    VALET: Skip #""  
+    ALE: Skip # ""
+    VALET: Skip # ""
     metaMIC:
       extract: Skip #--mlen 1000
       predict: --mlen 1000 --slen 500 -a MEGAHIT
@@ -81,17 +83,7 @@ params:
 # params just for creating feature tables for non-simulated data
 nonsim_params:
   # max number of reads to use
-  subsample_reads: 5000000
-  # read quality filtering
-  skewer: -n -l 70 -q 25
-  # samtools settings
-  samtools: ""
-  # max per-contig coverage
-  max_coverage: 20
-  # keep bam files?
-  keep_bam: True
-  # feature tables
-  make_features: --window 6
+  subsample_reads: Skip #1000000
 
 # snakemake pipeline
 pipeline:

@@ -1,0 +1,121 @@
+def copy_provided_reads_input(wildcards):
+    x = config['genomes_tbl'].Sample == wildcards.richness
+    read = 'Read1' if wildcards.read == 'R1' else 'Read2'
+    return config['genomes_tbl'].loc[x,read].unique().tolist()
+
+rule copy_provided_reads:
+    """
+    Uncompressing/copying reads
+    """
+    input:
+        read = copy_provided_reads_input
+    output:
+    	read = temp(J(config['tmp_dir'], 'reads', '{richness}', '{read}.fq'))
+    params:
+        ionice = config['params']['ionice']
+    log:
+        log_dir + 'copy_provided_reads/{richness}/{read}.log'
+    benchmark:
+        bmk_dir + 'copy_provided_reads/{richness}/{read}.txt'
+    shell:
+        """
+        ionice {params.ionice} seqkit seq {input.read} > {output.read} 2> {log}
+        """
+
+rule subsample_provided_reads:
+    """
+    Uncompressing/copying reads
+    """
+    input:
+        read = copy_provided_reads_input
+    output:
+    	read = temp(J(config['tmp_dir'], 'reads_sub', '{richness}', '{read}.fq'))
+    params:
+        ionice = config['params']['ionice'],
+        n = config['nonsim_params']['subsample_reads']
+    threads:
+        4
+    resources:
+        time = lambda wildcards, attempt: attempt ** 3 * 59,
+        n = lambda wildcards, attempt, threads: threads,
+        mem_gb_pt = lambda wildcards, attempt: attempt ** 2 * 12
+    conda:
+        '../envs/bowtie2.yaml'
+    log:
+        J(log_dir, 'subsample_provided_reads', '{richness}', '{read}.log')
+    benchmark:
+        J(bmk_dir, 'subsample_provided_reads', '{richness}', '{read}.txt')
+    shell:
+        """
+        ionice {params.ionice} \
+          seqkit sample -j {threads} --rand-seed 824 -n {params.n} \
+            {input} > {output.read} 2> {log}
+        """
+
+def symlink_reads_input(wildcards):
+    if skipped(config['nonsim_params']['subsample_reads']):
+        return J(config['tmp_dir'], 'reads', '{richness}', '{read}.fq')
+    else:
+        return J(config['tmp_dir'], 'reads_sub', '{richness}', '{read}.fq')
+
+localrules: symlink_reads
+rule symlink_reads:
+    """
+    Symlinking reads for all Sample-Taxon combinations
+    """
+    input:
+    	read = symlink_reads_input
+    output:
+    	read = temp(J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}',
+                      '{read_length}', '{read_depth}', '{read}.fq'))
+    log:
+        J(log_dir, 'symlink_reads', '{richness}', '{abund_dist}', '{rep}',
+          '{read_length}', '{read_depth}', '{read}.log')
+    shell:
+        """
+        ln -s -f {input.read} {output.read} 2> {log} 1>&2
+        """
+
+def ref_genome_rename_input(wildcards):
+    x = config['genomes_tbl'].loc[config['genomes_tbl'].Taxon == wildcards.abund_dist,'Fasta']
+    return x.unique().tolist()
+
+rule ref_genome_rename:
+    """
+    Renaming genome fasta file names & sequence headers
+    """
+    input:
+        fna = ref_genome_rename_input
+    output:
+        fna = temp(config['tmp_dir'] + 'genomes/{abund_dist}.fna')
+    params:
+        exe = config['pipeline']['script_folder'] + 'rename_genome.py',
+        contig_len = config['params']['contigs']['length_cutoff']
+    log:
+        log_dir + 'ref_genome_rename/{abund_dist}.log'
+    benchmark:
+        benchmark_dir + 'ref_genome_rename/{abund_dist}.txt'
+    shell:
+        """        
+        export PATH=$CONDA_PREFIX/bin:$PATH
+        {params.exe} --length {params.contig_len} \
+          {input.fna} > {output.fna} 2> {log}
+        """
+        
+localrules: ref_genome_symlink
+rule ref_genome_symlink:
+    """
+    Symlinking genome fasta files for all genome-fasta combinations
+    """
+    input:
+        fna = J(config['tmp_dir'], 'genomes/{abund_dist}.fna')
+    output:
+        fna = temp(J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}',
+                     '{read_depth}', '{assembler}', 'contigs_filtered.fasta'))
+    log:
+        J(log_dir + 'ref_genome_symlink', '{richness}', '{abund_dist}', '{rep}',
+          '{read_length}', '{read_depth}', '{assembler}.log')
+    shell:
+        """        
+        ln -s -f {input.fna} {output.fna} 2> {log} 1>&2
+        """
