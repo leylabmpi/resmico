@@ -97,12 +97,13 @@ do
   features_smaller="mean_al_score_Match mean_mapq_Match num_orphans_Match mean_insert_size_Match min_al_score_Match num_proper_Match min_insert_size_Match num_proper_SNP coverage"
   features_no_count="mean_al_score_Match mean_mapq_Match mean_insert_size_Match min_al_score_Match min_insert_size_Match"
   features_count="num_orphans_Match num_proper_Match num_proper_SNP coverage"
+  features_no_insert="ref_base num_query_A num_query_C num_query_G num_query_T num_SNPs num_proper_Match num_orphans_Match mean_al_score_Match coverage mean_mapq_Match"
 
   cmd3="/usr/bin/time python resmico train --binary-data --feature-files-path ${SCRATCH_DIR} \
       --save-path /cluster/home/ddanciu/tmp --save-name  resmico_${max_len}_${current_time} \
       --n-procs 8 --log-level info \
       --batch-size ${batch_size} --n-fc 1 --num-blocks 4 --fraq-neg 0.2  ${additional_params}  \
-      --max-len ${max_len} --gpu-eval-mem-gb 1 --features ${features_count} --n-epochs 100 \
+      --max-len ${max_len} --gpu-eval-mem-gb 1 --features ${features_no_insert} --n-epochs 100 \
       --num-translations ${num_translations} --max-translation-bases ${max_translation_bases} \
       --min-avg-coverage 0 --mask-padding --net-type cnn_resnet_avg \
       --lr-init 0.0001 \
@@ -117,7 +118,7 @@ do
 
   echo "Training command is: ${cmd3}"
   # the large training dataset takes 413GB
-  bsub -W 120:00 -n 8 -J 15k-count -R "span[hosts=1]" -R rusage[mem=50000,ngpus_excl_p=4,scratch=80000] -G ms_raets \
+  bsub -W 120:00 -n 8 -J 10k-no-insert -R "span[hosts=1]" -R rusage[mem=50000,ngpus_excl_p=4,scratch=80000] -G ms_raets \
      -oo "${lsf_log_file}" "${cmd1}; ${cmd2}; ${cmd3} 2>&1 | tee ${log_file}; ${cmd4}"
 
   sleep 1
