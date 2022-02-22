@@ -22,6 +22,7 @@ on the scenario:
   - Metagenome communities are simulated (taxon abundances)
 2. Simulations using use-generated reads & reference genomes (no read simulation).
   - The reads are assumed to be pre-generated via simulation
+  - The reads are used for producing metagenome assemblies & generating bam files for the contigs
   - Ground-truth reference genomes are still provided
   - This is useful for testing other simulation datasets (e.g., CAMI)
 3. Generating ResMiCo input feature tables for real genome assemblies (e.g., MAGs).
@@ -37,12 +38,19 @@ on the scenario:
     
 #### Scenario 2 (user-provided reads for the simulation)
 
+Set `real_contigs_simulated_reads: True` for this senario.
+
 * Required columns:
   * `Taxon`
+    * Unique names for ground-truth genome assemblies
   * `Fasta`
+    * Genome assembly fasta file path
   * `Sample`
+    * Unique name for metagenome 
   * `Read1`
+    * Path to the forward read fastq file
   * `Read2`
+    * Path to the reverse read fastq file
 
 #### Scenario 3 (processing real assemblies)
 
@@ -76,7 +84,8 @@ If you need/want to compile a new version, see the README.md in `./feature_extra
     * Number of simulation replicates
   * `community:`
     * `richness:`
-      * Fraction of the reference genomes used for each community simulation (eg., 0.5 = 50 of 100 genomes)
+      * Fraction of the reference genomes used for each community simulation
+        * e.g., 0.5 = 50 of 100 genomes
       * A different subset of references are used for each simulation
     * `abundance_distribution:`
       * Log-normal abundance distribution parameters
@@ -151,6 +160,8 @@ If you need/want to compile a new version, see the README.md in `./feature_extra
         * Use "Skip" to fully skip `metaMIC`
       * `predict:`
         * Parameters provided to [metaMIC predict](https://github.com/ZhaoXM-Lab/metaMIC)
+  * `real_contigs_simulated_reads:`
+    * If providing real contigs, but simulated reads (Scenario 2)
 
 ##### Real data (contigs/MAGs)
 
@@ -158,7 +169,7 @@ If you need/want to compile a new version, see the README.md in `./feature_extra
   * `subsample_reads:`
     * Subsample reads to this max number of read pairs
 
-* NOTE: some `params:` do apply to real-data:
+* NOTE: some `params:` also do apply to real-data:
   * `contigs:`
   * `map:`
   * `feature_table:`

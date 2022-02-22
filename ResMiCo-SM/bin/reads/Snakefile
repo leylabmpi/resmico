@@ -7,8 +7,8 @@ rule copy_provided_reads:
         read1 = lambda wildcards: config['genomes_tbl'].loc[config['genomes_tbl'].Sample == wildcards.richness, 'Read1'].unique().tolist(),
         read2 = lambda wildcards: config['genomes_tbl'].loc[config['genomes_tbl'].Sample == wildcards.richness, 'Read2'].unique().tolist()
     output:
-    	read1 = temp(J(config['tmp_dir'], P(5), 'sim_reads/R1.fq')),
-	read2 = temp(J(config['tmp_dir'], P(5), 'sim_reads/R2.fq'))
+    	read1 = temp(J(config['tmp_dir'], P(5), 'real_reads', 'R1.fq')),
+	read2 = temp(J(config['tmp_dir'], P(5), 'real_reads', 'R2.fq'))
     params:
         ionice = config['params']['ionice']
     log:

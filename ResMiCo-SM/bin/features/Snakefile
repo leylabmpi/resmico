@@ -17,15 +17,26 @@ def bam2feat_masmbl(wildcards):
     else:
         F = J(true_errors_dir, P(), 'combined_reference', 'contigs_reports',
               'contigs_report_contigs_filtered_sub.mis_contigs.info')
-        F= F.format(richness = wildcards.richness,
-                    abund_dist = wildcards.abund_dist,
-                    rep = wildcards.rep,
-                    read_length = wildcards.read_length,
-                    read_depth = wildcards.read_depth,
-                    assembler = wildcards.assembler,
-                    contig_frac = wildcards.contig_frac)
+        if config['input_type'] == 'simulation':
+            F = F.format(richness = wildcards.richness,
+                         abund_dist = wildcards.abund_dist,
+                         rep = wildcards.rep,
+                         read_length = wildcards.read_length,
+                         read_depth = wildcards.read_depth,
+                         assembler = wildcards.assembler,
+                         contig_frac = wildcards.contig_frac)
+        else:
+            F = F.format(richness = wildcards.richness,
+                         abund_dist = wildcards.abund_dist,
+                         contig_frac = wildcards.contig_frac)            
         return '--misassembly_file ' + F
 
+def bam2feat_asmbl(wildcards):
+    if config['input_type'] == 'simulation':
+        return wildcards.assembler
+    else:
+        return 'NA'
+    
 rule bam2feat:
     """
     Converting bam to features
@@ -42,7 +53,7 @@ rule bam2feat:
     params:
         exe = config['pipeline']['script_folder'] + 'bam2feat', 
 	params = config['params']['feature_table']['make'],
-        assembler = lambda wildcards: wildcards.assembler,
+        assembler = bam2feat_asmbl,
         exe_empty = config['pipeline']['script_folder'] + 'is_empty.py',
         masmbl = bam2feat_masmbl
     threads:
@@ -122,7 +133,8 @@ rule features_file_table:
     output:
         tsv = features_dir + 'feature_files.tsv'
     params:
-        reads = config['params']['MGSIM']['reads']['other_sim_params']
+        reads = config['params']['MGSIM']['reads']['other_sim_params'],
+        input_type = config['input_type']
     log:
         log_dir + 'features_file_table.log'
     benchmark:
@@ -130,22 +142,30 @@ rule features_file_table:
     run:
         import os,sys
         MGSIM_reads = '"' + params.reads + '"'
-        cols = ['richness', 'abundance_distribution', 'rep',
-                'read_length', 'read_depth', 'assembler', 'contig_frac',
-                'feature_file', 'MGSIM_reads_params']
+        if params.input_type == 'simulation':
+            cols = ['richness', 'abundance_distribution', 'rep',
+                    'read_length', 'read_depth', 'assembler', 'contig_frac',
+                    'feature_file', 'MGSIM_reads_params']
+        else:
+            cols = ['sample', 'taxon', 'contig_frac', 'feature_file']            
         with open(output.tsv, 'w') as outF:
             outF.write('\t'.join(cols) + '\n')
             for F in input.feats:
                 D,feat_file = os.path.split(F)
                 D,contig_frac = os.path.split(D)
-                D,assembler = os.path.split(D)
-                D,read_depth = os.path.split(D)
-                D,read_length = os.path.split(D)
-                D,rep = os.path.split(D)
+                if params.input_type == 'simulation':
+                    D,assembler = os.path.split(D)
+                    D,read_depth = os.path.split(D)
+                    D,read_length = os.path.split(D)
+                    D,rep = os.path.split(D)
                 D,abund_dist = os.path.split(D)
                 D,richness = os.path.split(D)
-                rel_path = os.path.join(richness, abund_dist, rep, read_length, read_depth,
-                                        assembler, contig_frac, os.path.split(F)[1])
-                x = '\t'.join([richness, abund_dist, rep, read_length, read_depth, assembler,
-                               contig_frac, rel_path, MGSIM_reads])
+                if params.input_type == 'simulation':                    
+                    rel_path = os.path.join(richness, abund_dist, rep, read_length, read_depth,
+                                            assembler, contig_frac, os.path.split(F)[1])      
+                    x = '\t'.join([richness, abund_dist, rep, read_length, read_depth, assembler,
+                                   contig_frac, rel_path, MGSIM_reads])
+                else:
+                    rel_path = os.path.join(richness, abund_dist, contig_frac, os.path.split(F)[1])
+                    x = '\t'.join([richness, abund_dist, contig_frac, rel_path])
                 outF.write(x + '\n')

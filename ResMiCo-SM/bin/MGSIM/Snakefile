@@ -1,37 +1,3 @@
-# if not skipped(config['params']['MGSIM']['genome_download']):
-#     localrules: MGSIM_genome_download    
-#     rule MGSIM_genome_download:
-#         """
-#         Using MGSIM to download the genomes
-#         """
-#         input:
-#             tbl = ancient(config['genomes_file'])
-#         output:
-#             tbl = genomes_dir + 'genomes.tsv',
-#             fna = config['genomes_tbl']['Fasta']
-#         params:
-#             params = config['params']['MGSIM']['genome_download'],
-#             outdir = config['tmp_dir'] + 'ref_genomes'
-#         conda:
-#             '../envs/MGSIM.yaml'
-#         threads:
-#             12            
-#         log:
-#             log_dir + 'MGSIM/genome_download.log'
-#         benchmark:
-#             benchmark_dir + 'MGSIM/genome_download.txt'
-#         shell:
-#             """
-#             export PATH=$CONDA_PREFIX/bin:$PATH
-#             OUTDIR="{params.outdir}"
-# 	    rm -rf $OUTDIR 2> {log}
-#             mkdir -p $OUTDIR 2>> {log}
-
-#             MGSIM genome_download {params.params} \
-#               -n {threads} -d $OUTDIR -r \
-#               {input.tbl} > {output.tbl} 2>> {log}
-#             """
-
 localrules: MGSIM_genome_rename
 checkpoint MGSIM_genome_rename:
     """

@@ -65,7 +65,7 @@ params:
   # mapping reads to contigs
   map:
     contig_frac:
-      - 0.5
+      - 0.1
       - 1
     samtools: ""
     bowtie2: ""
@@ -79,9 +79,9 @@ params:
   # state-of-the-art
   SotA:
     ALE: ""
-    VALET: ""
+    VALET: Skip
     metaMIC:
-      extract: --mlen 1000
+      extract: Skip #--mlen 1000
       predict: --mlen 1000 --slen 500 -a MEGAHIT
   # misc
   real_contigs_simulated_reads: False

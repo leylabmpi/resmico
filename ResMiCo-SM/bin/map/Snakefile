@@ -108,15 +108,22 @@ def map_bowtie2_input(wildcards):
     d = {'fna' :  J(config['tmp_dir'], P(), 'contigs_filtered_sub.fasta')}
     d['done'] = J(config['tmp_dir'], P(), 'map_bowtie2_build.done')
     # reads
-    if config['input_type'] == 'real data':
+    if config['input_type'] == 'simulation':
+        # simulated reads
+        d['read1'] = J(config['tmp_dir'], P(5), 'sim_reads', 'R1.fq'),
+        d['read2'] = J(config['tmp_dir'], P(5), 'sim_reads', 'R2.fq')
+    else:
         if skipped(config['nonsim_params']['subsample_reads']):
+            # no subsampling of real reads
             d['base_read1'] = J(config['tmp_dir'], 'reads', '{richness}', 'R1.fq')
-            d['base_read2'] = J(config['tmp_dir'], 'reads', '{richness}', 'R2.fq')        
+            d['base_read2'] = J(config['tmp_dir'], 'reads', '{richness}', 'R2.fq')
         else:
+            # subsampling of real reads
             d['base_read1'] = J(config['tmp_dir'], 'reads_sub', '{richness}', 'R1.fq')
-            d['base_read2'] = J(config['tmp_dir'], 'reads_sub', '{richness}', 'R2.fq')        
-    d['read1'] = J(config['tmp_dir'], P(5), 'sim_reads', 'R1.fq'),
-    d['read2'] = J(config['tmp_dir'], P(5), 'sim_reads', 'R2.fq')
+            d['base_read2'] = J(config['tmp_dir'], 'reads_sub', '{richness}', 'R2.fq')
+        # symlinks of real reads
+        d['read1'] = J(config['tmp_dir'], P(5), 'real_reads', 'R1.fq'),
+        d['read2'] = J(config['tmp_dir'], P(5), 'real_reads', 'R2.fq')
     return d
         
 rule map_bowtie2:

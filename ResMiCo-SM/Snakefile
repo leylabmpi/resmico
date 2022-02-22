@@ -75,11 +75,12 @@ def pairwise_params(config, richness, abund_dist, read_length, read_depth, reps,
                                contig_frac):
         config['sim_params']['richness'].append(x[0])
         config['sim_params']['abund_dist'].append(x[1])
-        config['sim_params']['read_length'].append(x[2])
-        config['sim_params']['read_depth'].append(x[3])
-        config['sim_params']['rep'].append(x[4])
-        config['sim_params']['assembler'].append(x[5])
-        config['sim_params']['contig_frac'].append(x[6])
+        if config['input_type'] == 'simulation':
+            config['sim_params']['read_length'].append(x[2])
+            config['sim_params']['read_depth'].append(x[3])
+            config['sim_params']['rep'].append(x[4])
+            config['sim_params']['assembler'].append(x[5])
+            config['sim_params']['contig_frac'].append(x[6])
     config['sim_params'] = pd.DataFrame.from_dict(config['sim_params'])
     
 ## flow control
@@ -96,6 +97,7 @@ if config['input_type'] == 'simulation':
     pairwise_params(config, richness, abund_dist, read_length, read_depth, reps, assemblers,
                     contig_frac)
 elif config['input_type'] == 'provided simulation reads':
+    # provided simulation reads
     richness = config['genomes_tbl'].Sample.tolist()
     abund_dist = ['NA']
     assemblers = [k for k,v in config['params']['assemblers'].items() if not skipped(v)]
@@ -106,12 +108,15 @@ elif config['input_type'] == 'provided simulation reads':
     pairwise_params(config, richness, abund_dist, read_length, read_depth, reps, assemblers,
                     contig_frac)
 elif config['input_type'] == 'real data':
+    # real data
     config['sim_params'] = config['genomes_tbl'].copy()
     config['sim_params'].rename(columns={'Sample' : 'richness', 'Taxon' : 'abund_dist'}, inplace=True)
-    for col in ['assembler', 'read_length', 'read_depth', 'rep', 'contig_frac']:
+    for col in ['assembler', 'read_length', 'read_depth', 'rep']:
         config['sim_params'][col] = 'NA'
-    cols = ['richness', 'abund_dist', 'assembler', 'read_length', 'read_depth', 'rep', 'contig_frac']
+    cols = ['richness', 'abund_dist', 'assembler', 'read_length', 'read_depth', 'rep']
     config['sim_params'] = config['sim_params'][cols]
+    df = pd.DataFrame({'contig_frac' : config['params']['map']['contig_frac']})
+    config['sim_params'] = config['sim_params'].join(df, how='cross')
 else:
     raise ValueError('Input data type not recognized!') 
 
@@ -148,7 +153,7 @@ else:
         read_depth='[^/]+',
         assembler='[^/]+',
         contig_frac='[^/]+',
-        read='[^/]+'    
+        read='R[12]'    
     
 # final files
 localrules: all

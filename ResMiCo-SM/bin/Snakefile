@@ -2,8 +2,11 @@ def P(n_params = 99):
     """
     Syntax sugar for creating paths that include parameters
     """
-    x = ['{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}',
-         '{assembler}', '{contig_frac}']
+    if config['input_type'] == 'simulation':
+        x = ['{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}',
+             '{assembler}', '{contig_frac}']
+    else:
+        x = ['{richness}', '{abund_dist}', '{contig_frac}']
     return os.path.join(*x[:n_params])
 
 def Expand(file_template, param_df, debug=False):
