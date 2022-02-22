@@ -39,9 +39,10 @@ config['genomes_tbl'] = pd.read_csv(config['genomes_file'], sep='\t', comment='#
 def has_cols(df, columns):
     return all([x in df.columns for x in columns])
 if has_cols(config['genomes_tbl'], ['Taxon', 'Fasta', 'Sample', 'Read1', 'Read2']):
-    config['input_type'] = 'real data'
-elif has_cols(config['genomes_tbl'], ['Fasta', 'Sample', 'Read1', 'Read2']):
-    config['input_type'] = 'provided simulation reads'
+    if is_true(config['params']['real_contigs_simulated_reads']):
+        config['input_type'] = 'provided simulation reads'
+    else:
+        config['input_type'] = 'real data'
 elif has_cols(config['genomes_tbl'], ['Taxon', 'Fasta']):
     config['input_type'] = 'simulation'
 else:
@@ -80,6 +81,7 @@ def pairwise_params(config, richness, abund_dist, read_length, read_depth, reps,
         config['sim_params']['assembler'].append(x[5])
         config['sim_params']['contig_frac'].append(x[6])
     config['sim_params'] = pd.DataFrame.from_dict(config['sim_params'])
+    
 ## flow control
 if config['input_type'] == 'simulation':
     # simulation parameters
@@ -131,14 +133,23 @@ include: snake_dir + 'bin/features/Snakefile'
 include: snake_dir + 'bin/SotA/Snakefile'
 
 # constraining wildcards
-wildcard_constraints:
-    rep='[0-9]+',
-    richness='[0-9.]+',
-    read_depth='[0-9]+',
-    assembler='[A-Za-z]+',
-    contig_frac='[0-9.]+',
-    read='R[12]'
-
+if config['input_type'] == 'simulation':
+    wildcard_constraints:
+        rep='[0-9]+',
+        richness='[0-9.]+',
+        read_depth='[0-9]+',
+        assembler='[A-Za-z]+',
+        contig_frac='[0-9.]+',
+        read='R[12]'
+else:
+    wildcard_constraints:
+        rep='[^/]+',
+        richness='[^/]+',
+        read_depth='[^/]+',
+        assembler='[^/]+',
+        contig_frac='[^/]+',
+        read='[^/]+'    
+    
 # final files
 localrules: all
 rule all:

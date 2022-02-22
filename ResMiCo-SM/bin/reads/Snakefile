@@ -21,68 +21,68 @@ rule copy_provided_reads:
         ionice {params.ionice} seqkit seq {input.read2} > {output.read2} 2>> {log}
         """
 
-if not skipped(config['params']['MGSIM']['genome_download']):
-    localrules: genome_download
-    rule genome_download:
-        """
-        Using MGSIM to download the genomes
-        """
-        input:
-            tbl = config['genomes_file']
-        output:
-            tbl = J(genomes_dir, 'genomes.tsv'),
-            fna = config['genomes_tbl']['Fasta']
-        params:
-            params = config['params']['MGSIM']['genome_download'],
-            outdir = config['tmp_dir'] + 'ref_genomes'
-        conda:
-            '../envs/MGSIM.yaml'
-        threads:
-            12
-        log:
-            J(log_dir, 'MGSIM', 'genome_download.log')
-        benchmark:
-            J(bmk_dir, 'MGSIM', 'genome_download.txt')
-        shell:
-            """
-            export PATH=$CONDA_PREFIX/bin:$PATH
-            OUTDIR="{params.outdir}"
-	    rm -rf $OUTDIR 2> {log}
-            mkdir -p $OUTDIR 2>> {log}
+# if not skipped(config['params']['MGSIM']['genome_download']):
+#     localrules: genome_download
+#     rule genome_download:
+#         """
+#         Using MGSIM to download the genomes
+#         """
+#         input:
+#             tbl = config['genomes_file']
+#         output:
+#             tbl = J(genomes_dir, 'genomes.tsv'),
+#             fna = config['genomes_tbl']['Fasta']
+#         params:
+#             params = config['params']['MGSIM']['genome_download'],
+#             outdir = config['tmp_dir'] + 'ref_genomes'
+#         conda:
+#             '../envs/MGSIM.yaml'
+#         threads:
+#             12
+#         log:
+#             J(log_dir, 'MGSIM', 'genome_download.log')
+#         benchmark:
+#             J(bmk_dir, 'MGSIM', 'genome_download.txt')
+#         shell:
+#             """
+#             export PATH=$CONDA_PREFIX/bin:$PATH
+#             OUTDIR="{params.outdir}"
+# 	    rm -rf $OUTDIR 2> {log}
+#             mkdir -p $OUTDIR 2>> {log}
 
-            MGSIM genome_download {params.params} \
-              -n {threads} -d $OUTDIR -r \
-              {input.tbl} > {output.tbl} 2>> {log}
-            """
-else:
-    localrules: genome_rename
-    rule genome_rename:
+#             MGSIM genome_download {params.params} \
+#               -n {threads} -d $OUTDIR -r \
+#               {input.tbl} > {output.tbl} 2>> {log}
+#             """
+# else:
+localrules: genome_rename
+rule genome_rename:
+    """
+    Renaming genome fasta file names & sequence headers
+    """
+    input:
+        tbl = config['genomes_file'],
+        fna = config['genomes_tbl']['Fasta']
+    output:
+        tbl = J(genomes_dir, 'genomes.tsv')
+    params:
+        exe = J(config['pipeline']['script_folder'], 'rename_genomes.py'),
+        outdir = J(config['tmp_dir'], 'ref_genomes')
+    conda:
+        '../envs/MGSIM.yaml'
+    log:
+        J(log_dir, 'genome_rename.log')
+    benchmark:
+        J(bmk_dir, 'genome_rename.txt')
+    shell:
         """
-        Renaming genome fasta file names & sequence headers
-        """
-        input:
-            tbl = config['genomes_file'],
-            fna = config['genomes_tbl']['Fasta']
-        output:
-            tbl = J(genomes_dir, 'genomes.tsv')
-        params:
-            exe = J(config['pipeline']['script_folder'], 'rename_genomes.py'),
-            outdir = J(config['tmp_dir'], 'ref_genomes')
-        conda:
-            '../envs/MGSIM.yaml'
-        log:
-            J(log_dir, 'genome_rename.log')
-        benchmark:
-            J(bmk_dir, 'genome_rename.txt')
-        shell:
-            """
-            export PATH=$CONDA_PREFIX/bin:$PATH
-            OUTDIR="{params.outdir}"
+        export PATH=$CONDA_PREFIX/bin:$PATH
+        OUTDIR="{params.outdir}"
 	    rm -rf $OUTDIR 2> {log}
-            mkdir -p $OUTDIR >> {log}
+        mkdir -p $OUTDIR >> {log}
 
-            {params.exe} {input.tbl} $OUTDIR > {output.tbl} 2>> {log}
-            """    
+        {params.exe} {input.tbl} $OUTDIR > {output.tbl} 2>> {log}
+        """    
 
 localrules: create_comm
 rule create_comm:
