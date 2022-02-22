@@ -1,18 +1,49 @@
-def map_samtools_faidx_input(wildcards):
+def map_contigs_subsample_input(wildcards):
     d = {}
     if config['input_type'] == 'real data':
         d['base'] = J(config['tmp_dir'], 'genomes', '{abund_dist}.fna')
-    d['fna'] = J(config['tmp_dir'], P(), 'contigs_filtered.fasta')
+    d['fna'] = J(config['tmp_dir'], P(6), 'contigs_filtered.fasta')
     return d
 
+rule map_contigs_subsample:
+    """
+    Subsampling contigs
+    """
+    input:
+        unpack(map_contigs_subsample_input)
+    output:
+        fna = temp(J(config['tmp_dir'], P(), 'contigs_filtered_sub.fasta'))
+    params:
+        exe = J(config['pipeline']['script_folder'], 'is_empty.py'),
+        frac = '{contig_frac}'
+    resources:
+        time = lambda wildcards, attempt: attempt ** 3 * 59,
+        mem_gb_pt = lambda wildcards, attempt: attempt ** 2 * 12
+    conda:
+        '../envs/bowtie2.yaml'
+    log:
+        J(log_dir, 'map', 'contigs_subsample', P() + '.log')
+    benchmark:
+        J(bmk_dir, 'map', 'contigs_subsample', P() + '.txt')
+    shell:
+        """
+        export PATH=$CONDA_PREFIX/bin:$PATH
+        if [ `{params.exe} {input.fna}` -eq 0 ]; then
+          seqkit sample -s 7172 -p {params.frac} {input.fna} > {output.fna}
+        else
+          echo "Input is empty; skipping" > {log}
+          touch {output.fna} 2>> {log}
+        fi
+        """    
+        
 rule map_samtools_faidx:
     """
     Running samtools faidx on contigs (indexing)
     """
     input:
-        unpack(map_samtools_faidx_input)
+        fna = J(config['tmp_dir'], P(), 'contigs_filtered_sub.fasta')
     output:
-        fai = temp(J(config['tmp_dir'], P(), 'contigs_filtered.fasta.fai'))
+        fai = temp(J(config['tmp_dir'], P(), 'contigs_filtered_sub.fasta.fai'))
     params:
         exe = J(config['pipeline']['script_folder'], 'is_empty.py')
     resources:
@@ -40,7 +71,7 @@ rule map_bowtie2_build:
     Building bowtie2 index for metagenome assembly contigs
     """
     input:
-        unpack(map_samtools_faidx_input)
+        fna = J(config['tmp_dir'], P(), 'contigs_filtered_sub.fasta')
     output:
         J(config['tmp_dir'], P(), 'map_bowtie2_build.done')
     params:
@@ -73,7 +104,8 @@ rule map_bowtie2_build:
 
 def map_bowtie2_input(wildcards):
     # ref contigs
-    d = map_samtools_faidx_input(wildcards)
+    #d = map_samtools_faidx_input(wildcards)
+    d = {'fna' :  J(config['tmp_dir'], P(), 'contigs_filtered_sub.fasta')}
     d['done'] = J(config['tmp_dir'], P(), 'map_bowtie2_build.done')
     # reads
     if config['input_type'] == 'real data':
@@ -325,8 +357,9 @@ rule map_bam2bigwig:
         """
 
 def map_copy_fai_input(wildcards):
-    d = map_samtools_faidx_input(wildcards)
-    d['fai'] = J(config['tmp_dir'], P(), 'contigs_filtered.fasta.fai')
+    #d = map_samtools_faidx_input(wildcards)
+    d = {'fna' : J(config['tmp_dir'], P(), 'contigs_filtered_sub.fasta')}
+    d['fai'] = J(config['tmp_dir'], P(), 'contigs_filtered_sub.fasta.fai')
     return d
         
 rule map_copy_fai:

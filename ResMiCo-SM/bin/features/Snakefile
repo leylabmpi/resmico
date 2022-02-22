@@ -6,9 +6,9 @@ def bam2feat_input(wildcards):
     # if ground-truth
     if config['input_type'] != 'real data':
         d['fasta'] = J(true_errors_dir, P(), 'combined_reference', 'contigs_reports',
-                       'contigs_filtered.mis_contigs.fa'),
+                       'contigs_filtered_sub.mis_contigs.fa'),
         d['masmbl'] = J(true_errors_dir, P(), 'combined_reference', 'contigs_reports',
-                        'contigs_report_contigs_filtered.mis_contigs.info')
+                        'contigs_report_contigs_filtered_sub.mis_contigs.info')
     return d
 
 def bam2feat_masmbl(wildcards):
@@ -16,13 +16,14 @@ def bam2feat_masmbl(wildcards):
         return ''
     else:
         F = J(true_errors_dir, P(), 'combined_reference', 'contigs_reports',
-              'contigs_report_contigs_filtered.mis_contigs.info')
+              'contigs_report_contigs_filtered_sub.mis_contigs.info')
         F= F.format(richness = wildcards.richness,
                     abund_dist = wildcards.abund_dist,
                     rep = wildcards.rep,
                     read_length = wildcards.read_length,
                     read_depth = wildcards.read_depth,
-                    assembler = wildcards.assembler)
+                    assembler = wildcards.assembler,
+                    contig_frac = wildcards.contig_frac)
         return '--misassembly_file ' + F
 
 rule bam2feat:
@@ -130,19 +131,21 @@ rule features_file_table:
         import os,sys
         MGSIM_reads = '"' + params.reads + '"'
         cols = ['richness', 'abundance_distribution', 'rep',
-                'read_length', 'read_depth', 'assembler',
+                'read_length', 'read_depth', 'assembler', 'contig_frac',
                 'feature_file', 'MGSIM_reads_params']
         with open(output.tsv, 'w') as outF:
             outF.write('\t'.join(cols) + '\n')
             for F in input.feats:
                 D,feat_file = os.path.split(F)
+                D,contig_frac = os.path.split(D)
                 D,assembler = os.path.split(D)
                 D,read_depth = os.path.split(D)
                 D,read_length = os.path.split(D)
                 D,rep = os.path.split(D)
                 D,abund_dist = os.path.split(D)
                 D,richness = os.path.split(D)
-                rel_path = os.path.join(richness, abund_dist, rep, read_length, read_depth, assembler,
-                                        os.path.split(F)[1])
-                x = '\t'.join([richness, abund_dist, rep, read_length, read_depth, assembler, rel_path, MGSIM_reads])
+                rel_path = os.path.join(richness, abund_dist, rep, read_length, read_depth,
+                                        assembler, contig_frac, os.path.split(F)[1])
+                x = '\t'.join([richness, abund_dist, rep, read_length, read_depth, assembler,
+                               contig_frac, rel_path, MGSIM_reads])
                 outF.write(x + '\n')

@@ -30,7 +30,7 @@ rule nonpareil:
     """
     input:
         check = J(coverage_dir, 'precheck_nonpareil.done'),
-        read1 = J(config['tmp_dir'], P(5), 'sim_reads/R1.fq')
+        read1 = J(config['tmp_dir'], P(5), 'sim_reads', 'R1.fq')
     output:
         npo = J(coverage_dir, P(5), 'nonpareil.npo')
     params:

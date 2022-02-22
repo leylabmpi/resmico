@@ -155,12 +155,12 @@ rule metaMIC_extract:
     input:
         unpack(metaMIC_extract_input)
     output:
-        txt = temp(J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}',
-                     '{assembler}', 'metaMIC', 'feature_matrix/window_fea_matrix.txt')),
-        mtx = temp(J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}',
-                     '{assembler}', 'metaMIC', 'feature_matrix/contig_fea_matrix.txt')),
-        rb = temp(J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}',
-                    '{assembler}', 'metaMIC', 'temp', 'read_breakpoint/read_breakpoint_per_base.txt'))
+        txt = temp(J(config['tmp_dir'], P(), 'metaMIC',
+                     'feature_matrix', 'window_fea_matrix.txt')),
+        mtx = temp(J(config['tmp_dir'], P(), 'metaMIC', 'feature_matrix',
+                     'contig_fea_matrix.txt')),
+        rb = temp(J(config['tmp_dir'], P(), 'metaMIC', 'temp', 'read_breakpoint',
+                    'read_breakpoint_per_base.txt'))
     params:
         params = config['params']['SotA']['metaMIC']['extract'],
         exe_empty = J(config['pipeline']['script_folder'], 'is_empty.py')
@@ -173,9 +173,9 @@ rule metaMIC_extract:
         n = lambda wildcards, attempt, threads: threads,
         mem_gb_pt = lambda wildcards, attempt: attempt ** 2 + 4
     log:
-        log_dir + 'metaMIC/extract/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.log'
+        J(log_dir, 'metaMIC', 'extract', P() + '.log')
     benchmark:
-        benchmark_dir + 'metaMIC/extract/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.txt'
+        J(bmk_dir, 'metaMIC', 'extract', P() + '.txt')
     shell:
         """
         OUTDIR=`dirname {output.txt}`
@@ -196,12 +196,10 @@ rule metaMIC_extract:
 
 def metaMIC_predict_input(wildcards):
     d = map_bowtie2_input(wildcards)
-    d['txt'] = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}',
-                 '{assembler}', 'metaMIC', 'feature_matrix/window_fea_matrix.txt')
-    d['mtx'] = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}',
-                     '{assembler}', 'metaMIC', 'feature_matrix/contig_fea_matrix.txt')
-    d['rb'] = J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}',
-                '{assembler}', 'metaMIC', 'temp', 'read_breakpoint/read_breakpoint_per_base.txt')
+    d['txt'] = J(config['tmp_dir'], P(), 'metaMIC', 'feature_matrix', 'window_fea_matrix.txt')
+    d['mtx'] = J(config['tmp_dir'], P(), 'metaMIC', 'feature_matrix', 'contig_fea_matrix.txt')
+    d['rb'] = J(config['tmp_dir'], P(), 'metaMIC', 'temp', 'read_breakpoint',
+                'read_breakpoint_per_base.txt')
     d['dl_done'] = J(metamic_dir, 'model_download.done')     
     return d
         
@@ -211,27 +209,11 @@ rule metaMIC_predict:
     """
     input:
         unpack(metaMIC_predict_input)
-        # metamic_dir + 'model_download.done',
-        # contigs = config['tmp_dir'] + \
-        #           '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/contigs_filtered.fasta',
-        # txt = config['tmp_dir'] + \
-        #       '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
-        #       'metaMIC/feature_matrix/window_fea_matrix.txt',
-        # mtx = config['tmp_dir'] + \
-        #       '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
-        #       'metaMIC/feature_matrix/contig_fea_matrix.txt',
-        # rb = config['tmp_dir'] + \
-        #      '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
-        #      'metaMIC/temp/read_breakpoint/read_breakpoint_per_base.txt' 
     output:
-        scr = temp(J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}', '{assembler}',
-                     'metaMIC', 'metaMIC_contig_score.txt')),
-        txt = temp(J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}', '{assembler}',
-                     'metaMIC', 'anomaly_score.txt')),
-        fna = temp(J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}', '{assembler}',
-                     'metaMIC', 'metaMIC_corrected_contigs.fa')),
-        brk = temp(J(config['tmp_dir'], '{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}', '{assembler}',
-                     'metaMIC', 'misassembly_breakpoint.txt'))
+        scr = temp(J(config['tmp_dir'], P(), 'metaMIC', 'metaMIC_contig_score.txt')),
+        txt = temp(J(config['tmp_dir'], P(), 'metaMIC', 'anomaly_score.txt')),
+        fna = temp(J(config['tmp_dir'], P(), 'metaMIC', 'metaMIC_corrected_contigs.fa')),
+        brk = temp(J(config['tmp_dir'], P(), 'metaMIC', 'misassembly_breakpoint.txt'))
     params:
         params = config['params']['SotA']['metaMIC']['predict'],
         exe_empty = J(config['pipeline']['script_folder'], 'is_empty.py')
@@ -241,9 +223,9 @@ rule metaMIC_predict:
         time = lambda wildcards, attempt: attempt * 60 * 12,
         mem_gb_pt = lambda wildcards, attempt: attempt ** 3 * 2 + 8
     log:
-        J(log_dir, 'metaMIC', 'predict', '{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}', '{assembler}.log')
+        J(log_dir, 'metaMIC', 'predict', P() + '.log')
     benchmark:
-        J(bmk_dir, 'metaMIC', 'predict', '{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}', '{assembler}.txt')
+        J(bmk_dir, 'metaMIC', 'predict', P() + '.txt')
     shell:
         """
         OUTDIR=`dirname {output.txt}`
@@ -262,35 +244,25 @@ rule metaMIC_copy:
     Copying final metaMIC results
     """
     input:
-        scr = config['tmp_dir'] + \
-              '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/metaMIC/metaMIC_contig_score.txt',
-        fna = config['tmp_dir'] + \
-              '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/metaMIC/metaMIC_corrected_contigs.fa',
-        brk = config['tmp_dir'] + \
-              '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/metaMIC/misassembly_breakpoint.txt',
-        txt = config['tmp_dir'] + \
-              '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/metaMIC/anomaly_score.txt',
-        mtx = config['tmp_dir'] + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
-              'metaMIC/feature_matrix/window_fea_matrix.txt',
-        rbb = config['tmp_dir'] + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
-              'metaMIC/temp/read_breakpoint/read_breakpoint_per_base.txt'
+        scr = J(config['tmp_dir'], P(), 'metaMIC', 'metaMIC_contig_score.txt'),
+        fna = J(config['tmp_dir'], P(), 'metaMIC', 'metaMIC_corrected_contigs.fa'),
+        brk = J(config['tmp_dir'], P(), 'metaMIC', 'misassembly_breakpoint.txt'),
+        txt = J(config['tmp_dir'], P(), 'metaMIC', 'anomaly_score.txt'),
+        mtx = J(config['tmp_dir'], P(), 'metaMIC', 'feature_matrix', 'window_fea_matrix.txt'),
+        rbb = J(config['tmp_dir'], P(), 'metaMIC', 'temp', 'read_breakpoint',
+                'read_breakpoint_per_base.txt')
     output:
-        scr = metamic_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
-              'metaMIC/metaMIC_contig_score.txt.gz',
-        txt = metamic_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
-              'metaMIC/anomaly_score.txt.gz',
-        fna = metamic_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
-              'metaMIC/metaMIC_corrected_contigs.fa.gz',
-        brk = metamic_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
-              'metaMIC/misassembly_breakpoint.txt.gz',
-        mtx = metamic_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
-              'metaMIC/feature_matrix/window_fea_matrix.txt.gz',
-        rbb = metamic_dir + '{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}/' + \
-              'metaMIC/temp/read_breakpoint/read_breakpoint_per_base.txt.gz'
+        scr = J(metamic_dir, P(), 'metaMIC', 'metaMIC_contig_score.txt.gz'),
+        txt = J(metamic_dir, P(), 'metaMIC', 'anomaly_score.txt.gz'),
+        fna = J(metamic_dir, P(), 'metaMIC', 'metaMIC_corrected_contigs.fa.gz'),
+        brk = J(metamic_dir, P(), 'metaMIC', 'misassembly_breakpoint.txt.gz'),
+        mtx = J(metamic_dir, P(), 'metaMIC', 'feature_matrix', 'window_fea_matrix.txt.gz'),
+        rbb = J(metamic_dir, P(), 'metaMIC', 'temp', 'read_breakpoint',
+                'read_breakpoint_per_base.txt.gz')
     params:
         ionice = config['params']['ionice']
     log:
-        log_dir + 'metaMIC/copy/{richness}/{abund_dist}/{rep}/{read_length}/{read_depth}/{assembler}.log'
+        J(log_dir, 'metaMIC', 'copy', P() + '.log')
     shell:
         """
         ionice {params.ionice} gzip -c {input.scr} > {output.scr} 2> {log}

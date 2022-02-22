@@ -2,7 +2,8 @@ def P(n_params = 99):
     """
     Syntax sugar for creating paths that include parameters
     """
-    x = ['{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}', '{assembler}']
+    x = ['{richness}', '{abund_dist}', '{rep}', '{read_length}', '{read_depth}',
+         '{assembler}', '{contig_frac}']
     return os.path.join(*x[:n_params])
 
 def Expand(file_template, param_df, debug=False):
@@ -70,7 +71,7 @@ def which_input_coverage(F, config):
     return F
 
 def which_input_asmbl(F, config):
-    F += Expand(J(asmbl_dir, P(), 'contigs_filtered.fasta.gz'),
+    F += Expand(J(asmbl_dir, P(6), 'contigs_filtered.fasta.gz'),
                config['sim_params'])
     return F
 
