@@ -145,7 +145,7 @@ int main(int argc, char *argv[]) {
     });
 
 #pragma omp parallel for num_threads(FLAGS_procs)
-    for (uint32_t c = 0; c < ref_names.size(); ++c) {
+    for (uint32_t c = 0; c < 10 /*ref_names.size()*/; ++c) {
         const std::string reference_seq = get_sequence(FLAGS_fasta_file, ref_names[c]);
         std::vector<Stats> stats = contig_stats(ref_names[c], reference_seq, FLAGS_bam_file,
                                                 FLAGS_window, FLAGS_short);

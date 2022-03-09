@@ -1,6 +1,5 @@
 {
   "means": {
-    "coverage": 0,
     "min_insert_size_Match": 425.0,
     "mean_insert_size_Match": 425.0,
     "stdev_insert_size_Match": 0.0,
@@ -17,7 +16,6 @@
     "seq_window_entropy": 0
   },
   "stdevs": {
-    "coverage": 0,
     "min_insert_size_Match": 0.0,
     "mean_insert_size_Match": 0.0,
     "stdev_insert_size_Match": 0.0,

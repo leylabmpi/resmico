@@ -415,7 +415,7 @@ class BinaryDataset(tf.keras.utils.Sequence):
 class BinaryDatasetTrain(BinaryDataset):
     def __init__(self, reader: ContigReader, indices: list[int], batch_size: int, feature_names: list[str],
                  max_len: int, num_translations: int, max_translation_bases: int, fraq_neg: float, do_cache: bool,
-                 show_progress: bool, convoluted_size, pad_to_max_len: bool):
+                 show_progress: bool, convoluted_size, pad_to_max_len: bool, weight_factor: int):
 
         """
         Arguments:
@@ -433,6 +433,7 @@ class BinaryDatasetTrain(BinaryDataset):
             - convoluted_size - function that computes the size of the convoluted output for an input of size n
             - pad_to_max_len - if true, all batches will be padded to max-len, even if the longest contig in the batch
               is shorter (this guarantees fixed-length input)
+            - weight_factor - if different than 0, contigs are weighed by min(1, contig_len/factor) during training
         """
         BinaryDataset.__init__(self, reader, feature_names, convoluted_size, pad_to_max_len)
         logging.info(
@@ -446,6 +447,7 @@ class BinaryDatasetTrain(BinaryDataset):
         self.fraq_neg = fraq_neg
         self.do_cache = do_cache
         self.show_progress = show_progress
+        self.weight_factor = weight_factor
 
         if self.do_cache:
             # the cache maps a batch index to feature_name:feature_data pairs
@@ -574,8 +576,12 @@ class BinaryDatasetTrain(BinaryDataset):
         # files to process
         contig_data: list[ContigInfo] = [self.reader.contigs[i] for i in batch_indices]
         y = np.zeros(self.batch_size)
-        for i, idx in enumerate(batch_indices):
-            y[i] = 0 if self.reader.contigs[idx].misassembly == 0 else 1
+        weights = np.ones(self.batch_size, dtype=np.float32)
+        for i in range(len(batch_indices)):
+            y[i] = 0 if contig_data[i].misassembly == 0 else 1
+        if self.weight_factor > 0:
+            for i in range(len(batch_indices)):
+                weights[i] = min(1, contig_data[i].length/self.weight_factor)
 
         features_data = self.reader.read_contigs(contig_data)
         max_contig_len = max([self.reader.contigs[i].length for i in batch_indices])
@@ -606,10 +612,10 @@ class BinaryDatasetTrain(BinaryDataset):
         self.last_mask = mask
         self.last_idx = index
         if self.do_cache:
-            self.cache[index] = (x, mask), np.array(y)
+            self.cache[index] = (x, mask), y, weights
         if self.show_progress:
             utils.update_progress(index + 1, self.__len__(), 'Training: ', f' {(timer() - start):5.2f}s')
-        return (x, mask), np.array(y)
+        return (x, mask), y, weights
 
 
 class BinaryDatasetEval(BinaryDataset):

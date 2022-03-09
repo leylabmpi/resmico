@@ -43,7 +43,8 @@ def main(args):
 
     logging.info('Loading contig data...')
     reader = contig_reader.ContigReader(args.feature_files_path, args.features, args.n_procs, args.chunks,
-                                        args.no_cython, args.stats_file, min_avg_coverage=args.min_avg_coverage,
+                                        args.no_cython, args.stats_file, min_len=args.min_contig_len,
+                                        min_avg_coverage=args.min_avg_coverage,
                                         feature_file_match=args.feature_file_match)
 
     # separate data into 90% for training and 10% for evaluation
@@ -66,7 +67,7 @@ def main(args):
     train_data = Models.BinaryDatasetTrain(reader, train_idx, args.batch_size, args.features, args.max_len,
                                            args.num_translations, args.max_translation_bases, args.fraq_neg,
                                            args.cache_train or args.cache, args.log_progress, resmico.convoluted_size,
-                                           resmico.fixed_length)
+                                           resmico.fixed_length, args.weight_factor)
     # convert the slow Keras train_data of type Sequence to a tf.data object
     # first, we convert the keras sequence into a generator-like object
     data_iter = lambda: (s for s in train_data)
@@ -77,7 +78,8 @@ def main(args):
         output_signature=(
             (tf.TensorSpec(shape=(args.batch_size, None, len(train_data.expanded_feature_names)), dtype=tf.float32),
              tf.TensorSpec(shape=(args.batch_size, None), dtype=tf.bool)),
-            tf.TensorSpec(shape=(args.batch_size), dtype=tf.uint8)))
+            tf.TensorSpec(shape=(args.batch_size), dtype=tf.uint8),
+            tf.TensorSpec(shape=(args.batch_size), dtype=tf.float32)))
 
     # add a prefetch option that builds the next batch ready for consumption by the GPU as it is working on
     # the current batch.

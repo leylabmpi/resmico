@@ -83,7 +83,8 @@ class TestBinaryDatasetTrain(TestBase):
                 data_gen = models_fl.BinaryDatasetTrain(ctg_reader, indices, batch_size, features, max_len,
                                                         num_translations=3, max_translation_bases=10, fraq_neg=1.0,
                                                         do_cache=cached, show_progress=False,
-                                                        convoluted_size=(lambda x, pad: x), pad_to_max_len=False)
+                                                        convoluted_size=(lambda x, pad: x), pad_to_max_len=False,
+                                                        weight_factor=100)
                 data_gen.indices.sort()  # indices will now be 0,0,0,1,1,1,2,2,2
                 self.assertEqual(9, len(data_gen.indices))  # we have 3 contigs, each translated 3 times
                 self.assertEqual([0, 0, 0, 1, 1, 1, 2, 2, 2], data_gen.indices)
@@ -94,7 +95,7 @@ class TestBinaryDatasetTrain(TestBase):
                     (500, 1000), (450, 950), (440, 900)  # 3rd contig
                 ]
 
-                (x, mask), y = data_gen.__getitem__(0)
+                (x, mask), y, weights = data_gen.__getitem__(0)
                 self.assertEqual((batch_size, max_len, len(features)), x.shape)
                 # the last zero is just padding
                 self.assert_array_equal([0, 0, 0, 1, 1, 1, 1, 1, 1, 0], y)
@@ -181,16 +182,19 @@ class TestBinaryDatasetTrain(TestBase):
             data_gen = models_fl.BinaryDatasetTrain(ctg_reader, indices, batch_size, reader.feature_names, 500,
                                                     num_translations=1, max_translation_bases=0, fraq_neg=1.0,
                                                     do_cache=cached, show_progress=False,
-                                                    convoluted_size=(lambda x, pad: x), pad_to_max_len=False)
+                                                    convoluted_size=(lambda x, pad: x), pad_to_max_len=False,
+                                                    weight_factor=1000)
             data_gen.translate_short_contigs = False  # so that we know which interval is selected
             # set these to -1 in order to enforce NOT swapping A/T and G/C (for data enhancement)
             data_gen.pos_A = data_gen.pos_ref = data_gen.pos_C = -1
             # unshuffle the indices, so that we can make assertions about the returned data
             data_gen.indices = [0, 1]
             self.assertEqual(1, len(data_gen))
-            (train_data, mask), y = data_gen[0]
+            (train_data, mask), y, weights = data_gen[0]
             # even if we only have 2 samples, the remaining are filled with zero to reach the desired batch size
             self.assertEqual(batch_size, len(train_data))
+
+            self.assert_array_equal(weights, np.array([0.5, 0.5, 1, 1, 1, 1, 1, 1, 1, 1]))
 
             expected_y = np.zeros(batch_size)
             expected_y[0] = 1

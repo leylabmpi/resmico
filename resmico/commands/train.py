@@ -91,6 +91,11 @@ def parse_args(curr_args=None, subparsers=None):
     parser.add_argument('--max-translation-bases', default=0, type=int,
                         help='Maximum number of bases to translate around the breaking point'
                              '(i.e. misassembled contigs) that are longer than max-len')
+    parser.add_argument('--weight-factor', default=0, type=int,
+                        help='Factor by which contigs are weighted based on '
+                             'their length. w = min(1, contig_len/weight-factor). 0==no weighting')
+    parser.add_argument('--min-contig-len', default=0, type=int,
+                        help='Ignore contigs with length smaller than this value')
 
     arguments.add_common_args(parser)
 
