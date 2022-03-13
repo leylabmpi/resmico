@@ -194,7 +194,7 @@ class TestBinaryDatasetTrain(TestBase):
             # even if we only have 2 samples, the remaining are filled with zero to reach the desired batch size
             self.assertEqual(batch_size, len(train_data))
 
-            self.assert_array_equal(weights, np.array([0.5, 0.5, 1, 1, 1, 1, 1, 1, 1, 1]))
+            self.assert_array_equal(weights, np.array([0.25, 0.25, 1, 1, 1, 1, 1, 1, 1, 1]))
 
             expected_y = np.zeros(batch_size)
             expected_y[0] = 1
