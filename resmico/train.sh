@@ -6,8 +6,9 @@ module load cuda/11.1.1 cudnn/8.0.5 nccl/2.3.7-1
 N9K="/cluster/work/grlab/projects/projects2019-contig_quality/data/v2/resmico-sm/GTDBr202_n9k_train/"
 N9K_1REP="/cluster/work/grlab/projects/projects2019-contig_quality/data/v2/resmico-sm/GTDBr202_n9k_train_1rep"
 N9K_SMALL="/cluster/work/grlab/projects/projects2019-contig_quality/data/v2/resmico-sm/GTDBr202_n9k_train_1rep/GTDBr202_n9k_train/cami_err/features/0.005555/"
+N9K_LARGE_INS="/cluster/work/grlab/projects/projects2019-contig_quality/data/v2/resmico-sm/train_with_lrg_ins/"
 
-declare -a DATA_DIRS=("${N9K}") 
+declare -a DATA_DIRS=("${N9K_LARGE_INS}") 
 CODE_PATH="/cluster/home/ddanciu/resmico"  # replace with whatever directory your source code is in
 OUT_PATH="/cluster/home/ddanciu/tmp" # replace this with the desired output directory
 
@@ -98,19 +99,20 @@ do
   features_no_count="mean_al_score_Match mean_mapq_Match mean_insert_size_Match min_al_score_Match min_insert_size_Match"
   features_count="num_orphans_Match num_proper_Match num_proper_SNP coverage"
   features_no_insert="ref_base num_query_A num_query_C num_query_G num_query_T num_SNPs num_proper_Match num_orphans_Match mean_al_score_Match coverage mean_mapq_Match"
+  features_shap="num_query_A num_query_C num_query_G num_query_T mean_mapq_Match stdev_al_score_Match mean_al_score_Match mean_insert_size_Match coverage min_al_score_Match num_SNPs min_insert_size_Match num_proper_Match num_orphans_Match"
 
   cmd3="/usr/bin/time python resmico train --binary-data --feature-files-path ${SCRATCH_DIR} \
       --save-path /cluster/home/ddanciu/tmp --save-name  resmico_${max_len}_${current_time} \
       --n-procs 8 --log-level info \
       --batch-size ${batch_size} --n-fc 1 --num-blocks 4 --fraq-neg 0.2  ${additional_params}  \
-      --max-len ${max_len} --gpu-eval-mem-gb 1 --features ${features_no_insert} --n-epochs 100 \
+      --max-len ${max_len} --gpu-eval-mem-gb 1 --features ${features_shap} --n-epochs 100 \
       --num-translations ${num_translations} --max-translation-bases ${max_translation_bases} \
       --min-avg-coverage 0 --mask-padding --net-type cnn_resnet_avg \
-      --lr-init 0.0001 \
-      --val-ind-f ${DATA_DIR}/evaluation_indices_fixed.csv \
-      --stats-file ${DATA_DIR}/stats_cov.json" # also contains coverage stats
+      --weight-factor  10000 \
+      --stats-file ${DATA_DIR}/stats_cov.json \
+      --lr-init 0.0001"
 #      --feature-file-match '/1/'"
-
+# --val-ind-f ${DATA_DIR}/evaluation_indices_fixed.csv \
 
   cmd4="echo Cleaning scratch directory...; rm -rf ${SCRATCH_DIR}"
 
