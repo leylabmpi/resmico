@@ -77,10 +77,11 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
     eval_data_predicted_mean = predict_data.group(eval_data_flat_y, np.mean)
     eval_data_predicted_std = predict_data.group(eval_data_flat_y, np.std)
     eval_data_predicted_max = predict_data.group(eval_data_flat_y, max)
+    eval_data_predicted_score = predict_data.group(eval_data_flat_y, max) #'sma'
 
-    auc_val = average_precision_score(eval_data_y, eval_data_predicted_max)
-    recall1_val = recall_score(eval_data_y, eval_data_predicted_max > 0.5, pos_label=1)
-    recall0_val = recall_score(eval_data_y, eval_data_predicted_max > 0.5, pos_label=0)
+    auc_val = average_precision_score(eval_data_y, eval_data_predicted_score)
+    recall1_val = recall_score(eval_data_y, eval_data_predicted_score > 0.5, pos_label=1)
+    recall0_val = recall_score(eval_data_y, eval_data_predicted_score > 0.5, pos_label=0)
     logging.info(f'Prediction scores: aucPR: {auc_val} - recall1: {recall1_val} - recall0: {recall0_val}')
     duration = time.time() - start
     logging.info(f'Prediction done in {duration:.0f}s.')
@@ -100,7 +101,7 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
         for idx in range(len(eval_idx)):
             contig = reader.contigs[predict_data.indices[idx]]
             out_file.write(f'{os.path.join(os.path.dirname(contig.file), contig.name)},{contig.length},'
-                           f'{contig.misassembly},{eval_data_emb[idx]},{eval_data_predicted_max[idx]},'
+                           f'{contig.misassembly},{eval_data_emb[idx]},{eval_data_predicted_score[idx]},'
                            f'{eval_data_predicted_min[idx]},{eval_data_predicted_mean[idx]},'
                            f'{eval_data_predicted_std[idx]},{eval_data_predicted_max[idx]}\n')        
     else:
@@ -109,7 +110,7 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
         for idx in range(len(eval_idx)):
             contig = reader.contigs[predict_data.indices[idx]]
             out_file.write(f'{os.path.join(os.path.dirname(contig.file), contig.name)},{contig.length},'
-                           f'{contig.misassembly},{eval_data_predicted_max[idx]},'
+                           f'{contig.misassembly},{eval_data_predicted_score[idx]},'
                            f'{eval_data_predicted_min[idx]},{eval_data_predicted_mean[idx]},'
                            f'{eval_data_predicted_std[idx]},{eval_data_predicted_max[idx]}\n')
 

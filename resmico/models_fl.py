@@ -581,8 +581,9 @@ class BinaryDatasetTrain(BinaryDataset):
             y[i] = 0 if contig_data[i].misassembly == 0 else 1
         if self.weight_factor > 0:
             for i in range(len(batch_indices)):
-                weights[i] = min(1, contig_data[i].length/self.weight_factor)
-
+#                 weights[i] = min(1, (contig_data[i].length/self.weight_factor))
+                weights[i] = min(100, (contig_data[i].length/self.weight_factor)**4)
+                
         features_data = self.reader.read_contigs(contig_data)
         max_contig_len = max([self.reader.contigs[i].length for i in batch_indices])
         max_len = self.max_len if self.pad_to_max_len else min(max_contig_len, self.max_len)
@@ -712,7 +713,12 @@ class BinaryDatasetEval(BinaryDataset):
         j = 0
         for batch in self.chunk_counts:
             for chunk_count in batch:
-                grouped_y[i] = method(y[j:j + chunk_count])
+                scores = y[j:j + chunk_count]
+                if method=='sma':
+                    scores=utils.sma(scores, 2)
+                    grouped_y[i] = max(scores)
+                else:
+                    grouped_y[i] = method(scores)
                 i += 1
                 j += chunk_count
         return grouped_y
@@ -810,9 +816,11 @@ class BinaryDatasetEval(BinaryDataset):
                     mask[idx][:self.convoluted_size(max_len, pad=False)] = 1
                     idx += 1
                 else:
-                    # force at least 5000 bases in the last chunk, as the network hasn't seen contigs shorter than 1K
+#                     ###force at least 5000 bases in the last chunk, as the network hasn't seen contigs shorter than 1K
                     if self.window > 5000 and contig_len > self.window and contig_len - start_idx < 5000:
                         start_idx = contig_len - 5000
+#                     if self.window > 1000 and contig_len > self.window and contig_len - start_idx < 1000:
+#                         start_idx = contig_len - 1000
                     x[idx][:contig_len - start_idx] = stacked_features[start_idx:contig_len]
                     mask[idx][:self.convoluted_size(contig_len - start_idx, pad=False)] = 1
                     idx += 1

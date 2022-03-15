@@ -1498,3 +1498,16 @@ def update_progress(current: int, total: int, prefix: str, tail: str):
     text = f'\r{prefix}[{"#" * block + "-" * (barLength - block)}] {current_str}/{total} {status}'
     sys.stdout.write(text)
     sys.stdout.flush()
+    
+def sma(arr, window_size=2):
+    if len(arr)<=window_size:
+        return [np.mean(arr)]
+    i = 0
+    # Initialize an empty list to store moving averages
+    moving_averages = []
+    while i < len(arr) - window_size + 1:
+        window_average = np.sum(arr[
+          i:i+window_size]) / window_size
+        moving_averages.append(window_average)
+        i += 1
+    return moving_averages
