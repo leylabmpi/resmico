@@ -522,22 +522,23 @@ class BinaryDatasetTrain(BinaryDataset):
             start_idx = 0
             end_idx = cd.length
             min_padding = 50  # minimum amount of bases to keep around the breakpoint
+            min_size = 5000 #allow chunks shorter than window size
 
             if cd.length > max_len:
                 # when no breakpoints are present, we can choose any segment within the contig
                 # however, if the contig contains a breakpoint, we must choose a segment that includes the breakpoint
                 if not cd.breakpoints:
-                    start_idx = np.random.randint(cd.length - max_len + 1)
+                    start_idx = np.random.randint(cd.length - min_size + 1)
                 else:  # select an interval that contains the first breakpoint
                     # TODO: add one item for each breakpoint
                     lo, hi = cd.breakpoints[0]
                     if max_len >= min_padding + (hi - lo):
                         start_lo = max(0, hi - max_len + min_padding)
-                        start_hi = min(cd.length - max_len, lo - min_padding)
+                        start_hi = min(cd.length - min_size, lo - min_padding)
                         start_idx = np.random.randint(start_lo, start_hi)
                     else:
                         pass  # corner case for tiny tiny max-len, probably never reached
-                end_idx = start_idx + max_len
+                end_idx = min(start_idx + max_len, end_idx)
             elif translate_short_contigs:
                 if cd.breakpoints:
                     # we have a mis-assembled contig which is shorter than max_len; pick a random starting point
