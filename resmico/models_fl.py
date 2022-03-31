@@ -646,8 +646,8 @@ class BinaryDatasetTrain(BinaryDataset):
             y[i] = 0 if contig_data[i].misassembly == 0 else 1
         if self.weight_factor > 0:
             for i in range(len(batch_indices)):
-#                 weights[i] = min(1, (contig_data[i].length/self.weight_factor))
-                weights[i] = min(100, (contig_data[i].length/self.weight_factor)**4)
+                weights[i] = min(1, (contig_data[i].length/self.weight_factor)**2)
+#                 weights[i] = min(100, (contig_data[i].length/self.weight_factor)**4)
 
         features_data = self.reader.read_contigs(contig_data)
         max_contig_len = max([self.reader.contigs[i].length for i in batch_indices])
