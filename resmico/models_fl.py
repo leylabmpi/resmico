@@ -647,7 +647,7 @@ class BinaryDatasetTrain(BinaryDataset):
             for i in range(len(batch_indices)):
 #                 weights[i] = min(1, (contig_data[i].length/self.weight_factor))
                 weights[i] = min(100, (contig_data[i].length/self.weight_factor)**4)
-                
+
         features_data = self.reader.read_contigs(contig_data)
         max_contig_len = max([self.reader.contigs[i].length for i in batch_indices])
         max_len = self.max_len if self.pad_to_max_len else min(max_contig_len, self.max_len)
