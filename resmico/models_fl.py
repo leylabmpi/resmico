@@ -586,6 +586,7 @@ class BinaryDatasetTrain(BinaryDataset):
             end_idx = cd.length
             min_padding = 50  # minimum amount of bases to keep around the breakpoint
             min_size = 2000 #allow chunks shorter than window size
+            min_size = min(min_size, max_len) #to pass tests with window < 2k
 
             if cd.length > max_len:
                 # when no breakpoints are present, we can choose any segment within the contig
