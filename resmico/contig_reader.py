@@ -371,8 +371,12 @@ class ContigReader:
                 toc_file += '_chunked'
             offset = 0
             with open(toc_file) as f:
+#                 logging.info(f'FILE: {toc_file}')
                 rd = csv.reader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
-                next(rd)  # skip CSV header: Assembler, Contig_name, MissassembleCount, ContigLen
+                try: #file is not empty
+                    next(rd)  # skip CSV header: Assembler, Contig_name, MissassembleCount, ContigLen
+                except:
+                    continue
                 for row in rd:
                     # the fields in row are: name, length (bases), misassembly_count, size_bytes, breakpoints, coverage
                     contig_name = row[0]
@@ -429,7 +433,10 @@ class ContigReader:
             mm = mmap.mmap(binary_file.fileno(), 0, access=mmap.ACCESS_READ)
 
             rd = csv.reader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
-            next(rd)  # skip CSV header: Assembler, Contig_name, MissassembleCount, ContigLen
+            try:
+                next(rd)  # skip CSV header: Assembler, Contig_name, MissassembleCount, ContigLen
+            except:
+                return
             for row in rd:
                 size_bytes = int(row[3])
                 # the gzip reader reads ahead and messes up the current position, so we need to re-seek

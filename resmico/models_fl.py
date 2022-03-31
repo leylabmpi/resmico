@@ -1,6 +1,7 @@
 import logging
 import math
 import time
+import random
 from timeit import default_timer as timer
 
 import numpy as np
@@ -12,6 +13,7 @@ from tensorflow.keras.layers import GlobalMaxPooling1D, GlobalAveragePooling1D, 
     MaxPooling1D, Flatten, Layer
 from tensorflow.keras.layers import Conv1D, Dropout, Dense
 from tensorflow.keras.layers import Bidirectional, LSTM, GRU
+from tensorflow.keras.layers import Masking, LayerNormalization, MultiHeadAttention
 from tensorflow.python.ops import array_ops
 
 from toolz import itertoolz
@@ -93,12 +95,13 @@ def construct_convolution_lambda(model: Model):
             # layer of ResMiCo), then the output size is shrunk by (kernel_size-1)
             kernel_size = layer.kernel_size[0]
             stride = layer.strides[0]
-            output_reduction = kernel_size - 1 if layer.padding == 'valid' else 0
+            dilation_rate = layer.dilation_rate[0]
+            output_reduction = (kernel_size - 1) * dilation_rate if layer.padding == 'valid' else 0
             result_n = \
-                lambda x, pad, f=result, stride=stride, kernel_size=kernel_size, output_reduction=output_reduction: \
+                lambda x, pad, f=result, stride=stride, kernel_size=kernel_size, \
+                        dilation_rate=dilation_rate, output_reduction=output_reduction: \
                     math.ceil((f(x, pad) - output_reduction) / stride) if pad \
-                        else 1 + (f(x, pad) - kernel_size) // stride
-
+                        else 1 + (f(x, pad) - kernel_size * dilation_rate) // stride
             result = result_n
     return result
 
@@ -162,11 +165,22 @@ class Resmico(object):
         elif self.net_type == 'lstm':
             if config.binary_data:
                 mask = Input(shape=(None,), name='mask', dtype='bool')
-            x = Bidirectional(LSTM(20, return_sequences=True), merge_mode="concat")(inlayer, mask=mask)
-            x = Bidirectional(LSTM(40, return_sequences=True, dropout=self.dropout), merge_mode="ave")(x)
-            x = Bidirectional(LSTM(60, return_sequences=True, dropout=self.dropout), merge_mode="ave")(x)
-            x = Bidirectional(LSTM(80, return_sequences=False, dropout=self.dropout), merge_mode="concat")(x)
-
+            x = Bidirectional(LSTM(8, return_sequences=True), merge_mode="concat")(inlayer, mask=mask)
+            x = Bidirectional(LSTM(8, return_sequences=True, dropout=self.dropout), merge_mode="ave")(x)
+            x = Bidirectional(LSTM(16, return_sequences=True, dropout=self.dropout), merge_mode="ave")(x)
+            x = Bidirectional(LSTM(16, return_sequences=False, dropout=self.dropout), merge_mode="concat")(x)
+            self.convoluted_size = lambda x, pad: x
+            
+        elif self.net_type == 'gru':
+            if config.binary_data:
+                mask = Input(shape=(None,), name='mask', dtype='bool')
+            x = Bidirectional(GRU(8, return_sequences=True), merge_mode="ave")(inlayer, mask=mask)
+#             x = Bidirectional(GRU(8, return_sequences=True, dropout=self.dropout), merge_mode="ave")(x)
+#             x = Bidirectional(GRU(16, return_sequences=True, dropout=self.dropout), merge_mode="ave")(x)
+            x = Bidirectional(GRU(16, return_sequences=False, dropout=self.dropout), merge_mode="concat")(x)
+            
+            self.convoluted_size = lambda x, pad: x
+            
         elif self.net_type == 'cnn_lstm':
             x = Conv1D(self.filters, kernel_size=(10),
                        input_shape=(None, self.n_feat),
@@ -181,8 +195,50 @@ class Resmico(object):
                        activation='relu')(x)
             x = Dropout(rate=self.dropout)(x)
             x = Bidirectional(LSTM(40, return_sequences=False, dropout=0.0), merge_mode="concat")(x)
+            
+        elif self.net_type == 'dilate_cnn_resnet_avg':
+            x = BatchNormalization()(inlayer)
+            x = Conv1D(self.filters, kernel_size=10,
+                       input_shape=(None, self.n_feat),
+                       padding='valid', name='1st_conv')(x)
+            x = utils.relu_bn(x)
+            num_filters = self.filters
+            # for each block group, create the requested number of residual blocks
+            for i, num_blocks in enumerate(self._get_blocks(self.num_blocks)):
+                for j in range(num_blocks):
+                    x = utils.dilated_residual_block(x, dilate=(j == 0 and i != 0), filters=num_filters,
+                                             kernel_size=self.ker_size)
+                num_filters *= 2
 
-        elif self.net_type in ['cnn_resnet', 'cnn_resnet_argmax', 'cnn_resnet_avg']:
+            # lambda function that computes the data size after applying all the convolutional
+            # layers with and without padding; if the 'pad' parameter is True, the output is computed
+            # for a convolutional layer with padding='same', otherwise for padding='valid'
+            # if we don't mask the zero-padded values, the convoluted size can be anything
+            tmp_model = Model(inputs=inlayer, outputs=x)  # dummy model used only in next line
+            self.convoluted_size = construct_convolution_lambda(tmp_model) if config.mask_padding else lambda x, pad: 1
+            if config.binary_data:
+                mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
+                mask = Input(shape=(mask_size,), name='mask', dtype='bool')
+
+            x = GlobalAveragePooling1D()(x, mask=mask if config.mask_padding else None)
+        
+        elif self.net_type == 'transformer':
+        
+            x = utils.transformer_encoder(inlayer, head_size=8, num_heads=1, dropout=0.1)
+            x = utils.transformer_encoder(x, head_size=16, num_heads=1, dropout=0.1)
+            x = utils.transformer_encoder(x, head_size=32, num_heads=1, dropout=0.1)
+#             x = utils.transformer_encoder(x, head_size=64, num_heads=1, dropout=0.1)
+#             x = utils.transformer_encoder(x, head_size=64, num_heads=1, dropout=0.1)
+#             x = utils.transformer_encoder(x, head_size=128, num_heads=1, dropout=0.1)
+            
+            tmp_model = Model(inputs=inlayer, outputs=x)  # dummy model used only in next line
+            self.convoluted_size = construct_convolution_lambda(tmp_model) if config.mask_padding else lambda x, pad: 1
+            if config.binary_data:
+                mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
+                mask = Input(shape=(mask_size,), name='mask', dtype='bool')
+            x = GlobalAveragePooling1D()(x, mask=mask if config.mask_padding else None)
+            
+        elif self.net_type in ['cnn_resnet', 'cnn_resnet_argmax', 'cnn_resnet_avg', 'cnn_resnet_brnn']:
             x = BatchNormalization()(inlayer)
             x = Conv1D(self.filters, kernel_size=10,
                        input_shape=(None, self.n_feat),
@@ -221,6 +277,9 @@ class Resmico(object):
                 x = ArgMaxSumPooling()(x, mask=(mask if config.mask_padding else None))  # shape (batch_size, steps)
                 x = utils.residual_block(x, downsample=False, filters=16, kernel_size=self.ker_size)
                 x = GlobalMaxPooling1D()(x)
+            elif self.net_type == 'cnn_resnet_brnn':
+                x = Bidirectional(LSTM(16, return_sequences=False), 
+                                  merge_mode="concat")(x, mask=mask)
             else:  # cnn_resnet_avg
                 x = GlobalAveragePooling1D()(x, mask=mask if config.mask_padding else None)
 
@@ -305,6 +364,8 @@ class Resmico(object):
 
     @staticmethod
     def _get_blocks(num_blocks: int):
+        if num_blocks == 1: #to experiments
+            return [1, 2, 2, 2, 1]
         if num_blocks == 3:
             return [2, 5, 2]
         if num_blocks == 4:
@@ -313,6 +374,8 @@ class Resmico(object):
             return [2, 3, 5, 5, 2]
         if num_blocks == 6:
             return [2, 3, 5, 5, 3, 2]
+        if num_blocks == 7:
+            return [2, 4, 4, 2]
 
     @staticmethod
     def is_fixed_length(network_type: str):
@@ -522,16 +585,16 @@ class BinaryDatasetTrain(BinaryDataset):
             start_idx = 0
             end_idx = cd.length
             min_padding = 50  # minimum amount of bases to keep around the breakpoint
-            min_size = 5000 #allow chunks shorter than window size
+            min_size = 2000 #allow chunks shorter than window size
 
             if cd.length > max_len:
                 # when no breakpoints are present, we can choose any segment within the contig
                 # however, if the contig contains a breakpoint, we must choose a segment that includes the breakpoint
                 if not cd.breakpoints:
                     start_idx = np.random.randint(cd.length - min_size + 1)
-                else:  # select an interval that contains the first breakpoint
+                else:  # select an interval that contains the random breakpoint
                     # TODO: add one item for each breakpoint
-                    lo, hi = cd.breakpoints[0]
+                    lo, hi = random.choice(cd.breakpoints)
                     if max_len >= min_padding + (hi - lo):
                         start_lo = max(0, hi - max_len + min_padding)
                         start_hi = min(cd.length - min_size, lo - min_padding)
@@ -818,10 +881,10 @@ class BinaryDatasetEval(BinaryDataset):
                     idx += 1
                 else:
 #                     ###force at least 5000 bases in the last chunk, as the network hasn't seen contigs shorter than 1K
-                    if self.window > 5000 and contig_len > self.window and contig_len - start_idx < 5000:
-                        start_idx = contig_len - 5000
-#                     if self.window > 1000 and contig_len > self.window and contig_len - start_idx < 1000:
-#                         start_idx = contig_len - 1000
+#                     if self.window > 5000 and contig_len > self.window and contig_len - start_idx < 5000:
+#                         start_idx = contig_len - 5000
+                    if self.window > 1000 and contig_len > self.window and contig_len - start_idx < 1000:
+                        start_idx = contig_len - 1000
                     x[idx][:contig_len - start_idx] = stacked_features[start_idx:contig_len]
                     mask[idx][:self.convoluted_size(contig_len - start_idx, pad=False)] = 1
                     idx += 1

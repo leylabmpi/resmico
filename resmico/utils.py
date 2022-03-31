@@ -3,6 +3,7 @@ import os
 import sys
 import csv
 import gzip
+import math
 from pathlib import Path
 import logging
 from toolz import itertoolz
@@ -18,7 +19,7 @@ from sklearn.metrics import average_precision_score
 from tensorflow.keras import backend as K
 from tensorflow.keras.callbacks import Callback
 from tensorflow.keras.layers import Conv1D, ReLU, BatchNormalization, Add, Cropping1D, AveragePooling1D
-
+from tensorflow.keras.layers import Masking, LayerNormalization, MultiHeadAttention, Dropout
 
 def nested_dict():
     return defaultdict(nested_dict)
@@ -1279,6 +1280,11 @@ def relu_bn(inputs):
     bn = BatchNormalization()(relu)
     return bn
 
+def bn_relu(inputs):
+    bn = BatchNormalization()(inputs)
+    relu = ReLU()(bn)
+    return relu
+
 '''
 Constructs the essential building unit of Resmico: the residual block. 
 '''
@@ -1334,6 +1340,77 @@ def residual_block(x, downsample: bool, filters, kernel_size):
     out = relu_bn(out)
     return out
 
+
+def dilated_residual_block(x, dilate: bool, filters, kernel_size):
+    ### if dilate==True: apply dilation rate 3
+
+    if filters>64:
+        #bottleneck layer
+        y = Conv1D(kernel_size=1,
+               filters=64,
+               padding='valid')(x)
+        y = bn_relu(y)
+        y = Conv1D(kernel_size=kernel_size,
+               dilation_rate=(1 if not dilate else 3),
+               filters=filters,
+               padding='valid')(y)
+        y = bn_relu(y)
+        y = Conv1D(kernel_size=1,
+               filters=filters,
+               padding='valid')(y)
+        y = BatchNormalization()(y)
+        
+        if dilate: 
+            x = Conv1D(kernel_size=1,
+                       filters=filters,
+                       padding='valid')(x)
+            x = Cropping1D((((kernel_size-1)*3)//2, 
+                            math.ceil(((kernel_size-1)*3)/2)))(x)
+        else:
+            x = Cropping1D(((kernel_size-1)//2, math.ceil((kernel_size-1)/2)))(x)
+    
+    else:
+        #residual block with two weighted layers
+        y = Conv1D(kernel_size=kernel_size,
+                   dilation_rate=(1 if not dilate else 3),
+                   filters=filters,
+                   padding='valid')(x)
+        y = bn_relu(y)
+        y = Conv1D(kernel_size=kernel_size,
+                   dilation_rate=1,
+                   filters=filters,
+                   padding='valid')(y)
+        y = BatchNormalization()(y)
+        if dilate: 
+            #also number of filters changed, so conv layer needed
+            x = Conv1D(kernel_size=1,
+                       filters=filters,
+                       padding='valid')(x)
+            x = Cropping1D((((kernel_size-1)*3 + (kernel_size-1))//2, 
+                            math.ceil(((kernel_size-1)*3 + (kernel_size-1))/2)))(x)
+        else:
+            x = Cropping1D((kernel_size-1, kernel_size-1))(x)
+        
+    out = Add()([x, y])
+    out = ReLU()(out)
+        
+    return out
+
+def transformer_encoder(inputs, head_size, num_heads, dropout=0):
+    # Normalization and Attention
+    x = LayerNormalization()(inputs)
+    x = MultiHeadAttention(
+        key_dim=head_size, num_heads=num_heads, dropout=dropout
+    )(x, x)
+    x = Dropout(dropout)(x)
+    res = x + inputs
+
+    # Feed Forward Part
+    x = LayerNormalization()(res)
+    x = Conv1D(filters=inputs.shape[-1], kernel_size=1, activation="relu")(x)
+    x = Dropout(dropout)(x)
+#     x = Conv1D(filters=inputs.shape[-1], kernel_size=1)(x)
+    return x + res
 
 
 # for predictions for long contigs
