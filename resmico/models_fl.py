@@ -167,7 +167,6 @@ class Resmico(object):
                 mask = Input(shape=(None,), name='mask', dtype='bool')
             x = Bidirectional(LSTM(8, return_sequences=True), merge_mode="concat")(inlayer, mask=mask)
             x = Bidirectional(LSTM(8, return_sequences=True, dropout=self.dropout), merge_mode="ave")(x)
-            x = Bidirectional(LSTM(16, return_sequences=True, dropout=self.dropout), merge_mode="ave")(x)
             x = Bidirectional(LSTM(16, return_sequences=False, dropout=self.dropout), merge_mode="concat")(x)
             self.convoluted_size = lambda x, pad: x
             
@@ -175,8 +174,6 @@ class Resmico(object):
             if config.binary_data:
                 mask = Input(shape=(None,), name='mask', dtype='bool')
             x = Bidirectional(GRU(8, return_sequences=True), merge_mode="ave")(inlayer, mask=mask)
-#             x = Bidirectional(GRU(8, return_sequences=True, dropout=self.dropout), merge_mode="ave")(x)
-#             x = Bidirectional(GRU(16, return_sequences=True, dropout=self.dropout), merge_mode="ave")(x)
             x = Bidirectional(GRU(16, return_sequences=False, dropout=self.dropout), merge_mode="concat")(x)
             
             self.convoluted_size = lambda x, pad: x
@@ -227,9 +224,6 @@ class Resmico(object):
             x = utils.transformer_encoder(inlayer, head_size=8, num_heads=1, dropout=0.1)
             x = utils.transformer_encoder(x, head_size=16, num_heads=1, dropout=0.1)
             x = utils.transformer_encoder(x, head_size=32, num_heads=1, dropout=0.1)
-#             x = utils.transformer_encoder(x, head_size=64, num_heads=1, dropout=0.1)
-#             x = utils.transformer_encoder(x, head_size=64, num_heads=1, dropout=0.1)
-#             x = utils.transformer_encoder(x, head_size=128, num_heads=1, dropout=0.1)
             
             tmp_model = Model(inputs=inlayer, outputs=x)  # dummy model used only in next line
             self.convoluted_size = construct_convolution_lambda(tmp_model) if config.mask_padding else lambda x, pad: 1
@@ -882,10 +876,10 @@ class BinaryDatasetEval(BinaryDataset):
                     idx += 1
                 else:
 #                     ###force at least 5000 bases in the last chunk, as the network hasn't seen contigs shorter than 1K
-#                     if self.window > 5000 and contig_len > self.window and contig_len - start_idx < 5000:
-#                         start_idx = contig_len - 5000
-                    if self.window > 1000 and contig_len > self.window and contig_len - start_idx < 1000:
-                        start_idx = contig_len - 1000
+                    if self.window > 5000 and contig_len > self.window and contig_len - start_idx < 5000:
+                        start_idx = contig_len - 5000
+#                     if self.window > 1000 and contig_len > self.window and contig_len - start_idx < 1000:
+#                         start_idx = contig_len - 1000
                     x[idx][:contig_len - start_idx] = stacked_features[start_idx:contig_len]
                     mask[idx][:self.convoluted_size(contig_len - start_idx, pad=False)] = 1
                     idx += 1

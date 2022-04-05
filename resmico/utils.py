@@ -1334,8 +1334,10 @@ def residual_block(x, downsample: bool, filters, kernel_size):
                    padding='valid')(x)
         # the cropping is needed to make up for the size difference caused by the convolutions on y
         x = Cropping1D((0,kernel_size-1 + kernel_size//2))(x)
+
     else:
         x = Cropping1D((0, 2*kernel_size-2))(x)
+
     out = Add()([x, y])
     out = relu_bn(out)
     return out
@@ -1364,10 +1366,9 @@ def dilated_residual_block(x, dilate: bool, filters, kernel_size):
             x = Conv1D(kernel_size=1,
                        filters=filters,
                        padding='valid')(x)
-            x = Cropping1D((((kernel_size-1)*3)//2, 
-                            math.ceil(((kernel_size-1)*3)/2)))(x)
+            x = Cropping1D((0,((kernel_size-1)*3)))(x)
         else:
-            x = Cropping1D(((kernel_size-1)//2, math.ceil((kernel_size-1)/2)))(x)
+            x = Cropping1D((0, (kernel_size-1)))(x)
     
     else:
         #residual block with two weighted layers
@@ -1386,10 +1387,9 @@ def dilated_residual_block(x, dilate: bool, filters, kernel_size):
             x = Conv1D(kernel_size=1,
                        filters=filters,
                        padding='valid')(x)
-            x = Cropping1D((((kernel_size-1)*3 + (kernel_size-1))//2, 
-                            math.ceil(((kernel_size-1)*3 + (kernel_size-1))/2)))(x)
+            x = Cropping1D((0,(kernel_size-1)*3 + (kernel_size-1)))(x)
         else:
-            x = Cropping1D((kernel_size-1, kernel_size-1))(x)
+            x = Cropping1D((0, 2*kernel_size-2))(x)
         
     out = Add()([x, y])
     out = ReLU()(out)
