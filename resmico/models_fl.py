@@ -646,6 +646,9 @@ class BinaryDatasetTrain(BinaryDataset):
         features_data = self.reader.read_contigs(contig_data)
         max_contig_len = max([self.reader.contigs[i].length for i in batch_indices])
         max_len = self.max_len if self.pad_to_max_len else min(max_contig_len, self.max_len)
+#         #TODO
+#         max_len += 50
+        
         # Create the numpy array storing all the features for all the contigs in #batch_indices
         x = np.zeros((self.batch_size, max_len, len(features_data[0])), dtype=np.float32)
         # it's important to initialize the mask to all ones and then set to zero the padded values rather than the
@@ -767,13 +770,18 @@ class BinaryDatasetEval(BinaryDataset):
         assert len(y) == total_len, f'y has length {len(y)}, chunk_counts total length is {total_len}'
         assert grouped_y_size == len(self.indices), \
             f'Index map has {grouped_y_size} elements, while indices has {len(self.indices)} elements'
-        grouped_y = np.zeros(len(self.indices))
+        if method=='arr':
+            grouped_y = []
+        else:
+            grouped_y = np.zeros(len(self.indices))
         i = 0
         j = 0
         for batch in self.chunk_counts:
             for chunk_count in batch:
                 scores = y[j:j + chunk_count]
-                if method=='sma':
+                if method=='arr':
+                    grouped_y.append(scores.reshape(-1))
+                elif method=='sma':
                     scores=utils.sma(scores, 2)
                     grouped_y[i] = max(scores)
                 else:
@@ -853,7 +861,9 @@ class BinaryDatasetEval(BinaryDataset):
 
         max_contig_len = max([self.reader.contigs[i].length for i in indices])
         max_len = self.window if self.pad_to_max_len else min(max_contig_len, self.window)
-
+#         #TODO
+#         max_len += 50
+        
         # the evaluation data for all contigs in this batch
         batch_size = sum(self.chunk_counts[batch_idx])
         x = np.zeros((batch_size, max_len, len(self.expanded_feature_names)), dtype=np.float32)
@@ -869,8 +879,8 @@ class BinaryDatasetEval(BinaryDataset):
             while True:
                 end_idx = start_idx + self.window
                 if end_idx < contig_len:
-                    x[idx] = stacked_features[start_idx:end_idx]
-                    assert max_len == self.window
+                    x[idx] = stacked_features[start_idx:end_idx] #[:end_idx - start_idx]
+                    assert max_len == self.window #+50
                     # keep only positions that didn't need padding in order to be computed (pad=False)
                     mask[idx][:self.convoluted_size(max_len, pad=False)] = 1
                     idx += 1
@@ -899,8 +909,6 @@ class GeneratorBigD(tf.keras.utils.Sequence):
         self.batch_size = batch_size
         self.data_dict = data_dict
         self.shuffle_data = shuffle_data
-        # self.shuffle = False
-        # self.n_feat = 28 #todo: features_sel
         self.rnd_seed = rnd_seed
         self.nprocs = nprocs
         self.time_load = 0
@@ -1044,7 +1052,6 @@ class GeneratorFullLen(tf.keras.utils.Sequence):
     def __init__(self, data_dict, batch_list, nprocs):  # data_dict contains all data, because indexes are global
         self.data_dict = data_dict
         self.batch_list = batch_list
-        # self.n_feat = 28 #todo: features_sel
         self.all_lens = utils.read_all_lens(data_dict)
         self.indices = np.arange(len(batch_list))
         self.nprocs = nprocs
@@ -1080,7 +1087,6 @@ class Generator_v1(tf.keras.utils.Sequence):
         self.batch_list = batch_list
         self.window = window
         self.step = step
-        # self.n_feat = 28 #todo: features_sel
         self.all_lens = utils.read_all_lens(data_dict)
         self.indices = np.arange(len(batch_list))
         self.nprocs = nprocs
