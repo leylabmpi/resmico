@@ -69,10 +69,10 @@ config['sim_params'] = {'richness' : [], 'abund_dist' : [],
 df_dtypes = {'richness' : str, 'abund_dist' : [],
              'read_depth' : int, 'read_length' : [],
              'rep' : int, 'assembler' : str, 'contig_frac' : str}
-def pairwise_params(config, richness, abund_dist, read_length, read_depth, reps, assemblers,
-                    contig_frac):
-    for x in itertools.product(richness, abund_dist, read_length, read_depth, reps, assemblers,
-                               contig_frac):
+def pairwise_params(config, richness, abund_dist, read_length, read_depth, reps,
+                    assemblers, contig_frac):
+    for x in itertools.product(richness, abund_dist, read_length, read_depth, reps,
+                               assemblers, contig_frac):
         config['sim_params']['richness'].append(x[0])
         config['sim_params']['abund_dist'].append(x[1])
         if config['input_type'] == 'simulation':
@@ -119,6 +119,10 @@ elif config['input_type'] == 'real data':
     config['sim_params'] = config['sim_params'].join(df, how='cross')
 else:
     raise ValueError('Input data type not recognized!') 
+
+# subsample
+if any([x > 1 for x in config['params']['map']['contig_frac']]):
+    print('\33[35mWARNING: "contig_frac" parameter set to >1; using contig length cutoff (bp)\x1b[0m')
 
 ## Modular snakefiles
 include: snake_dir + 'bin/Snakefile'

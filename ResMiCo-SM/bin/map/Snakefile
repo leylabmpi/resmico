@@ -29,7 +29,13 @@ rule map_contigs_subsample:
         """
         export PATH=$CONDA_PREFIX/bin:$PATH
         if [ `{params.exe} {input.fna}` -eq 0 ]; then
-          seqkit sample -s 7172 -p {params.frac} {input.fna} > {output.fna}
+          if [ {params.frac} -gt 1 ]; then
+            echo "Using contig length cutoff" > {log}
+            seqkit seq --min-len {params.frac} {input.fna} > {output.fna} 2>> {log}
+          else 
+            echo "Subsampling contigs" > {log}
+            seqkit sample -s 7172 -p {params.frac} {input.fna} > {output.fna} 2>> {log}
+          fi
         else
           echo "Input is empty; skipping" > {log}
           touch {output.fna} 2>> {log}

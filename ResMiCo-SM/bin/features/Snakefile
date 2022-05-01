@@ -81,7 +81,7 @@ rule bam2feat:
             2>> {log} 1>&2
         else
           echo "Input empty; skipping" > {log}
-          touch {output.tsv} 2>> {log}
+          touch {output} 2>> {log}
         fi
         """
         

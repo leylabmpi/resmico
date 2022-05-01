@@ -2,11 +2,13 @@
 ## Table of genomes
 genomes_file: tests/data/genomes_n10.tsv
 #genomes_file: tests/data/Samp3-MAG3.tsv
+#genomes_file: tests/data/UHGG_gen-samp.tsv
 #genomes_file: tmp/ERS396506.tsv
 
 # Output directory
 output_dir: tests/output/n10/
 #output_dir: tests/output/Samp3-MAG3/
+#output_dir: tests/output/UHGG_gen-samp/
 #output_dir: tmp/ERS396506/
 
 # Temporary output directory (/dev/shm/ for shared memory)
@@ -32,7 +34,7 @@ params:
       abundance_distribution:
         - "mean:10,sigma:1"
         - "mean:10,sigma:2"
-      random_seed: 8192
+      random_seed: Skip #8192
       other_sim_params: --group-bias 0
     reads: 
       length:
@@ -65,8 +67,8 @@ params:
   # mapping reads to contigs
   map:
     contig_frac:
-      - 0.1
-      - 1
+      - 1000
+      - 1500
     samtools: ""
     bowtie2: ""
     max_coverage: 20
