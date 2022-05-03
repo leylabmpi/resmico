@@ -59,6 +59,8 @@ def parse_args(test_args=None, subparsers=None):
                         help='Produce embeddings (default: %(default)s)')
     parser.add_argument('--emb-ind', default=0, type=int,
                         help='Layer index to produce embedding (default: %(default)s)')
+    parser.add_argument('--verify-insert-size', action='store_true', default=False,
+                        help='Check if the insert size distribution is similar to the n9k-train dataset')
     arguments.add_common_args(parser)
 
     # running test args

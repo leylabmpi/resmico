@@ -227,10 +227,40 @@ def predict_with_method(model, args):
     df_preds.to_csv(df_name, index=False)
     logging.info("csv table saved: {}".format(df_name))
 
+def verify_insert_size(args):
+    
+    logging.info('Loading contig data...')
+    reader = contig_reader.ContigReader(args.feature_files_path, ['mean_insert_size_Match'], args.n_procs, args.chunks,
+                                        args.no_cython, args.stats_file, args.min_len,
+                                        min_avg_coverage=args.min_avg_coverage)
 
+    contig_data = [reader.contigs[i] for i in range(0, len(reader), 10)] ##10% of the data
+    
+    features_data = reader.read_contigs(contig_data, return_raw=True)
+
+    insert_size_data = []
+    for cont in features_data:
+        insert_size_data.extend(cont['mean_insert_size_Match'])
+
+        
+    low_train, high_train = 178, 372 #0.05 and 0.95 quantiles of the n9k-train dataset
+     
+    lowq = np.nanquantile(insert_size_data, 0.06)
+    hiq = np.nanquantile(insert_size_data, 0.94)
+    if lowq >= low_train and  hiq <= high_train:
+        if np.nanquantile(insert_size_data, 0.05) >= low_train and np.nanquantile(insert_size_data, 0.95) <= high_train:
+            logging.info('The insert size distribution lies inside the training one. It is safe to apply ResMiCo.')
+        else:
+            logging.info('The insert size distribution lies close to the border of the training one. ResMiCo can be applied.')
+    else:
+        logging.info('The insert size distribution is dissimilar to the training data. ResMiCo predictions are not reliable.')
+        
 def main(args):
     """Main interface
     """
+    if args.verify_insert_size:
+        verify_insert_size(args)
+        exit()
     if args.v1:
         custom_obj = {'metr': utils.class_recall_0}
     else:
