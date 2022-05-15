@@ -3,7 +3,6 @@ import os
 import sys
 import csv
 import gzip
-import math
 from pathlib import Path
 import logging
 from toolz import itertoolz
@@ -105,59 +104,6 @@ def standardize_data(feat_file_table, mean_std_file, set_target=True, real_data=
     with pathos.multiprocessing.Pool(nprocs) as pool:
         pool.map(lambda file: standardize_file(file, mean, std, set_target), all_files)
     return
-
-
-def add_feat_h5(input_folder, output_folder, rch):
-    if len(rch) > 1:
-        input_folder = input_folder + rch
-        output_folder = output_folder + rch
-    # precomputed values based on all train data
-    mean_sum_len = 29817373
-    std_sum_len = 28720860
-
-    for in_file in Path(input_folder).rglob('*.pkl.h5'):
-        out_file = str(in_file).replace(input_folder, output_folder)
-        add_f_h5f(in_file, out_file, mean_sum_len, std_sum_len)
-    return
-
-
-def add_f_h5f(in_file, out_file, mean_sum_len, std_sum_len):
-    logging.info(f"working on {in_file} {os.path.getsize(in_file)}")
-
-    if Path(out_file).exists():
-        Path(out_file).unlink()
-    Path(out_file).parent.mkdir(exist_ok=True, parents=True)
-
-    with tables.open_file(in_file, 'r') as h5f:
-        # read
-        samples = h5f.get_node('/samples')[:]
-        labels = h5f.get_node('/labels')[:]
-        offsets = h5f.get_node('/offset_ends')[:]
-        data_h5 = h5f.get_node('/data')[:]
-
-        num_pos = len(data_h5)
-
-        # add seq depth feature
-        # extract depth from filr name
-        # standartise using known values
-        # creat array
-        # concatenate to the data
-
-        # sum_len_f = ((num_pos-mean_sum_len)/std_sum_len*
-        #             np.array([1]*(num_pos))).reshape(-1,1)
-        # new_data_h5 = np.concatenate((data_h5, sum_len_f), axis=1)
-
-        # delete last feature:seq depth
-        # new_data_h5 = data_h5[:,:-1]
-
-        # delete depth, GC and proper SNP
-        new_data_h5 = data_h5[:, [*np.arange(17), 19]]
-
-    with tables.open_file(out_file, "a") as h5_file:
-        h5_file.create_array(h5_file.root, 'offset_ends', offsets)
-        h5_file.create_array(h5_file.root, 'samples', samples)
-        h5_file.create_array(h5_file.root, 'labels', labels)
-        h5_file.create_array(h5_file.root, 'data', new_data_h5)
 
 
 def add_pos_feat(feature_file_table, rch='', set_target=True, name_input_folder='features'):

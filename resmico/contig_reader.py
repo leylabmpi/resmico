@@ -10,6 +10,7 @@ import struct
 
 from glob import glob
 from timeit import default_timer as timer
+from typing import Dict, List, Tuple
 
 import numpy as np
 from resmico import reader
@@ -23,7 +24,7 @@ def _replace_with_nan(data, feature_name, v):
     arr[arr == v] = np.nan
 
 
-def _read_feature(file: gzip.GzipFile, data, feature_name: str, bytes: int, dtype, feature_names: list[str],
+def _read_feature(file: gzip.GzipFile, data, feature_name: str, bytes: int, dtype, feature_names: List[str],
                   normalize_by: int = 1):
     if feature_name not in feature_names:
         file.seek(bytes, os.SEEK_CUR)
@@ -46,7 +47,7 @@ def _to_float_and_nan(features, result, feature_name, nan_value):
         result[feature_name][result[feature_name] == nan_value] = np.nan
 
 
-def _assign(result, orig, feature_names: list[str]):
+def _assign(result, orig, feature_names: List[str]):
     for feature_name in feature_names:
         if feature_name in orig:
             result[feature_name] = orig[feature_name]
@@ -94,7 +95,7 @@ def _post_process_features(features):
     return result
 
 
-def _read_contig_data(input_file, feature_names: list[str]):
+def _read_contig_data(input_file, feature_names: List[str]):
     """
     Read a binary gzipped file containing the features for a single contig, as written by bam2feat. Features that don't
     exist are silently ignored.
@@ -159,14 +160,14 @@ class ContigInfo:
     """
 
     def __init__(self, name: str, file_name: str, length: int, offset: int, size_bytes: int, misassembly_count: int,
-                 breakpoints: list[(int, int)], avg_coverage: float):
+                 breakpoints: List[Tuple[int, int]], avg_coverage: float):
         self.name: str = name
         self.file: str = file_name
         self.length: int = length
         self.offset: int = offset
         self.size_bytes: int = size_bytes
         self.misassembly: int = misassembly_count
-        self.features: dict[str:np.array] = {}
+        self.features: Dict[str:np.array] = {}
         self.breakpoints = breakpoints
         self.avg_coverage = avg_coverage
 
@@ -176,7 +177,7 @@ class ContigReader:
     Reads contig data from binary files written by ResMiCo-SM.
     """
 
-    def __init__(self, input_dirs: str, feature_names: list[str], process_count: int, is_chunked: bool,
+    def __init__(self, input_dirs: str, feature_names: List[str], process_count: int, is_chunked: bool,
                  no_cython: bool = False, stats_file: str = '', min_len: int = 0, min_avg_coverage: int = 0,
                  feature_file_match: str = ''):
         """
@@ -193,10 +194,10 @@ class ContigReader:
         """
         # means and stdevs are a map from feature name to the mean and standard deviation precomputed for that
         # feature across *all* contigs, stored as a tuple
-        self.means: dict[str, float] = {}
-        self.stdevs: dict[str, float] = {}
+        self.means: Dict[str, float] = {}
+        self.stdevs: Dict[str, float] = {}
         # a list of ContigInfo objects with metadata about all contigs found in #input_dir
-        self.contigs: list[ContigInfo] = []
+        self.contigs: List[ContigInfo] = []
 
         self.feature_names = feature_names
         self.process_count = process_count
@@ -210,7 +211,7 @@ class ContigReader:
         self.min_avg_coverage = min_avg_coverage
         self.feature_file_match = feature_file_match
 
-        self.feature_mask: list[int] = [1 if feature in feature_names else 0 for feature in reader.feature_names]
+        self.feature_mask: List[int] = [1 if feature in feature_names else 0 for feature in reader.feature_names]
 
         logging.info('Looking for stats/toc files...')
         file_list = []
@@ -248,7 +249,7 @@ class ContigReader:
     def __len__(self):
         return len(self.contigs)
 
-    def read_contigs(self, contig_infos: list[ContigInfo], return_raw=False):
+    def read_contigs(self, contig_infos: List[ContigInfo], return_raw=False):
         """
         Reads the features for the given contig_infos from file and returns the result in a list of len(contig_infos)
         dictionaries of {'feature_name', feature_data}
@@ -261,10 +262,10 @@ class ContigReader:
             for contig_data in map(self._read_and_normalize, contig_infos):
                 result.append(contig_data)
         else:
-            file_names: list[bytes] = []
-            lengths: list[int] = []
-            offsets: list[int] = []
-            sizes: list[int] = []
+            file_names: List[bytes] = []
+            lengths: List[int] = []
+            offsets: List[int] = []
+            sizes: List[int] = []
             for c in contig_infos:
                 file_names.append(c.file.encode('utf-8'))
                 lengths.append(c.length)

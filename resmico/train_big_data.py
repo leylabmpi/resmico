@@ -30,6 +30,8 @@ class Config(object):
         self.num_blocks = args.num_blocks
         self.ker_size = args.ker_size
         self.seed = args.seed
+        self.mask_padding = args.mask_padding
+        self.binary_data = args.binary_data
 
 
 def main(args):

@@ -13,10 +13,10 @@ from tensorflow.keras.layers import GlobalMaxPooling1D, GlobalAveragePooling1D, 
     MaxPooling1D, Flatten, Layer
 from tensorflow.keras.layers import Conv1D, Dropout, Dense
 from tensorflow.keras.layers import Bidirectional, LSTM, GRU
-from tensorflow.keras.layers import Masking, LayerNormalization, MultiHeadAttention
 from tensorflow.python.ops import array_ops
 
 from toolz import itertoolz
+from typing import Dict, List
 
 from resmico.contig_reader import ContigReader
 from resmico.contig_reader import ContigInfo
@@ -449,7 +449,7 @@ class BinaryDataset(tf.keras.utils.Sequence):
     (as opposed to the old CSV files)
     """
 
-    def __init__(self, reader: ContigReader, feature_names: list[str], convoluted_size, pad_to_max_len: bool):
+    def __init__(self, reader: ContigReader, feature_names: List[str], convoluted_size, pad_to_max_len: bool):
         """
        Arguments:
            - reader: ContigReader instance with all the contig metadata
@@ -470,7 +470,7 @@ class BinaryDataset(tf.keras.utils.Sequence):
 
 
 class BinaryDatasetTrain(BinaryDataset):
-    def __init__(self, reader: ContigReader, indices: list[int], batch_size: int, feature_names: list[str],
+    def __init__(self, reader: ContigReader, indices: List[int], batch_size: int, feature_names: List[str],
                  max_len: int, num_translations: int, max_translation_bases: int, fraq_neg: float, do_cache: bool,
                  show_progress: bool, convoluted_size, pad_to_max_len: bool, weight_factor: int):
 
@@ -508,7 +508,7 @@ class BinaryDatasetTrain(BinaryDataset):
 
         if self.do_cache:
             # the cache maps a batch index to feature_name:feature_data pairs
-            self.cache: dict[int, dict[str, np.array]] = {}
+            self.cache: Dict[int, Dict[str, np.array]] = {}
         self.negative_idx = [i for i in indices if reader.contigs[i].misassembly == 0]
         self.positive_idx = [i for i in indices if reader.contigs[i].misassembly != 0]
 
@@ -565,7 +565,7 @@ class BinaryDatasetTrain(BinaryDataset):
     def __len__(self):
         return int(np.ceil(len(self.indices) / self.batch_size))
 
-    def select_intervals(contig_data: list[ContigInfo], max_len: int, translate_short_contigs: bool,
+    def select_intervals(contig_data: List[ContigInfo], max_len: int, translate_short_contigs: bool,
                          max_translation_bases: int):
         """
         Selects intervals from contigs such that the breakpoints are within the interval.
@@ -633,7 +633,7 @@ class BinaryDatasetTrain(BinaryDataset):
             return self.cache[self.cache_indices[index]]
         batch_indices = self.indices[self.batch_size * index:  self.batch_size * (index + 1)]
         # files to process
-        contig_data: list[ContigInfo] = [self.reader.contigs[i] for i in batch_indices]
+        contig_data: List[ContigInfo] = [self.reader.contigs[i] for i in batch_indices]
         y = np.zeros(self.batch_size)
         weights = np.ones(self.batch_size, dtype=np.float32)
         for i in range(len(batch_indices)):
@@ -682,7 +682,7 @@ class BinaryDatasetTrain(BinaryDataset):
 
 
 class BinaryDatasetEval(BinaryDataset):
-    def __init__(self, reader: ContigReader, indices: list[int], feature_names: list[str], window: int, step: int,
+    def __init__(self, reader: ContigReader, indices: List[int], feature_names: List[str], window: int, step: int,
                  total_memory_bytes: int, cache_results: bool, show_progress: bool, convoluted_size,
                  pad_to_max_len: bool):
 
@@ -720,7 +720,7 @@ class BinaryDatasetEval(BinaryDataset):
         if cache_results:
             self.data = [None] * len(self.batch_list)
 
-    def _create_batch_list(self, contig_data: list[ContigInfo], indices: list[int], total_memory_bytes: int):
+    def _create_batch_list(self, contig_data: List[ContigInfo], indices: List[int], total_memory_bytes: int):
         """ Divide the validation indices into mini-batches of total size < #total_memory_bytes """
         # there seems to be an overhead for each position; 10 is just a guess to avoid running out of memory
         # on the GPU
@@ -840,7 +840,7 @@ class BinaryDatasetEval(BinaryDataset):
         if self.cache_results and self.data[batch_idx] is not None:
             all_stacked_features = self.data[batch_idx]
         else:
-            contig_data: list[ContigInfo] = [self.reader.contigs[i] for i in indices]
+            contig_data: List[ContigInfo] = [self.reader.contigs[i] for i in indices]
             all_stacked_features = [None] * len(contig_data)
             features_data = self.reader.read_contigs(contig_data)
             assert len(features_data) == len(contig_data)

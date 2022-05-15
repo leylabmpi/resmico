@@ -12,6 +12,8 @@ import numpy as np
 from cython.parallel import parallel, prange
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
 
+from typing import List
+
 cdef extern from "Python.h":
     char *PyBytes_AS_STRING(object)
 
@@ -109,8 +111,8 @@ def read_contig_py(str file_name, int length, int offset, int size, py_feature_n
 #   num_threads: how many threads to use to read the data
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def read_contigs_py(file_names:list[bytes], py_lengths: list[int],  py_offsets: list[int],  py_sizes: list[int],
-                    py_feature_mask: list[int], int num_threads):
+def read_contigs_py(file_names:List[bytes], py_lengths: List[int],  py_offsets: List[int],  py_sizes: List[int],
+                    py_feature_mask: List[int], int num_threads):
     assert len(file_names) == len(py_lengths) == len(py_offsets) == len(py_sizes)
     cdef uint32_t contig_count = len(file_names)
     cdef int max_len = max(py_lengths)

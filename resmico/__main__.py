@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-__version__ = '0.3.1'
-
 import sys
 import argparse
 
@@ -27,7 +25,6 @@ def main(args=None):
     parser = argparse.ArgumentParser(description=desc,
                                      epilog=epi,
                                      formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('--version', action='version', version=__version__)
 
     # subparsers
     subparsers = parser.add_subparsers()
