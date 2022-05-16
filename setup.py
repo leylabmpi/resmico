@@ -9,18 +9,14 @@ install_reqs = [
     'cmake>=3.13',
     'ipython',
     'keras',
-    'mamba>=0.11',
     'numpy>=1.17.0',
     'pandas',
     'pathos',
     'pytest',
-    'pandas>=1.1.2',
-    'scikit-learn',
-    'scipy>=1.3.1',
     'snakemake>=5.31.1',
     'tables',
     'tensorflow',
-    'tensorboard',
+    'tensorboard<2.9.0',
     'toolz',
 ]
 
@@ -54,7 +50,7 @@ class get_numpy_include(object):
 desc = 'Increasing the quality of metagenome-assembled genomes with deep learning'
 setup(
     name='resmico',
-    version='1.0.6',
+    version='1.0.12',
     description=desc,
     long_description=desc + '\n See README for more information.',
     author='Nick Youngblut, Daniel Danciu',
@@ -74,7 +70,7 @@ setup(
     # 'resmico': ['model/resmico.h5', 'model/stats_cov.json'],
     package_data={'resmico': ['reader.pyx', 'contig_reader.hpp', 'contig_reader.cpp']},
     package_dir={'resmico': 'resmico'},
-    python_requires='>3.5',
+    python_requires='>=3.8',
     setup_requires=[
         # Setuptools 18.0 properly handles Cython extensions.
         'setuptools>=18.0',
