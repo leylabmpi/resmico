@@ -1,19 +1,12 @@
 # Input table
 ## Table of genomes
-genomes_file: tests/data/genomes_n10.tsv
-#genomes_file: tests/data/Samp3-MAG3.tsv
-#genomes_file: tests/data/UHGG_gen-samp.tsv
-#genomes_file: tmp/ERS396506.tsv
+genomes_file: genomes_n10/genomes.tsv
 
 # Output directory
 output_dir: tests/output/n10/
-#output_dir: tests/output/Samp3-MAG3/
-#output_dir: tests/output/UHGG_gen-samp/
-#output_dir: tmp/ERS396506/
 
 # Temporary output directory (/dev/shm/ for shared memory)
-#tmp_dir: /tmp/
-tmp_dir: /ebio/abt3_scratch/
+tmp_dir: /tmp/
 
 # Email for notifications ("Skip" to skip)
 email: nyoungblut@tuebingen.mpg.de
