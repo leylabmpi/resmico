@@ -5,10 +5,21 @@ Snakemake pipeline for 2 main purposes:
 1. Generating synthetic metagenome data from a set of reference genomes
 2. Creating feature tables for ResMiCo training/testing/application
 
-## Setup
+## Install
 
-You just need a conda env with snakemake & pandas installed.
+### Conda 
+
+You need a conda environment with snakemake & pandas installed.
 Snakemake will install all other dependencies via conda.
+
+### ResMiCo-SM
+
+```
+git clone  --recurse-submodules git@github.com:leylabmpi/ResMiCo.git
+cd ResMiCo/ResMiCo-SM/
+```
+
+Note: snakemake should run on a local machine without further configuration, but running snakemake on a HPC/cloud setup with require some more configuration. See the snakemake docs for [cluster execution](https://snakemake.readthedocs.io/en/stable/executing/cluster.html) or [cloud execution](https://snakemake.readthedocs.io/en/stable/executing/cloud.html).
 
 ## Input
 
