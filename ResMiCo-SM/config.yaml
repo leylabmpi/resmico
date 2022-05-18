@@ -5,11 +5,11 @@ genomes_file: genomes_n10/genomes.tsv
 # Output directory
 output_dir: tests/output/n10/
 
-# Temporary output directory (/dev/shm/ for shared memory)
-tmp_dir: /tmp/
+# Temporary output directory (use /dev/shm/ for shared memory)
+tmp_dir: resmico-sm_TMP/
 
 # Email for notifications ("Skip" to skip)
-email: nyoungblut@tuebingen.mpg.de
+email: Skip
 
 # software parameters for data simulations
 ## Use "Skip" to skip  steps. If no params for rule, use ""
@@ -65,8 +65,8 @@ params:
     samtools: ""
     bowtie2: ""
     max_coverage: 20
-    keep_bam: True
-    keep_faidx: True
+    keep_bam: False
+    keep_faidx: False
     create_bigwig: False
   # creating ResMiCo feature tables
   feature_table:
@@ -74,9 +74,9 @@ params:
   # state-of-the-art
   SotA:
     ALE: ""
-    VALET: Skip
+    VALET: ""
     metaMIC:
-      extract: Skip #--mlen 1000
+      extract: --mlen 1000
       predict: --mlen 1000 --slen 500 -a MEGAHIT
   # misc
   real_contigs_simulated_reads: False
