@@ -32,7 +32,7 @@ The tool is divided into two main parts:
 * **ResMiCo-SM**
   * A snakemake pipeline for:
     * generating ResMiCo train/test datasets from reference genomes
-    * creating feature tables from "real" assemblies (fasta + bam files)
+    * creating feature tables from real-world assemblies (contigs and/or MAGs, along with associated Illumina paired-end reads)
 * **ResMiCo (DL)**
   * A python package for misassembly detection via deep learning
 
@@ -48,7 +48,6 @@ The tool is divided into two main parts:
 ## ResMiCo-SM
 
 See the [ResMiCo-SM README](./ResMiCo-SM/README.md)
-
 
 ## ResMiCo (DL)
 
@@ -70,3 +69,6 @@ See `resmico train -h`
 See `resmico evalulate -h`
 
 
+### Filtering out misassembled contigs
+
+> TODO
