@@ -36,7 +36,6 @@ The tool is divided into two main parts:
 * **ResMiCo (DL)**
   * A python package for misassembly detection via deep learning
 
-
   
 ### Running tests
 
@@ -68,7 +67,6 @@ See `resmico train -h`
 
 See `resmico evalulate -h`
 
-
 ### Filtering out misassembled contigs
 
-> TODO
+See `resmico filter -h`

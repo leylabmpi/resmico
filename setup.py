@@ -50,7 +50,7 @@ class get_numpy_include(object):
 desc = 'Increasing the quality of metagenome-assembled genomes with deep learning'
 setup(
     name='resmico',
-    version='1.0.12',
+    version='1.0.13',
     description=desc,
     long_description=desc + '\n See README for more information.',
     author='Nick Youngblut, Daniel Danciu',

@@ -17,7 +17,7 @@ def parse_args(test_args=None, subparsers=None):
     or the pre-trained model that comes with the DeepMAsED package.
     
     #-- feature_file_table --#
-    * See `DeepMAsED train` for a description 
+    * See `resmico train` for a description 
     * Note that the 'assembler' and 'rep' columns are not actually used, 
       so placeholder values can used. Just make sure to include unique 
       `assembler` + `rep` combinations for each row in the table.
