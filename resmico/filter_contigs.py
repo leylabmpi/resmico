@@ -39,7 +39,7 @@ def parse_predictions(infile, delim=','):
             # header
             if i == 0:
                 header = {x:ii for ii,x in enumerate(line)}
-                for col in ['cont_name', 'score']:
+                for col in ['cont_name', 'score', 'length']:
                     try:
                         _ = header[col]
                     except KeyError:
@@ -48,16 +48,19 @@ def parse_predictions(infile, delim=','):
             # body
             contig_id = os.path.split(line[header['cont_name']])[1]
             score = float(line[header['score']])
-            predictions[contig_id] = score
+            contig_len = float(line[header['length']])
+            predictions[contig_id] = [score, contig_len]
     return predictions
 
-def filter_fasta(fasta_file, predictions, pred_score_cutoff, add_score=False, ignore_missing=False):
+def filter_fasta(fasta_file, predictions, pred_score_cutoff, add_score=False,
+                 ignore_missing=False, max_length=0):
     """
     Filtering fasta based on contig prediction scores
     """
     logging.info('Filtering fasta...')
     contig_id = None
     pred_score = None
+    contig_len = None
     stats = {'kept':0, 'filtered':0, 'total':0}
     with _open(fasta_file) as inF:
         for i,line in enumerate(inF):
@@ -70,7 +73,8 @@ def filter_fasta(fasta_file, predictions, pred_score_cutoff, add_score=False, ig
                 contig_id = line.lstrip('>')
                 # getting score for contig
                 try:
-                    pred_score = float(predictions[contig_id])
+                    pred_score = float(predictions[contig_id][0])
+                    contig_len = float(predictions[contig_id][1])
                 except KeyError:
                     msg = 'Cannot find contig "{}" in the list of predictions'
                     if ignore_missing is True:
@@ -78,10 +82,17 @@ def filter_fasta(fasta_file, predictions, pred_score_cutoff, add_score=False, ig
                     else:
                         raise KeyError(msg.format(contig_id))
                 # status
-                if pred_score is not None and pred_score < pred_score_cutoff:
+                if max_length > 0 and contig_len > max_length:
+                    # retaining long contigs, regardless of score
+                    stats['kept'] += 1
+                    pred_score = 0
+                elif pred_score is not None and pred_score < pred_score_cutoff:
+                    # retaining contig due to low score
                     stats['kept'] += 1
                 else:
+                    # score hits cutoff; filtering
                     stats['filtered'] += 1
+                    continue
                 # add score to sequence header?
                 if add_score is True:
                     line = '>{} score={}'.format(contig_id, round(pred_score,6))
@@ -106,7 +117,7 @@ def main(args):
     predictions = parse_predictions(args.prediction_table, args.score_delim)
     # fasta filter
     filter_fasta(args.fasta_file, predictions, args.score_cutoff,
-                 args.add_score, args.ignore_missing)
+                 args.add_score, args.ignore_missing, args.max_length)
 
 if __name__ == '__main__':
     pass

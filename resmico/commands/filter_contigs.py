@@ -26,7 +26,8 @@ def parse_args(test_args=None, subparsers=None):
                                          formatter_class=argparse.RawTextHelpFormatter)
     # args
     parser.add_argument('prediction_table',  metavar='prediction_table', type=str, 
-                        help='Table that includes per-contig misassembly predictions (see DESCRIPTION)')
+                        help='A table that includes per-contig misassembly predictions. '
+                             'The table should be formatted as the output from "resmico predict"')
     parser.add_argument('fasta_file',  metavar='fasta_file', type=str, 
                         help='Fasta file containing the associated contigs')
     parser.add_argument('--score-cutoff', default=0.8, type=float, 
@@ -36,7 +37,12 @@ def parse_args(test_args=None, subparsers=None):
     parser.add_argument('--add-score', action='store_true', default=False,
                         help='Add prediction score to sequence header? (default: %(default)s)')
     parser.add_argument('--ignore-missing', action='store_true', default=False,
-                        help='Keep sequence if prediction score is missing? Otherwise, throw error (default: %(default)s)')     
+                        help='Keep sequence if prediction score is missing? Otherwise, throw error (default: %(default)s)')
+    parser.add_argument('--max-length', default=0, type=int, 
+                        help='Only apply filtering to contigs < cutoff. '
+                             'Longer contigs are retained, regardless of the prediction score. '
+                             'If <1, no cutoff applied. '
+                             '(default: %(default)s)')
     # test args
     if test_args:
         args = parser.parse_args(test_args)
