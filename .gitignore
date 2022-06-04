@@ -20,6 +20,7 @@ ResMiCo-SM/bin/scripts/gridmap/build
 ResMiCo-SM/bin/scripts/gridmap/examples
 ResMiCo-SM/tests/output/
 deepmased_trained/predictions/
+notebooks/zero_impute/
 data/large/
 screenlog.*
 bin/misc_*

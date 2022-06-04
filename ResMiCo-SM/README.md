@@ -5,10 +5,21 @@ Snakemake pipeline for 2 main purposes:
 1. Generating synthetic metagenome data from a set of reference genomes
 2. Creating feature tables for ResMiCo training/testing/application
 
-## Setup
+## Install
 
-You just need a conda env with snakemake & pandas installed.
+### Conda 
+
+You need a conda environment with snakemake & pandas installed.
 Snakemake will install all other dependencies via conda.
+
+### ResMiCo-SM
+
+```
+git clone  --recurse-submodules git@github.com:leylabmpi/ResMiCo.git
+cd ResMiCo/ResMiCo-SM/
+```
+
+Note: snakemake should run on a local machine without further configuration, but running snakemake on a HPC/cloud setup with require some more configuration. See the snakemake docs for [cluster execution](https://snakemake.readthedocs.io/en/stable/executing/cluster.html) or [cloud execution](https://snakemake.readthedocs.io/en/stable/executing/cloud.html).
 
 ## Input
 
@@ -176,6 +187,36 @@ If you need/want to compile a new version, see the README.md in `./feature_extra
   * `SotA:`
 
 
+## Run
+
+### Running locally 
+
+```
+snakemake --use-conda -j <NUMBER_OF_THREADS> --configfile <MY_CONFIG.yaml_FILE>
+```
+
+### Running on a cluster
+
+You will need to setup a snakemake profile specific to your cluster setup.
+See the following for how:
+
+* [Ley Lab snakemake profiles](https://github.com/leylabmpi/snakemake_profiles)
+* [Snakemake docs on cluster config](https://snakemake.readthedocs.io/en/stable/snakefiles/configuration.html)
+* [Official snakemake profiles](https://github.com/Snakemake-Profiles)
+
+Note that the job submission script should include the following resources:
+
+* `time` = max job time in minutes
+* `n` = number of threads requested
+* `mem_gb_pt` = per-thread mem in gigabytes
+
+#### Running on an SGE cluster
+
+The SGE profile in [Ley Lab snakemake profiles](https://github.com/leylabmpi/snakemake_profiles)
+should work without any modifications (read the README).
+
+You can use `./snakemake_sge.sh` for convenience
+
 ## Output
 
 * General directory tree naming format:
@@ -207,3 +248,86 @@ If you need/want to compile a new version, see the README.md in `./feature_extra
   * [Nonpareil3](https://doi.org/10.1128/mSystems.00039-18) used for estimations
   
 
+### Features table
+
+> Note: All columns ending in `_*` appear in the table twice: once as `*_Match` (reads that matched the reference at that position) and once as `*_SNP`, which are reads that didn't match the reference at that position.
+
+* **Basic info**
+  * `assembler`
+    * metagenome assembler used
+  * `contig`
+    * contig ID
+  * `position`
+    * position on the contig (bp)
+  * `ref_base`
+    * nucleotide at that position on the contig
+* **Extracted from the bam file**
+  * `num_query_A`
+    * number of reads mapping to that position with 'A'
+  * `num_query_C`
+    * number of reads mapping to that position with 'C'
+  * `num_query_G`
+    * number of reads mapping to that position with 'G'
+  * `num_query_T`
+    * number of reads mapping to that position with 'T'
+  * `num_SNPs`
+    * number of SNPs at that position
+  * `coverage`
+    * number of reads mapping to that position
+  * `num_discordant`
+    * number of reads in which:
+      * the read belongs to a pair
+      * the read mate is not properly mapped (see pysam definition)
+  * `min_insert_size_*`
+    * minimum paired-end read insert size for all reads mapping to that position
+  * `mean_insert_size_*`
+    * mean paired-end read insert size for all reads mapping to that position
+  * `stdev_insert_size_*`
+    * stdev paired-end read insert size for all reads mapping to that position
+  * `max_insert_size_*`
+    * max paired-end read insert size for all reads mapping to that position
+  * `min_mapq_*`
+    * minimum read mapping quality for all reads mapping to that position
+  * `mean_mapq_*`
+    * mean read mapping quality for all reads mapping to that position
+  * `stdev_mapq_*`
+    * stdev read mapping quality for all reads mapping to that position
+  * `max_mapq_*`
+    * max read mapping quality for all reads mapping to that position
+  * `num_proper_*`
+    * number of reads mapping to that position with proper read pairing
+  * `num_diff_strand_*`
+    * number of reads mapping to that position where mate maps to the other strand
+    * "proper" pair alignment determined by bowtie2
+  * `num_orphans_*`
+    * number of reads mapping to that position where the mate did not map
+  * `num_supplementary_*`
+    * number of reads mapping to that position where the alignment is supplementary
+    * see the [samtools docs](https://samtools.github.io/hts-specs/SAMv1.pdf) for more info
+  * `num_secondary_*`
+    * number of reads mapping to that position where the alignment is secondary
+    * see the [samtools docs](https://samtools.github.io/hts-specs/SAMv1.pdf) for more info
+  * `num_discordant_*`
+    * See `num_discordant` above 
+  * `seq_window_entropy`
+    * sliding window contig sequence Shannon entropy
+    * window size defined with the `make_features:` param in the `config.yaml` file
+  * `seq_window_perc_gc`
+    * sliding window contig sequence GC content
+    * window size defined with the `make_features:` param in the `config.yaml` file
+* **MetaQUAST info**
+  * `Extensive_misassembly`
+    * the "extensive misassembly" classification set by MetaQUAST
+    * encoding: `1 = misassembly; 0 = no misassembly`
+  * `Extensive_misassembly_by_pos`
+    * Per-contig-position labeling of misassembly types set by MetaQUAST
+    * Note: multiple misassembly labels are possible per position (eg, 'inversion,translocation')
+
+
+#### Features file table
+
+This is a table automatically generated by `ResMiCo-Sm`, which
+lists all individual feature tables and their associated metadata
+(e.g., simulation parameters).
+
+Run `resmico train -h` to get a full description.
