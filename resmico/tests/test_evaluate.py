@@ -1,12 +1,14 @@
 import os
+from pathlib import Path
 import pytest
 import logging
 
 from resmico.commands import evaluate as evaluate_cmd
 
 # test/data dir
-test_dir = os.path.join(os.path.dirname(__file__))
-data_dir = os.path.join(test_dir, 'data')
+test_dir = Path(__file__)
+data_dir = test_dir / 'data'
+
 
 # tests
 def test_help():
@@ -15,6 +17,7 @@ def test_help():
         evaluate_cmd.parse_args(args)
     assert pytest_wrapped_e.type == SystemExit
     assert pytest_wrapped_e.value.code == 0
+
 
 def test_train(tmpdir, caplog):
     caplog.set_level(logging.INFO)
@@ -28,5 +31,3 @@ def test_train(tmpdir, caplog):
         evaluate_cmd.main(args)
     assert pytest_wrapped_e.type == SystemExit
     assert pytest_wrapped_e.value.code == 0
-
-
