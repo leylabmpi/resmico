@@ -10,19 +10,19 @@ def parse_args(test_args=None, subparsers=None):
     #-- Recommended flow --#
 
     #-- Feature File Table format --#
-    * DeepMAsED-SM will generate a feature file table that lists all
+    * ResMiCo-SM will generate a feature file table that lists all
       feature files and their associated metadata (eg., assembler & sim-rep).
     * The table must contain the following columns:
-      * `feature_file` = the path to the feature file (created by DeepMAsED-SM, see README)
+      * `feature_file` = the path to the feature file (created by ResMiCo-SM, see README)
         * The files can be (gzip'ed) tab-delim or pickled (see below on `--pickle-only`)
       * `rep` = the metagenome simulation replicate 
         * Set to 1 if real data
       * `assembler` = the metadata assembler
 
     #-- Pickled feature files --#
-    DeepMAsED-SM generates tab-delim feature tables; however,
-    DeepMAsED uses formatted & pickled versions of the tab-delim feature tables.
-    `DeepMAsED preprocess` need to be applied to the data before training and testing.
+    ResMiCo-SM generates tab-delim feature tables; however,
+    ResMiCo uses formatted & pickled versions of the tab-delim feature tables.
+    `resmico preprocess` need to be applied to the data before training and testing.
     It works in 3 steps. 
     Firstly, use `--pickle-tsv` argument to create pickle version of tsv datatables 
     with selected features. Apply it to both train and test datasets.

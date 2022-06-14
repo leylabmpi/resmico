@@ -42,7 +42,7 @@ The tool is divided into two main parts:
 `pytest -s`
 
 
-# Usage
+# General usage
 
 ## ResMiCo-SM
 
@@ -67,6 +67,56 @@ See `resmico train -h`
 
 See `resmico evalulate -h`
 
-### Filtering out misassembled contigs
+### Filtering out contigs predicted to be misassembled
 
 See `resmico filter -h`
+
+
+# Example
+
+## Install resmico 
+
+**Conda/mamba installation:**
+
+```
+mamba create -n resmico_env bioconda::resmico
+mamba activate resmico_env
+```
+
+**...or with pip:**
+
+```
+pip install resmico
+```
+
+## Get example dataset
+
+Training data
+
+```
+wget http://ftp.tue.mpg.de/ebio/projects/ResMiCo/genomes-n10_features.tar.gz
+wget http://ftp.tue.mpg.de/ebio/projects/ResMiCo/genomes-n10_features.md5
+md5sum --check genomes-n10_features.md5
+tar -pzxvf genomes-n10_features.tar.gz
+```
+
+Test data
+
+```
+wget http://ftp.tue.mpg.de/ebio/projects/ResMiCo/UHGG-n9_features.tar.gz
+wget http://ftp.tue.mpg.de/ebio/projects/ResMiCo/UHGG-n9_features.md5
+md5sum --check UHGG-n9_features.md5
+tar -pzxvf UHGG-n9_features.tar.gz
+```
+
+## Training
+
+```
+resmico train --log-progress --n-procs 4 --save-path model --save-name genomes-n10 --feature-file-table genomes-n10_features/feature_files.tsv
+```
+
+## Predict using new model
+
+```
+resmico predict --model-path ./model/ --model-name genomes-n10 --save-path predictions --save-name UHGG-n9 --n-procs 4 UHGG-n9_features/feature_files.tsv
+```

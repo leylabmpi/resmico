@@ -52,7 +52,7 @@ def parse_args(test_args=None, subparsers=None):
     parser.add_argument('--window', default=5000, type=int,
                         help='Window size for chunks method, size of piece for random method (default: %(default)s)')
     parser.add_argument('--v1', action='store_true', default=False,
-                        help='use deepmased')
+                        help='use deepmased model')
     parser.add_argument('--longdir', action='store_true', default=False,
                         help='Six variable parameters in simulation (default: %(default)s)')
     parser.add_argument('--embeddings', action='store_true', default=False,

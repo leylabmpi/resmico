@@ -192,9 +192,6 @@ def find_pkl_file(feat_file, force_overwrite=False):
 
     if os.path.isfile(pkl + '.pkl'):
         logging.info('Found pkl file: {}'.format(pkl))
-        #         msg = '  Using the existing pkl file. Use DeepMAsED Preprocess --pickle-tsv'
-        #         msg += ' --force-overwrite=True to force-recreate the pkl file from the tsv file'
-        #         logging.info(msg)
         return pkl + '.pkl', 'pkl'
     else:
         logging.info('  No pkl found. A pkl file will be created from the tsv file')
@@ -949,48 +946,6 @@ def reverse_dict(d):
         else:
             r_d[v].append(k)
     return r_d
-
-
-# def compute_predictions(n2i, generator, model, save_path, save_name):
-#     """
-#     Computes predictions for a model and generator, aggregating scores for long contigs.
-
-#     Inputs: 
-#         n2i: dictionary with contig_name -> list of idx corresponding to that contig.
-#         generator: deepmased data generator
-#     Output:
-#         saves scores for individual contigs
-#     """
-#     score_val = model.predict_generator(generator)
-
-#     # Compute predictions by aggregating scores for longer contigs
-#     score_val = score_val.flatten()
-#     scores = {}
-
-#     outfile = os.path.join(save_path, '_'.join([save_name, 'predictions.csv']))
-#     write = open(outfile, 'w')
-#     csv_writer = csv.writer(write, delimiter='\t')
-#     csv_writer.writerow(['MAG', 'Contig', 'Deepmased_score'])
-
-#     for k in n2i:
-#         inf = n2i[k][0]
-#         sup = n2i[k][-1] + 1
-#         if k[0] not in scores:
-#             scores[k[0]] = {}
-
-#         # Make sure contig doesnt appear more than once
-#         assert(k[1] not in scores[k[0]])
-
-#         # Make sure we have predictions for these indices
-#         if sup > len(score_val):
-#             continue
-
-#         # Make sure all the labels for the contig coincide
-#         #scores[k[0]][k[1]] = {'pred' : score_val[inf : sup]}
-#         csv_writer.writerow([k[0], k[1], str(np.max(score_val[inf : sup]))])
-
-#     write.close()
-#     logging.info('File written: {}'.format(outfile))
 
 
 def compute_predictions_y_known(y, n2i, model, dataGen, n_procs, x=False):

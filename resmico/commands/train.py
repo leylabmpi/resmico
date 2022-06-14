@@ -24,18 +24,18 @@ def parse_args(curr_args=None, subparsers=None):
       hyper-parameters (this is now one single run). 
 
     #-- Feature File Table format --#
-    * DeepMAsED-SM will generate a feature file table that lists all
+    * ResMiCo-SM will generate a feature file table that lists all
       feature files and their associated metadata (eg., assembler & sim-rep).
     * The table must contain the following columns:
-      * `feature_file` = the path to the feature file (created by DeepMAsED-SM, see README)
+      * `feature_file` = the path to the feature file (created by ResMiCo-SM, see README)
         * The files can be (gzip'ed) tab-delim or pickled (see below on `--pickle-only`)
       * `rep` = the metagenome simulation replicate 
         * Set to 1 if real data
       * `assembler` = the metadata assembler
 
     #-- Pickled feature files --#
-    DeepMAsED-SM will generate tab-delim feature tables; however,
-    DeepMAsED uses formatted & pickled versions of the tab-delim feature tables as input.
+    ResMiCo-SM will generate tab-delim feature tables; however,
+    ResMiCo uses formatted & pickled versions of the tab-delim feature tables as input.
     Pickled preprocessed files should be created beforehand with Preprocess command.
     """
     if subparsers:

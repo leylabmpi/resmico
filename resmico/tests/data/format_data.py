@@ -7,11 +7,11 @@ import argparse
 import logging
 import random
 
-desc = 'Copying data from DeepMAsED-SM test to DL-test data directory'
+desc = 'Copying data from ResMiCo-SM test to DL-test data directory'
 epi = """DESCRIPTION:
 Simple script to convert the files in the features/
-directory created by DeepMAsED-SM to data files for
-running the DeepMAsED unit tests.
+directory created by ResMiCo-SM to data files for
+running the ResMiCo unit tests.
 
 In order to make sure that there are enough misassemblies
 in the feature tables for training, the miassemblies are
@@ -21,7 +21,7 @@ parser = argparse.ArgumentParser(description=desc,
                                  epilog=epi,
                                  formatter_class=argparse.RawTextHelpFormatter)
 parser.add_argument('features_dir', metavar='features_dir', type=str,
-                    help='DeepMAsED-SM features direcotry')
+                    help='ResMiCo-SM features direcotry')
 parser.add_argument('out_dir', metavar='out_dir', type=str,
                     help='Output directory')
 parser.add_argument('-l', '--lines', type=int, default=200000,
