@@ -108,7 +108,10 @@ tar -pzxvf UHGG-n9_features.tar.gz
 ## Training on example train data
 
 ```
-resmico train --log-progress --n-procs 4 --n-epochs 2 --save-path model --save-name genomes-n10 --feature-file-table genomes-n10_features/feature_files.tsv
+resmico train --log-progress --n-procs 4 --n-epochs 2 \
+  --save-path model \
+  --save-name genomes-n10 \
+  --feature-file-table genomes-n10_features/feature_files.tsv
 ```
 
 ## Predict using the newly created model
@@ -116,13 +119,22 @@ resmico train --log-progress --n-procs 4 --n-epochs 2 --save-path model --save-n
 Prediction on the example test data.
 
 ```
-resmico evaluate --binary-data --model model/mc_epoch_2_aucPR_0.007_genomes-n10_model.h5 --save-path predictions --save-name UHGG-n9 --n-procs 4 --feature-files-path UHGG-n9_features/ --feature-file-table UHGG-n9_features/feature_files.tsv
+MODEL_PATH=/path/to/the/trained/model/it/will/differ/every/time/model.h5
+resmico evaluate --binary-data --n-procs 4 \
+  --model $MODEL_PATH \
+  --save-path predictions \
+  --save-name UHGG-n9  \
+  --feature-files-path UHGG-n9_features/ \
+  --feature-file-table UHGG-n9_features/feature_files.tsv
 ```
 
 ## Filter out contigs predicted to be misassembled
 
 ```
-resmico filter --score-cutoff 0.03 --outdir filtered-contigs predictions/UHGG-n9.csv UHGG-n9_features/fasta/*fna.gz
+resmico filter --score-cutoff 0.03 \
+  --outdir filtered-contigs \
+  predictions/UHGG-n9.csv \
+  UHGG-n9_features/fasta/*fna.gz
 ```
 
 > You may need to adjust the `--score-cutoff` in order to filter some contigs
@@ -134,5 +146,10 @@ Prediction on the example test data.
 
 ```
 MODEL_PATH=/path/to/model/if/not/default/see/github/resmico.h5
-resmico evaluate --binary-data --model $MODEL_PATH --save-path predictions --save-name UHGG-n9 --n-procs 4 --feature-files-path UHGG-n9_features/ --feature-file-table UHGG-n9_features/feature_files.tsv
+resmico evaluate --binary-data --n-procs 4 \
+  --model $MODEL_PATH \
+  --save-path predictions \
+  --save-name UHGG-n9 \
+  --feature-files-path UHGG-n9_features/ \
+  --feature-file-table UHGG-n9_features/feature_files.tsv
 ```
