@@ -121,7 +121,11 @@ resmico evaluate --binary-data --model model/mc_epoch_2_aucPR_0.007_genomes-n10_
 
 ## Filter out contigs predicted to be misassembled
 
-> TODO
+```
+resmico filter --score-cutoff 0.03 --outdir filtered-contigs predictions/UHGG-n9.csv UHGG-n9_features/fasta/*fna.gz
+```
+
+> You may need to adjust the `--score-cutoff` in order to filter some contigs
 
 ## Predict using an pre-trained model
 
