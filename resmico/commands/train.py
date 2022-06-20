@@ -12,7 +12,6 @@ def parse_args(curr_args=None, subparsers=None):
     #-- Recommended training flow --#
     * Partition your data into train & test, and just use
       the train data for the following 
-        * see feature file table description below
     * Select a grid search of hyper-parameters to consider
       (learning rate, number of layers, etc).
     * Train with kfold = 5 (for example) for each combination of 
@@ -23,20 +22,6 @@ def parse_args(curr_args=None, subparsers=None):
     * Re-launch the whole training with `--n-folds -1` and the best 
       hyper-parameters (this is now one single run). 
 
-    #-- Feature File Table format --#
-    * ResMiCo-SM will generate a feature file table that lists all
-      feature files and their associated metadata (eg., assembler & sim-rep).
-    * The table must contain the following columns:
-      * `feature_file` = the path to the feature file (created by ResMiCo-SM, see README)
-        * The files can be (gzip'ed) tab-delim or pickled (see below on `--pickle-only`)
-      * `rep` = the metagenome simulation replicate 
-        * Set to 1 if real data
-      * `assembler` = the metadata assembler
-
-    #-- Pickled feature files --#
-    ResMiCo-SM will generate tab-delim feature tables; however,
-    ResMiCo uses formatted & pickled versions of the tab-delim feature tables as input.
-    Pickled preprocessed files should be created beforehand with Preprocess command.
     """
     if subparsers:
         parser = subparsers.add_parser('train', description=desc, epilog=epi,

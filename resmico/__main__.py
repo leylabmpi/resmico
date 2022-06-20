@@ -3,7 +3,6 @@ import sys
 import argparse
 
 from resmico.commands import train
-from resmico.commands import predict
 from resmico.commands import evaluate
 from resmico.commands import filter_contigs
 
