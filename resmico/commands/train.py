@@ -7,7 +7,7 @@ from resmico.commands import arguments
 
 
 def parse_args(curr_args=None, subparsers=None):
-    desc = 'Train model'
+    desc = 'Train a new model using resmico'
     epi = """DESCRIPTION:
     #-- Recommended training flow --#
     * Partition your data into train & test, and just use
