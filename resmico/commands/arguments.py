@@ -29,9 +29,9 @@ def add_common_args(parser: argparse.ArgumentParser):
                         help='Directory where to save output (default: %(default)s)')
     parser.add_argument('--save-name', default='resmico', type=str,
                         help='Prefix for name in the save_path (default: %(default)s)')
-    parser.add_argument('--feature-files-path', default='', type=str,
-                        help='Path to the feature files produced by Resmico-SM')
-    parser.add_argument('--feature-file-table', default='', type=str,
+    parser.add_argument('--feature-files-path', default='.', type=str,
+                        help='Path to the feature files produced by ResMiCo-SM')
+    parser.add_argument('--feature-file-table', default='', type=str, required=True,
                         help='Table listing feature table files (see DESCRIPTION)')
     parser.add_argument('--technology', default='all-asmbl', type=str,
                         help='Assembler name in the data_path. "all-asmbl" will use all assemblers (default: %(default)s)')

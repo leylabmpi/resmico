@@ -2,6 +2,7 @@ import logging
 import os
 from pathlib import Path
 import time
+import atexit
 
 import numpy as np
 import pandas as pd
@@ -83,8 +84,10 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
     recall1_val = recall_score(eval_data_y, eval_data_predicted_score > 0.5, pos_label=1)
     recall0_val = recall_score(eval_data_y, eval_data_predicted_score > 0.5, pos_label=0)
     logging.info(f'Prediction scores: aucPR: {auc_val} - recall1: {recall1_val} - recall0: {recall0_val}')
+    
     duration = time.time() - start
     logging.info(f'Prediction done in {duration:.0f}s.')
+    out_file = args.save_path + '/' + args.save_name + '.csv'
     
     if args.embeddings:
         middle_output = Model(inputs=model.input, outputs=model.layers[args.emb_ind].output)
@@ -96,26 +99,25 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
 
         eval_data_emb = predict_data.group_emb(eval_data_emb, np.mean)
         
-        out_file = open(args.save_path + '/' + args.save_name + '.csv', 'w')
-        out_file.write('cont_name,length,label,embedding,score,min,mean,std,max\n')
-        for idx in range(len(eval_idx)):
-            contig = reader.contigs[predict_data.indices[idx]]
-            out_file.write(f'{os.path.join(os.path.dirname(contig.file), contig.name)},{contig.length},'
+        with open(out_file, 'w') as outF:
+            outF.write('cont_name,length,label,embedding,score,min,mean,std,max\n')
+            for idx in range(len(eval_idx)):
+                contig = reader.contigs[predict_data.indices[idx]]
+                outF.write(f'{os.path.join(os.path.dirname(contig.file), contig.name)},{contig.length},'
                            f'{contig.misassembly},{eval_data_emb[idx]},{eval_data_predicted_score[idx]},'
                            f'{eval_data_predicted_min[idx]},{eval_data_predicted_mean[idx]},'
                            f'{eval_data_predicted_std[idx]},{eval_data_predicted_max[idx]}\n')        
     else:
-        out_file = open(args.save_path + '/' + args.save_name + '.csv', 'w')
-        out_file.write('cont_name,length,label,score,min,mean,std,max\n')
-        for idx in range(len(eval_idx)):
-            contig = reader.contigs[predict_data.indices[idx]]
-            out_file.write(f'{os.path.join(os.path.dirname(contig.file), contig.name)},{contig.length},'
+        with open(out_file, 'w') as outF:
+            outF.write('cont_name,length,label,score,min,mean,std,max\n')
+            for idx in range(len(eval_idx)):
+                contig = reader.contigs[predict_data.indices[idx]]
+                outF.write(f'{os.path.join(os.path.dirname(contig.file), contig.name)},{contig.length},'
                            f'{contig.misassembly},{eval_data_predicted_score[idx]},'
                            f'{eval_data_predicted_min[idx]},{eval_data_predicted_mean[idx]},'
                            f'{eval_data_predicted_std[idx]},{eval_data_predicted_max[idx]}\n')
 
     logging.info(f'Predictions saved to: {out_file}')
-
 
 def predict_with_method(model, args):
     if args.filter10:
@@ -256,8 +258,10 @@ def verify_insert_size(args):
         logging.info('The insert size distribution is dissimilar to the training data. ResMiCo predictions are not reliable.')
         
 def main(args):
-    """Main interface
     """
+    Main interface
+    """
+    # insert size assessment
     if args.verify_insert_size:
         verify_insert_size(args)
         exit()
@@ -267,7 +271,7 @@ def main(args):
         # TOOD: remove GlobalMaskedMaxPooling1D, once annotation kicks in
         custom_obj = {'class_recall_0': utils.class_recall_0, 'class_recall_1': utils.class_recall_1,
                       'GlobalMaskedMaxPooling1D': Models.GlobalMaskedMaxPooling1D}
-
+    # model loading
     if not os.path.exists(args.model):
         raise IOError(f'Cannot find {args.model}')
     strategy = tf.distribute.MirroredStrategy()
@@ -276,11 +280,13 @@ def main(args):
     with strategy.scope():
         model = load_model(args.model, custom_objects=custom_obj)
     logging.info('Model loaded')
-
+    # predict
     if args.binary_data:
         predict_bin_data(model, strategy.num_replicas_in_sync, args)
     else:
         predict_with_method(model, args)
+    # exit
+    atexit.register(strategy._extended._collective_ops._pool.close)
 
 
 if __name__ == '__main__':

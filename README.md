@@ -57,15 +57,11 @@ wors, so we only recommend running on CPU for testing.
 
 ### Predicting with existing model
 
-See `resmico predict -h` 
+See `resmico evaluate -h` 
 
 ### Training a new model
 
 See `resmico train -h` 
-
-### Evaluating a model
-
-See `resmico evalulate -h`
 
 ### Filtering out contigs predicted to be misassembled
 
@@ -109,14 +105,30 @@ md5sum --check UHGG-n9_features.md5
 tar -pzxvf UHGG-n9_features.tar.gz
 ```
 
-## Training
+## Training on example train data
 
 ```
-resmico train --log-progress --n-procs 4 --save-path model --save-name genomes-n10 --feature-file-table genomes-n10_features/feature_files.tsv
+resmico train --log-progress --n-procs 4 --n-epochs 2 --save-path model --save-name genomes-n10 --feature-file-table genomes-n10_features/feature_files.tsv
 ```
 
-## Predict using new model
+## Predict using the newly created model
+
+Prediction on the example test data.
 
 ```
-resmico predict --model-path ./model/ --model-name genomes-n10 --save-path predictions --save-name UHGG-n9 --n-procs 4 UHGG-n9_features/feature_files.tsv
+resmico evaluate --binary-data --model model/mc_epoch_2_aucPR_0.007_genomes-n10_model.h5 --save-path predictions --save-name UHGG-n9 --n-procs 4 --feature-files-path UHGG-n9_features/ --feature-file-table UHGG-n9_features/feature_files.tsv
+```
+
+## Filter out contigs predicted to be misassembled
+
+> TODO
+
+## Predict using an pre-trained model
+
+Using the "standard" resmico model from the Mineeva et al., 2022 manuscript.
+Prediction on the example test data.
+
+```
+MODEL_PATH=/path/to/model/if/not/default/see/github/resmico.h5
+resmico evaluate --binary-data --model $MODEL_PATH --save-path predictions --save-name UHGG-n9 --n-procs 4 --feature-files-path UHGG-n9_features/ --feature-file-table UHGG-n9_features/feature_files.tsv
 ```
