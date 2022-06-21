@@ -59,6 +59,11 @@ jobs:
       working-directory: ${{runner.workspace}}/ResMiCo/resmico
       run: |
         python setup.py build_ext --inplace
+    - name: pip install
+      shell: bash -l {0}
+      working-directory: ${{runner.workspace}}/ResMiCo/
+      run: |
+        pip install .
     - name: resmico tests
       shell: bash -l {0}
       working-directory: ${{runner.workspace}}/ResMiCo/resmico/tests
