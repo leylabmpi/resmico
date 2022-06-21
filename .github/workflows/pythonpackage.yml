@@ -57,17 +57,14 @@ jobs:
       shell: bash -l {0}
       working-directory: ${{runner.workspace}}/ResMiCo/resmico
       run: |
-          python setup.py build_ext --inplace
-    - name: test_resmico
+        python setup.py build_ext --inplace
+    - name: resmico tests
       shell: bash -l {0}
-      working-directory: ${{runner.workspace}}/ResMiCo/resmico/tests
+      working-directory: ${{runner.workspace}}/ResMiCo/
       run: |
-        pytest ./test_models_fl.py ./test_contig_reader.py ./test_train.py ./test_evaluate.py
-#    - name: pytest
-#      shell: bash -l {0}
-#      run: |
-#        pytest -s --ignore ${{runner.workspace}}/ResMiCo/ResMiCo-SM/feature_extractor
-#    - name: snakemake
-#      shell: bash -l {0}
-#      run: |
-#        snakemake --directory ResMiCo-SM --snakefile ResMiCo-SM/Snakefile -F --dryrun
+        pytest -s --hide-run-results ./resmico/tests/
+    - name: resmico-sm tests
+      working-directory: ${{runner.workspace}}/ResMiCo/ResMiCo-SM/
+      shell: bash -l {0}
+      run: |
+        snakemake --use-conda -j 1 -Fqn
