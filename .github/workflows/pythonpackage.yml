@@ -50,10 +50,10 @@ jobs:
     - name: conda env setup
       shell: bash -l {0}
       run: |
-        mamba info -a
+        conda info -a
         mamba env update -f conda_env.yaml python=${{ matrix.python-version }}
-        mamba list
-        mamba activate /usr/share/miniconda3/envs/resmico
+        conda list
+        conda activate /usr/share/miniconda3/envs/resmico
     - name: cython contig reader
       shell: bash -l {0}
       working-directory: ${{runner.workspace}}/ResMiCo/resmico
