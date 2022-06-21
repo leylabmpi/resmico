@@ -163,7 +163,7 @@ class Resmico(object):
             x = concatenate([maxP, avgP])
 
         elif self.net_type == 'lstm':
-            if config.binary_data:
+            if not config.text_data:
                 mask = Input(shape=(None,), name='mask', dtype='bool')
             x = Bidirectional(LSTM(8, return_sequences=True), merge_mode="concat")(inlayer, mask=mask)
             x = Bidirectional(LSTM(8, return_sequences=True, dropout=self.dropout), merge_mode="ave")(x)
@@ -171,7 +171,7 @@ class Resmico(object):
             self.convoluted_size = lambda x, pad: x
             
         elif self.net_type == 'gru':
-            if config.binary_data:
+            if not config.text_data:
                 mask = Input(shape=(None,), name='mask', dtype='bool')
             x = Bidirectional(GRU(8, return_sequences=True), merge_mode="ave")(inlayer, mask=mask)
             x = Bidirectional(GRU(16, return_sequences=False, dropout=self.dropout), merge_mode="concat")(x)
@@ -213,7 +213,7 @@ class Resmico(object):
             # if we don't mask the zero-padded values, the convoluted size can be anything
             tmp_model = Model(inputs=inlayer, outputs=x)  # dummy model used only in next line
             self.convoluted_size = construct_convolution_lambda(tmp_model) if config.mask_padding else lambda x, pad: 1
-            if config.binary_data:
+            if not config.text_data:
                 mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
                 mask = Input(shape=(mask_size,), name='mask', dtype='bool')
 
@@ -227,7 +227,7 @@ class Resmico(object):
             
             tmp_model = Model(inputs=inlayer, outputs=x)  # dummy model used only in next line
             self.convoluted_size = construct_convolution_lambda(tmp_model) if config.mask_padding else lambda x, pad: 1
-            if config.binary_data:
+            if not config.text_data:
                 mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
                 mask = Input(shape=(mask_size,), name='mask', dtype='bool')
             x = GlobalAveragePooling1D()(x, mask=mask if config.mask_padding else None)
@@ -252,7 +252,7 @@ class Resmico(object):
             # if we don't mask the zero-padded values, the convoluted size can be anything
             tmp_model = Model(inputs=inlayer, outputs=x)  # dummy model used only in next line
             self.convoluted_size = construct_convolution_lambda(tmp_model) if config.mask_padding else lambda x, pad: 1
-            if config.binary_data:
+            if not config.text_data:
                 mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
                 mask = Input(shape=(mask_size,), name='mask', dtype='bool')
 
@@ -310,7 +310,7 @@ class Resmico(object):
                 # this is needed only to avoid errors, mask is not used later
             tmp_model = Model(inputs=inlayer, outputs=x)  # dummy model used only in next line
             self.convoluted_size = construct_convolution_lambda(tmp_model) if config.mask_padding else lambda x, pad: 1
-            if config.binary_data:
+            if not config.text_data:
                 mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
                 mask = Input(shape=(mask_size,), name='mask', dtype='bool')
             ###
@@ -332,7 +332,7 @@ class Resmico(object):
                 # this is needed only to avoid errors, mask is not used later
             tmp_model = Model(inputs=inlayer, outputs=x)  # dummy model used only in next line
             self.convoluted_size = construct_convolution_lambda(tmp_model) if config.mask_padding else lambda x, pad: 1
-            if config.binary_data:
+            if not config.text_data:
                 mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
                 mask = Input(shape=(mask_size,), name='mask', dtype='bool')
             ###
@@ -347,7 +347,7 @@ class Resmico(object):
 
         # need to clip the gradient for cnn_resnet_avg, otherwise we get NaNs in the weights
         optimizer = tf.keras.optimizers.Adam(lr=self.lr_init, clipnorm=1.0, clipvalue=0.5)
-        if config.binary_data:
+        if not config.text_data:
             inputs = [inlayer, mask]
         else:
             inputs = inlayer

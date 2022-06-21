@@ -31,7 +31,7 @@ class Config(object):
         self.ker_size = args.ker_size
         self.seed = args.seed
         self.mask_padding = args.mask_padding
-        self.binary_data = args.binary_data
+        self.text_data = args.text_data
 
 
 def main(args):

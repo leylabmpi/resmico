@@ -1,13 +1,18 @@
+import os
 import numpy as np
 import unittest
 
 from resmico import contig_reader
 from resmico import reader
 
+test_dir = os.path.join(os.path.dirname(__file__))
+data_dir = os.path.join(test_dir, 'data')
+FEAT_DIR = os.path.join(data_dir, 'preprocess')
+INFILE = os.path.join(FEAT_DIR, 'features_binary')
 
 class TestReadContig(unittest.TestCase):
     def test_read_from_file(self):
-        input_file = open('data/preprocess/features_binary', 'rb')
+        input_file = open(INFILE, 'rb')
 
         result = contig_reader._read_contig_data(input_file, reader.feature_names)
         self.assertEqual(500, len(result['ref_base_A']))
@@ -51,10 +56,11 @@ class TestReadContig(unittest.TestCase):
                                    delta=1e-4)
 
     def test_normalize_zero_mean_one_stdev(self):
-        input_file = open('data/preprocess/features_binary', 'rb')
+        input_file = open(INFILE, 'rb')
         old_result = contig_reader._read_contig_data(input_file, reader.feature_names)
 
-        c_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
+        c_reader = contig_reader.ContigReader(os.path.split(INFILE)[0],
+                                              reader.feature_names, 1, False)
         for fname in reader.float_feature_names:
             c_reader.means[fname] = 0
             c_reader.stdevs[fname] = 1
@@ -68,10 +74,11 @@ class TestReadContig(unittest.TestCase):
             self.assertIsNone(np.testing.assert_array_equal(old_result[fname], result[fname]))
 
     def test_normalize_zero_mean_two_stdev(self):
-        input_file = open('data/preprocess/features_binary', 'rb')
+        input_file = open(INFILE, 'rb')
         old_result = contig_reader._read_contig_data(input_file, reader.feature_names)
 
-        ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
+        ctg_reader = contig_reader.ContigReader(os.path.split(INFILE)[0],
+                                                reader.feature_names, 1, False)
         for fname in reader.float_feature_names:
             ctg_reader.means[fname] = 0
             ctg_reader.stdevs[fname] = 2
@@ -85,9 +92,12 @@ class TestReadContig(unittest.TestCase):
             self.assertIsNone(np.testing.assert_array_equal(old_result[fname] / 2, result[fname]))
 
     def test_read_toc(self):
-        ctg_reader = contig_reader.ContigReader('data/preprocess/', [reader.feature_names[0], reader.feature_names[1],
-                                                                 reader.feature_names[3]], process_count=1,
-                                            is_chunked=False)
+        ctg_reader = contig_reader.ContigReader(FEAT_DIR,
+                                                [reader.feature_names[0],
+                                                 reader.feature_names[1],
+                                                 reader.feature_names[3]],
+                                                process_count=1,
+                                                is_chunked=False)
 
         self.assertEqual(2, len(ctg_reader.contigs))
 
@@ -103,10 +113,13 @@ class TestReadContig(unittest.TestCase):
         self.assertEqual(3, ctg_reader.contigs[1].avg_coverage)
 
     def test_read_three_features(self):
-        ctg_reader = contig_reader.ContigReader('data/preprocess/', [reader.feature_names[0], reader.feature_names[1],
-                                                                 reader.feature_names[3]], process_count=1,
-                                            is_chunked=False)
-
+        ctg_reader = contig_reader.ContigReader(FEAT_DIR,
+                                                [reader.feature_names[0],
+                                                 reader.feature_names[1],
+                                                 reader.feature_names[3]],
+                                                process_count=1,
+                                                is_chunked=False)
+        
         result = ctg_reader.read_contigs(ctg_reader.contigs)
 
         # we read 2 contigs in total

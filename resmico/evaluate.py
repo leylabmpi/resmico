@@ -281,10 +281,10 @@ def main(args):
         model = load_model(args.model, custom_objects=custom_obj)
     logging.info('Model loaded')
     # predict
-    if args.binary_data:
-        predict_bin_data(model, strategy.num_replicas_in_sync, args)
+    if args.text_data:
+        predict_with_method(model, args)        
     else:
-        predict_with_method(model, args)
+        predict_bin_data(model, strategy.num_replicas_in_sync, args)
     # exit
     atexit.register(strategy._extended._collective_ops._pool.close)
 

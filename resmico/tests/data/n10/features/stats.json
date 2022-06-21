@@ -1,0 +1,34 @@
+{
+  "means": {
+    "min_insert_size_Match": 235.61366668041862,
+    "mean_insert_size_Match": 260.9425053046393,
+    "stdev_insert_size_Match": 38.35367108284561,
+    "max_insert_size_Match": 288.9041420850695,
+    "min_mapq_Match": 41.46844616802123,
+    "mean_mapq_Match": 41.80324024818832,
+    "stdev_mapq_Match": 0.34690985858577267,
+    "max_mapq_Match": 41.98202621120233,
+    "min_al_score_Match": -3.1202126050304604,
+    "mean_al_score_Match": -1.436157772238814,
+    "stdev_al_score_Match": 2.0097789261650494,
+    "max_al_score_Match": -0.3137780711525503,
+    "seq_window_perc_gc": 0,
+    "seq_window_entropy": 0
+  },
+  "stdevs": {
+    "min_insert_size_Match": 66.0834820995866,
+    "mean_insert_size_Match": 52.61724943779269,
+    "stdev_insert_size_Match": 38.12732885861703,
+    "max_insert_size_Match": 59.55542907135278,
+    "min_mapq_Match": 4.246277315997771,
+    "mean_mapq_Match": 1.631299227410645,
+    "stdev_mapq_Match": 2.4985321921323482,
+    "max_mapq_Match": 0.5413509798622792,
+    "min_al_score_Match": 8.348008307454961,
+    "mean_al_score_Match": 3.8189457441453385,
+    "stdev_al_score_Match": 4.535699033461559,
+    "max_al_score_Match": 1.976700949001314,
+    "seq_window_perc_gc": 0,
+    "seq_window_entropy": 0
+  }
+}

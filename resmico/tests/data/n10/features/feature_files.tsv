@@ -1,0 +1,3 @@
+richness	abundance_distribution	rep	read_length	read_depth	assembler	contig_frac	feature_file	MGSIM_reads_params
+0.5	mean-10-sigma-1	1	150	50000	metaspades	1000	0.5/mean-10-sigma-1/1/150/50000/metaspades/1000/features.tsv.gz	"--art-paired --art-mflen 270 --art-sdev 50 --rndSeed 8712"
+0.5	mean-10-sigma-1	1	150	50000	megahit	1000	0.5/mean-10-sigma-1/1/150/50000/megahit/1000/features.tsv.gz	"--art-paired --art-mflen 270 --art-sdev 50 --rndSeed 8712"

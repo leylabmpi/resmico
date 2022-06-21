@@ -39,8 +39,17 @@ The tool is divided into two main parts:
   
 ### Running tests
 
-`pytest -s`
+Install `pytest` and `pytest-console-scripts`. For example:
 
+```
+mamba install pytest pytest-console-scripts
+```
+
+Run tests
+
+```
+pytest -s --hide-run-results ./resmico/tests/
+```
 
 # General usage
 

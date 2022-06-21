@@ -93,15 +93,17 @@ def parse_args(curr_args=None, subparsers=None):
 
 
 def main(args=None):
+    """
+    Main interface
+    """
     if args is None:
         args = parse_args(sys.argv[1:])
-
     logging.basicConfig(format='%(asctime)s - %(message)s', level=logging._nameToLevel[args.log_level.upper()])
-    # Main interface
-    if args.binary_data:
-        train_binary_data.main(args)
-    else:
+    # text or binary input data format?
+    if args.text_data:
         train_big_data.main(args)
+    else:
+        train_binary_data.main(args)
 
 
 # main

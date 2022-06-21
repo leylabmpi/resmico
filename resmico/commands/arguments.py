@@ -5,9 +5,9 @@ def add_common_args(parser: argparse.ArgumentParser):
     """
     Adds arguments common to both training and evaluation to parser.
     """
-    parser.add_argument('--binary-data', dest='binary_data', action='store_true', default=True,
-                        help='If present, read features in binary format rather than the (deprecated) h5 '
-                             'files transformed from zipped tsv feature files')
+    parser.add_argument('--text-data', dest='text_data', action='store_true', default=False,
+                        help='If present, read features in the (depreciated) h5 format rather than binary format.'
+                             ' h5 files: transformed from zipped tsv feature files')
     parser.add_argument('--gpu-eval-mem-gb', default=3.0, type=float,
                         help='Amount of GPU memory used for validation data (amount will be divided per GPU)')
     parser.add_argument('--val-ind-f', default=None, type=str,

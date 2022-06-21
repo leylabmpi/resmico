@@ -2,6 +2,7 @@ import os
 import logging
 import math
 import time
+import atexit
 
 import numpy as np
 import pandas as pd
@@ -171,10 +172,14 @@ def main(args):
             resmico.save(best_file)
             logging.info(f'New best model written to: {best_file}')
 
+    # saving
     logging.info('Saving trained model...')
     outfile = os.path.join(args.save_path, args.save_name + '_' + str(auc_val)[:5] + '_e' + str(args.n_epochs) + '.h5')
     resmico.save(outfile)
     logging.info(f'Latest model written to: {outfile}')
+    
+    # exit
+    atexit.register(strategy._extended._collective_ops._pool.close)
 
 
 if __name__ == '__main__':

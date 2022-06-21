@@ -69,20 +69,39 @@ def score_cutoff_check(score_cutoff):
     elif score_cutoff > 1:
         logging.warning('WARNING: --score-cutoff > 1')
 
+def check_files_exist(in_files):
+    for F in in_files:
+        if not os.path.exists(F):
+            raise IOError(f'Cannot find file: {F}')
+        
 def parse_fasta_list(fasta_list):
+    """
+    If a list of fasta files (1 per line), parsing list & returning.
+    Otherwise, assuming input is the list of fasta file paths.
+    """
     if len(fasta_list) > 1:
         return fasta_list
     fasta_files = []
-    with open(fasta_list[0]) as inF:
+    with _open(fasta_list[0]) as inF:
         for line in inF:
-            line = line.rstrip()
+            line = _decode(line.rstrip())
             if line == '':
+                # skipping blank lines
                 continue
-            if line.startswith('>') or not os.path.exists(line):
+            if line.startswith('>'):
+                # assumign fasta
                 fasta_files = fasta_list
                 break
             else:
-                fasta_files.append(line)
+                # assuming file
+                if not os.path.exists(line):
+                    # assuming that genomes in the same directory as the list file
+                    d = os.path.split(fasta_list[0])[0]
+                    line = os.path.join(d, line)
+                    if not os.path.exists(line):
+                        raise IOError(f'Cannot find file: {line}')
+                # appending paths to list
+                fasta_files.append(line)    
     return fasta_files
 
 def _filter_fasta(fasta_file, predictions, outdir, pred_score_cutoff, add_score=False,
@@ -182,7 +201,6 @@ def filter_fasta(fasta_files, predictions, outdir, pred_score_cutoff,
         res = pool.map(func, fasta_files)
         set_logger(logging.INFO)
     return [x for x in res]
-    
     
 def main(args):
     # fasta file(s)

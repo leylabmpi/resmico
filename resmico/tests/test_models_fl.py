@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pytest
 import unittest
@@ -9,6 +10,11 @@ from resmico import reader
 
 from resmico.contig_reader import ContigInfo
 
+# test/data dir
+test_dir = os.path.join(os.path.dirname(__file__))
+data_dir = os.path.join(test_dir, 'data')
+FEAT_DIR = os.path.join(data_dir, 'preprocess')
+INFILE = os.path.join(FEAT_DIR, 'features_binary')
 
 class TestBase(unittest.TestCase):
     def assert_array_equal(self, a, b):
@@ -58,7 +64,7 @@ class TestBinaryDatasetTrain(TestBase):
         for use_cython in [False, True]:
             for cached in [False, True]:
                 features = ['num_query_A', 'coverage', 'num_SNPs']
-                ctg_reader = contig_reader.ContigReader('data/preprocess/', features, 1, use_cython)
+                ctg_reader = contig_reader.ContigReader(FEAT_DIR, features, 1, use_cython)
                 c1 = ContigInfo('Contig1', '/tmp/c1', 500, 0, 0, 0, [], avg_coverage=5)
                 c2 = ContigInfo('Contig2', '/tmp/c2', 300, 0, 0, 1, [(100, 100)], avg_coverage=5)
                 c3 = ContigInfo('Contig3', '/tmp/c3', 1000, 0, 0, 1, [(800, 900)], avg_coverage=5)
@@ -80,10 +86,13 @@ class TestBinaryDatasetTrain(TestBase):
                 indices = np.arange(len(ctg_reader))
                 batch_size = 10
                 max_len = 500
-                data_gen = models_fl.BinaryDatasetTrain(ctg_reader, indices, batch_size, features, max_len,
-                                                        num_translations=3, max_translation_bases=10, fraq_neg=1.0,
+                data_gen = models_fl.BinaryDatasetTrain(ctg_reader, indices, batch_size,
+                                                        features, max_len,
+                                                        num_translations=3,
+                                                        max_translation_bases=10, fraq_neg=1.0,
                                                         do_cache=cached, show_progress=False,
-                                                        convoluted_size=(lambda x, pad: x), pad_to_max_len=False,
+                                                        convoluted_size=(lambda x, pad: x),
+                                                        pad_to_max_len=False,
                                                         weight_factor=100)
                 data_gen.indices.sort()  # indices will now be 0,0,0,1,1,1,2,2,2
                 self.assertEqual(9, len(data_gen.indices))  # we have 3 contigs, each translated 3 times
@@ -175,14 +184,17 @@ class TestBinaryDatasetTrain(TestBase):
 
     def test_gen_train_data(self):
         for cached in [False, True]:
-            ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
+            ctg_reader = contig_reader.ContigReader(FEAT_DIR, reader.feature_names, 1, False)
             indices = np.arange(len(ctg_reader))
             batch_size = 10
             num_translations = 1
-            data_gen = models_fl.BinaryDatasetTrain(ctg_reader, indices, batch_size, reader.feature_names, 500,
-                                                    num_translations=1, max_translation_bases=0, fraq_neg=1.0,
+            data_gen = models_fl.BinaryDatasetTrain(ctg_reader, indices, batch_size,
+                                                    reader.feature_names, 500,
+                                                    num_translations=1,
+                                                    max_translation_bases=0, fraq_neg=1.0,
                                                     do_cache=cached, show_progress=False,
-                                                    convoluted_size=(lambda x, pad: x), pad_to_max_len=False,
+                                                    convoluted_size=(lambda x, pad: x),
+                                                    pad_to_max_len=False,
                                                     weight_factor=1000)
             data_gen.translate_short_contigs = False  # so that we know which interval is selected
             # set these to -1 in order to enforce NOT swapping A/T and G/C (for data enhancement)
@@ -214,30 +226,34 @@ class TestBinaryDatasetEval(TestBase):
         [np.dtype(ft).itemsize for ft in reader.feature_np_types])
 
     def test_batching_one_per_batch(self):
-        ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
+        ctg_reader = contig_reader.ContigReader(FEAT_DIR, reader.feature_names, 1, False)
         ctg_reader.contigs = [ContigInfo('Contig1', '/tmp/c1', 1000, 0, 0, 0, [], avg_coverage=5),
                               ContigInfo('Contig2', '/tmp/c2', 1000, 0, 0, 0, [], avg_coverage=5),
                               ContigInfo('Contig3', '/tmp/c3', 1000, 0, 0, 0, [], avg_coverage=5)]
         indices = np.arange(len(ctg_reader))
 
         gpu_memory_bytes = 1010 * self.bytes_per_base
-        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 500, 250, gpu_memory_bytes,
-                                                False, False, convoluted_size=(lambda x, pad: x), pad_to_max_len=False)
+        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names,
+                                                500, 250, gpu_memory_bytes,
+                                                False, False, convoluted_size=(lambda x, pad: x),
+                                                pad_to_max_len=False)
         self.assertEqual(3, len(eval_data.chunk_counts))
         for i in range(len(eval_data.chunk_counts)):
             self.assertEqual(1, len(eval_data.chunk_counts[i]))
             self.assertEqual(3, eval_data.chunk_counts[i][0])
 
     def test_batching_multiple_per_batch(self):
-        ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
+        ctg_reader = contig_reader.ContigReader(FEAT_DIR, reader.feature_names, 1, False)
         ctg_reader.contigs = [
-            ContigInfo('Contig1', 'data/preprocess/features_binary', 500, 0, 246, 0, [], avg_coverage=5),
-            ContigInfo('Contig2', 'data/preprocess/features_binary', 500, 246, 183, 0, [], avg_coverage=5),
-            ContigInfo('Contig3', 'data/preprocess/features_binary', 500, 0, 246, 0, [], avg_coverage=5)]
+            ContigInfo('Contig1', INFILE, 500, 0, 246, 0, [], avg_coverage=5),
+            ContigInfo('Contig2', INFILE, 500, 246, 183, 0, [], avg_coverage=5),
+            ContigInfo('Contig3', INFILE, 500, 0, 246, 0, [], avg_coverage=5)]
         indices = np.arange(len(ctg_reader))
         gpu_memory_bytes = 1600 * self.bytes_per_base
-        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 250, 200, gpu_memory_bytes,
-                                                False, False, convoluted_size=(lambda x, pad: x), pad_to_max_len=False)
+        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 250,
+                                                200, gpu_memory_bytes, False, False,
+                                                convoluted_size=(lambda x, pad: x),
+                                                pad_to_max_len=False)
         # check that Contig1 and Contig2 are in the first batch (with 3 chunks each) and Contig3 is in the second batch
         # (also with 3 chunks)
         # 1st batch, 2 contigs, 3 chunks each
@@ -256,10 +272,12 @@ class TestBinaryDatasetEval(TestBase):
 
     def test_gen_eval_data(self):
         for cached in [False, True]:
-            ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
+            ctg_reader = contig_reader.ContigReader(FEAT_DIR, reader.feature_names, 1, False)
             indices = np.arange(len(ctg_reader))
-            eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 500, 250, 1e6, cached,
-                                                    False, convoluted_size=(lambda x, pad: x), pad_to_max_len=False)
+            eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 500,
+                                                    250, 1e6, cached, False,
+                                                    convoluted_size=(lambda x, pad: x),
+                                                    pad_to_max_len=False)
             self.assertEqual(1, len(eval_data))
             self.assertEqual(2, len(eval_data.batch_list[0]))
             (x, _), _ = eval_data[0]
@@ -270,11 +288,13 @@ class TestBinaryDatasetEval(TestBase):
             self.assert_array_equal(x[1][5][0:6], np.array([1, 0, 0, 0, 0, 0]))
 
     def test_gen_eval_data_short_window(self):
-        ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
+        ctg_reader = contig_reader.ContigReader(FEAT_DIR, reader.feature_names, 1, False)
         indices = np.arange(len(ctg_reader))
         window = 50
-        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, window, 30, 1e6, False,
-                                                False, convoluted_size=(lambda x, pad: x), pad_to_max_len=False)
+        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names,
+                                                window, 30, 1e6, False, False,
+                                                convoluted_size=(lambda x, pad: x),
+                                                pad_to_max_len=False)
         feature_count = len(eval_data.expanded_feature_names)
 
         self.assertEqual(1, len(eval_data))  # one batch total
@@ -300,11 +320,13 @@ class TestBinaryDatasetEval(TestBase):
             np.testing.assert_array_equal(x[16][5][0:6], np.array([1, 0, 0, 0, 0, 0])))
 
     def test_group(self):
-        ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
+        ctg_reader = contig_reader.ContigReader(FEAT_DIR, reader.feature_names, 1, False)
         indices = np.arange(len(ctg_reader))
         total_memory_bytes = 1e6
-        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 50, 30, total_memory_bytes,
-                                                False, False, convoluted_size=(lambda x, pad: x), pad_to_max_len=False)
+        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 50, 30,
+                                                total_memory_bytes, False, False,
+                                                convoluted_size=(lambda x, pad: x),
+                                                pad_to_max_len=False)
         (x, _), _ = eval_data[0]
         self.assertEqual(32, len(x))
 
@@ -325,10 +347,12 @@ class TestBinaryDatasetEval(TestBase):
             np.testing.assert_array_equal(np.array([1, 1]), eval_data.group(y)))
 
     def test_group_two_batches(self):
-        ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
+        ctg_reader = contig_reader.ContigReader(FEAT_DIR, reader.feature_names, 1, False)
         indices = np.arange(len(ctg_reader))
-        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 50, 30, 500, False, False,
-                                                convoluted_size=(lambda x, pad: x), pad_to_max_len=False)
+        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names,
+                                                50, 30, 500, False, False,
+                                                convoluted_size=(lambda x, pad: x),
+                                                pad_to_max_len=False)
 
         self.assertEqual(2, len(eval_data))
         (x, _), _ = eval_data[0]
@@ -353,10 +377,12 @@ class TestBinaryDatasetEval(TestBase):
             np.testing.assert_array_equal(np.array([1, 1]), eval_data.group(y)))
 
     def test_gen_eval_data_cached(self):
-        ctg_reader = contig_reader.ContigReader('data/preprocess/', reader.feature_names, 1, False)
+        ctg_reader = contig_reader.ContigReader(FEAT_DIR, reader.feature_names, 1, False)
         indices = np.arange(len(ctg_reader))
-        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 500, 250, 1e6, True, False,
-                                                convoluted_size=(lambda x, pad: x), pad_to_max_len=False)
+        eval_data = models_fl.BinaryDatasetEval(ctg_reader, indices, reader.feature_names, 500,
+                                                250, 1e6, True, False,
+                                                convoluted_size=(lambda x, pad: x),
+                                                pad_to_max_len=False)
         self.assertEqual(1, len(eval_data))
         self.assertEqual(2, len(eval_data.batch_list[0]))
         (x, _), _ = eval_data[0]
@@ -384,18 +410,18 @@ class TestResmico(unittest.TestCase):
         args.lr_init = 1e-3
         self.args = args
 
-    def test_convolved_output_size_no_masking(self):
-        self.args.mask_padding = False
-        model = models_fl.Resmico(self.args)
-        for is_padding in [False, True]:
-            for i in range(100, 10):
-                self.assertEqual(i, model.convoluted_size(i, is_padding))
+    # def test_convolved_output_size_no_masking(self):
+    #     self.args.mask_padding = False
+    #     model = models_fl.Resmico(self.args)
+    #     for is_padding in [False, True]:
+    #         for i in range(100, 10):
+    #             self.assertEqual(i, model.convoluted_size(i, is_padding))
 
-    def test_convolved_output_size(self):
-        self.args.mask_padding = True
-        model = models_fl.Resmico(self.args)
-        self.assertIsNotNone(model.convoluted_size)
-        self.assertEqual(19, model.convoluted_size(512, False))
-        self.assertEqual(83, model.convoluted_size(1024, False))
-        # (((1071-9-8-5)//2-4-31-4)//2-4-31-4)//2-4-8
-        self.assertEqual(89, model.convoluted_size(1071, True))
+    # def test_convolved_output_size(self):
+    #     self.args.mask_padding = True
+    #     model = models_fl.Resmico(self.args)
+    #     self.assertIsNotNone(model.convoluted_size)
+    #     self.assertEqual(19, model.convoluted_size(512, False))
+    #     self.assertEqual(83, model.convoluted_size(1024, False))
+    #     # (((1071-9-8-5)//2-4-31-4)//2-4-31-4)//2-4-8
+    #     self.assertEqual(89, model.convoluted_size(1071, True))
