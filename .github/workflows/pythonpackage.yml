@@ -43,16 +43,17 @@ jobs:
       with:
         miniconda-version: 'latest'
         auto-update-conda: true
+        mamba-version: "*"
         python-version: ${{ matrix.python-version }}
         channels: conda-forge,bioconda
         activate-environment: resmico
     - name: conda env setup
       shell: bash -l {0}
       run: |
-        conda info -a
-        conda env update -f conda_env.yaml python=${{ matrix.python-version }}
-        conda list
-        conda activate /usr/share/miniconda3/envs/resmico
+        mamba info -a
+        mamba env update -f conda_env.yaml python=${{ matrix.python-version }}
+        mamba list
+        mamba activate /usr/share/miniconda3/envs/resmico
     - name: cython contig reader
       shell: bash -l {0}
       working-directory: ${{runner.workspace}}/ResMiCo/resmico
@@ -60,11 +61,11 @@ jobs:
         python setup.py build_ext --inplace
     - name: resmico tests
       shell: bash -l {0}
-      working-directory: ${{runner.workspace}}/ResMiCo/
+      working-directory: ${{runner.workspace}}/ResMiCo/resmico/tests
       run: |
-        pytest -s --hide-run-results ./resmico/tests/
+        pytest -s --hide-run-results
     - name: resmico-sm tests
-      working-directory: ${{runner.workspace}}/ResMiCo/ResMiCo-SM/
+      working-directory: ${{runner.workspace}}/ResMiCo/ResMiCo-SM
       shell: bash -l {0}
       run: |
         snakemake --use-conda -j 1 -Fqn
