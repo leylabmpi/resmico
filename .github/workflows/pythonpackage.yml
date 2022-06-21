@@ -63,7 +63,7 @@ jobs:
       shell: bash -l {0}
       working-directory: ${{runner.workspace}}/ResMiCo/resmico/tests
       run: |
-        pytest -s --hide-run-results
+        pytest -s --hide-run-results --script-launch-mode=subprocess
     - name: resmico-sm tests
       working-directory: ${{runner.workspace}}/ResMiCo/ResMiCo-SM
       shell: bash -l {0}
