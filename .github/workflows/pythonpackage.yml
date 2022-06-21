@@ -73,4 +73,4 @@ jobs:
       working-directory: ${{runner.workspace}}/ResMiCo/ResMiCo-SM
       shell: bash -l {0}
       run: |
-        snakemake --use-conda -j 1 -Fqn
+        snakemake --use-conda -j 1 --force --quiet --dry-run
