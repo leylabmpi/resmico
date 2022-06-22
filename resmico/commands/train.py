@@ -17,7 +17,7 @@ def parse_args(curr_args=None, subparsers=None):
     parser.add_argument('--val-path', default=None, type=str,
                         help='Path to validation data (default: %(default)s)')
     parser.add_argument('--early-stop', action='store_true', default=False,
-                        help='Early stopping. Can be used only if val-path provided (default: %(default)s)')
+                        help='Early stopping.')
     parser.add_argument('--net-type', default='cnn_resnet_avg', type=str,
                         help='ResMiCo NN type: cnn_resnet_avg')
     parser.add_argument('--num-blocks', default=4, type=int,
@@ -60,7 +60,7 @@ def parse_args(curr_args=None, subparsers=None):
     parser.add_argument('--weight-factor', default=0, type=int,
                         help='Factor by which contigs are weighted based on '
                              'their length. w = min(1, contig_len/weight-factor). 0==no weighting')
-    parser.add_argument('--min-contig-len', default=0, type=int,
+    parser.add_argument('--min-contig-len', default=1000, type=int,
                         help='Ignore contigs with length smaller than this value')
 
     arguments.add_common_args(parser)

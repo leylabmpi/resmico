@@ -9,8 +9,6 @@ def add_common_args(parser: argparse.ArgumentParser):
                         help='Amount of GPU memory used for validation data (amount will be divided per GPU)')
     parser.add_argument('--val-ind-f', default=None, type=str,
                         help='Validation data indices (default: %(default)s)')
-    parser.add_argument('--chunks', dest='chunks', action='store_true',
-                        help='If set, use the toc_chunked/binary_features_chunked data instead of toc/binary_features')
     parser.add_argument('--log-level', default='INFO',
                         help='Logging level, one of [CRITICAL, FATAL, ERROR, WARNING, INFO, DEBUG]')
     parser.add_argument('--no-cython', dest='no_cython', action='store_true',
@@ -21,7 +19,7 @@ def add_common_args(parser: argparse.ArgumentParser):
     parser.add_argument('--n-procs', default=1, type=int,
                         help='Number of parallel processes (default: %(default)s)')
     parser.add_argument('--max-len', default=10000, type=int,
-                        help='Max contig len, fixed input for CNN (default: %(default)s)')
+                        help='Max contig length, otherwise chunks')
     parser.add_argument('--save-path', default='.', type=str,
                         help='Directory where to save output (default: %(default)s)')
     parser.add_argument('--save-name', default='resmico', type=str,
@@ -30,8 +28,6 @@ def add_common_args(parser: argparse.ArgumentParser):
                         help='Path to the feature files produced by ResMiCo-SM')
     parser.add_argument('--feature-file-table', default='', type=str, required=False,
                         help='Table listing feature table files (see DESCRIPTION)')
-    parser.add_argument('--technology', default='all-asmbl', type=str,
-                        help='Assembler name in the data_path. "all-asmbl" will use all assemblers (default: %(default)s)')
     parser.add_argument('--features', nargs='+', help='Features to use for training', default=[
         'num_query_A',
         'num_query_C', 

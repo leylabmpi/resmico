@@ -37,10 +37,6 @@ def parse_args(test_args=None, subparsers=None):
                         help='Batch size (default: %(default)s)')
     parser.add_argument('--min-len', default=1000, type=int,
                         help='Definition of -long- contig. If want predict for all use(default: %(default)s)')
-    parser.add_argument('--mem-lim', default=500000, type=int,
-                        help='Max contig that fits in one batch (default: %(default)s)')
-    parser.add_argument('--window', default=5000, type=int,
-                        help='Window size for chunks method, size of piece for random method (default: %(default)s)')
     parser.add_argument('--embeddings', action='store_true', default=False,
                         help='Produce embeddings (default: %(default)s)')
     parser.add_argument('--emb-ind', default=0, type=int,
