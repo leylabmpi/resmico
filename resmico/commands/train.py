@@ -6,16 +6,13 @@ from resmico.commands import arguments
 
 
 def parse_args(curr_args=None, subparsers=None):
-    desc = 'Train a new model using resmico'
+    desc = "Train a new model using resmico"
     if subparsers:
         parser = subparsers.add_parser('train', description=desc,
                                        formatter_class=argparse.RawTextHelpFormatter)
     else:
         parser = argparse.ArgumentParser(description=desc,
                                          formatter_class=argparse.RawTextHelpFormatter)
-
-    parser.add_argument('--val-path', default=None, type=str,
-                        help='Path to validation data (default: %(default)s)')
     parser.add_argument('--early-stop', action='store_true', default=False,
                         help='Early stopping.')
     parser.add_argument('--net-type', default='cnn_resnet_avg', type=str,
@@ -23,7 +20,7 @@ def parse_args(curr_args=None, subparsers=None):
     parser.add_argument('--num-blocks', default=4, type=int,
                         help='Number of residual blocks (3 or 4, 5, 6) (default: %(default)s)')
     parser.add_argument('--filters', default=16, type=int,
-                        help='N of filters for first conv layer. Then x2 (default: %(default)s)')
+                       help='N of filters for first conv layer. Then x2 (default: %(default)s)')
     parser.add_argument('--ker-size', default=5, type=int,
                         help='CNN kernel size (default: %(default)s)')
     parser.add_argument('--n-hid', default=50, type=int,
