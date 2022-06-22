@@ -20,4 +20,12 @@ def test_train(tmpdir, script_runner):
                             '--feature-files-path', input_path)
     assert ret.success, ret.print()
 
-
+def test_train_filelist(tmpdir, script_runner):
+    save_path = tmpdir.mkdir('save_dir')
+    input_path = os.path.join(data_dir, 'n10',
+                              'features', 'file_list.txt')
+    ret = script_runner.run('resmico', 'train',
+                            '--n-epochs', '2',            
+                            '--save-path', str(save_path),
+                            '--feature-files-path', input_path)
+    assert ret.success, ret.print()

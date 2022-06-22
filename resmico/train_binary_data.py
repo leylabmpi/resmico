@@ -59,7 +59,10 @@ def main(args):
         train_idx = all_idx[:(9 * len(reader)) // 10]
         eval_idx = all_idx[(9 * len(reader)) // 10:]
         df = pd.DataFrame(eval_idx, columns=['val_ind'])
-        fname = os.path.join(args.feature_files_path.split(",")[0], "evaluation_indices.csv")
+        if os.path.isfile(args.feature_files_path):
+            fname = os.path.join(os.path.split(args.feature_files_path)[0], "evaluation_indices.csv")
+        else:
+            fname = os.path.join(args.feature_files_path.split(",")[0], "evaluation_indices.csv")
         df.to_csv(fname)
         logging.info(f'Evaluation indices saved to: {fname}')
     logging.info(f'Using {len(train_idx)} contigs for training, {len(eval_idx)} contigs for evaluation')

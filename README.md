@@ -48,7 +48,7 @@ mamba install pytest pytest-console-scripts
 Run tests
 
 ```
-pytest -s --hide-run-results ./resmico/tests/
+pytest -s --hide-run-results --script-launch-mode=subprocess ./resmico/tests/
 ```
 
 # General usage

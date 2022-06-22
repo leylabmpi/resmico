@@ -203,7 +203,7 @@ class ContigReader:
         self.process_count = process_count
         self.is_chunked = is_chunked
         self.no_cython = no_cython
-
+        
         # just temp attributes for measuring performance
         self.normalize_time = 0
         self.read_time = 0
@@ -213,28 +213,48 @@ class ContigReader:
 
         self.feature_mask: List[int] = [1 if feature in feature_names else 0 for feature in reader.feature_names]
 
-        logging.info('Looking for stats/toc files...')
+        # getting feature file paths
         file_list = []
-        for input_dir in input_dirs.split(','):
-            fl = list(glob(input_dir + '/**/stats', recursive=True))
-            if feature_file_match:
-                count = len(fl)
-                fl = [f for f in fl if feature_file_match in f]
-                logging.info(
-                    f'Filtered for directories matching: {feature_file_match}. {len(file_list)} out of {count} kept')
-            file_list.extend(fl)
-            logging.info(f'Processing {len(fl)} stats/toc files found in {input_dir} ...')
+        if os.path.isfile(input_dirs):
+            msg = '  Assuming that the feature files are provided in a file as a list'
+            logging.info(msg)
+            base_dir = os.path.split(input_dirs)[0]
+            with open(input_dirs) as inF:
+                for line in inF:
+                    line = line.rstrip().split(' ')[0]
+                    if os.path.isfile(line):
+                        file_list.append(line)
+                    else:
+                        # appending on the path of the file list
+                        line = os.path.join(base_dir, line)
+                        if os.path.isfile(line):
+                            file_list.append(line)
+        else:
+            logging.info('Looking for stats/toc files...')
+            for input_dir in input_dirs.split(','):
+                fl = list(glob(input_dir + '/**/stats', recursive=True))
+                if feature_file_match:
+                    count = len(fl)
+                    fl = [f for f in fl if feature_file_match in f]
+                    logging.info(
+                        f'Filtered for directories matching: {feature_file_match}. {len(file_list)} out of {count} kept')
+                file_list.extend(fl)        
+                logging.info(f'Processing {len(file_list)} stats/toc files found in {input_dir} ...')        
         if not file_list:
             logging.info('Nothing to do.')
             exit(0)
         elif ',' in input_dirs:
             logging.info(f'A total of {len(file_list)} stats/toc files found')
 
+        # stats.json file
         if stats_file == '':
             logging.info('Computing global means and standard deviations...')
             self._compute_mean_stdev(file_list)
             if ',' not in input_dirs:
-                out_file = os.path.join(input_dirs, 'stats.json')
+                if os.path.isfile(input_dirs):
+                    out_file = os.path.join(os.path.split(input_dirs)[0], 'stats.json')
+                else:
+                    out_file = os.path.join(input_dirs, 'stats.json')
                 json.dump({'means': self.means, 'stdevs': self.stdevs}, open(out_file, 'w'), indent=2)
                 logging.info(f'Means and stdevs saved to: {out_file}')
             else:
@@ -244,8 +264,8 @@ class ContigReader:
             means_stdevs = json.load(open(stats_file))
             self.means, self.stdevs = means_stdevs['means'], means_stdevs['stdevs']
 
-        self._load_contigs_metadata(file_list)
-
+        self._load_contigs_metadata(file_list)    
+        
     def __len__(self):
         return len(self.contigs)
 
