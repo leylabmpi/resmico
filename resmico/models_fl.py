@@ -39,8 +39,8 @@ class GlobalMaskedMaxPooling1D(GlobalMaxPooling1D):
             mask = array_ops.expand_dims(
                 mask, 2 if self.data_format == 'channels_last' else 1)
             inputs = tf.minimum(inputs, (2 * mask - 1) * np.inf)
-            new = super().call(inputs)
-        return new
+            inputs = super().call(inputs)
+        return inputs
 
 
 @tf.keras.utils.register_keras_serializable()
