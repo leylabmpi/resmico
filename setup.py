@@ -55,7 +55,6 @@ setup(
     long_description=desc + '\n See README for more information.',
     author='Nick Youngblut, Olga Mineeva, Daniel Danciu',
     author_email='nyoungb2@gmail.com',
-    package_data={'resmico':['resmico/model/resmico.h5', 'resmico/model/stats_cov.json']},
     entry_points={
         'console_scripts': [
             'resmico = resmico.__main__:main'
@@ -67,8 +66,8 @@ setup(
     include_dirs=[get_numpy_include()],
     license="MIT license",
     packages=find_packages(),
-    # 'resmico': ['model/resmico.h5', 'model/stats_cov.json'],
-    package_data={'resmico': ['reader.pyx', 'contig_reader.hpp', 'contig_reader.cpp']},
+    package_data={'resmico': ['reader.pyx', 'contig_reader.hpp', 'contig_reader.cpp',
+                             'model/resmico.h5', 'model/stats_cov.json']},
     package_dir={'resmico': 'resmico'},
     python_requires='>=3.8',
     setup_requires=[
