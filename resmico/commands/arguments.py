@@ -5,9 +5,6 @@ def add_common_args(parser: argparse.ArgumentParser):
     """
     Adds arguments common to both training and evaluation to parser.
     """
-    parser.add_argument('--text-data', dest='text_data', action='store_true', default=False,
-                        help='If present, read features in the (depreciated) h5 format rather than binary format.'
-                             ' h5 files: transformed from zipped tsv feature files')
     parser.add_argument('--gpu-eval-mem-gb', default=3.0, type=float,
                         help='Amount of GPU memory used for validation data (amount will be divided per GPU)')
     parser.add_argument('--val-ind-f', default=None, type=str,
@@ -35,8 +32,6 @@ def add_common_args(parser: argparse.ArgumentParser):
                         help='Table listing feature table files (see DESCRIPTION)')
     parser.add_argument('--technology', default='all-asmbl', type=str,
                         help='Assembler name in the data_path. "all-asmbl" will use all assemblers (default: %(default)s)')
-    parser.add_argument('--big-data', action='store_true', default=False,
-                        help='Use True if work with large dataset in h5 format')
     parser.add_argument('--features', nargs='+', help='Features to use for training', default=[
         'num_query_A',
         'num_query_C', 

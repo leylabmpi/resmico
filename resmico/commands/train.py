@@ -1,7 +1,6 @@
 import argparse
 import logging
 import sys
-from resmico import train_big_data
 from resmico import train_binary_data
 from resmico.commands import arguments
 
@@ -9,10 +8,10 @@ from resmico.commands import arguments
 def parse_args(curr_args=None, subparsers=None):
     desc = 'Train a new model using resmico'
     if subparsers:
-        parser = subparsers.add_parser('train', description=desc, epilog=epi,
+        parser = subparsers.add_parser('train', description=desc,
                                        formatter_class=argparse.RawTextHelpFormatter)
     else:
-        parser = argparse.ArgumentParser(description=desc, epilog=epi,
+        parser = argparse.ArgumentParser(description=desc,
                                          formatter_class=argparse.RawTextHelpFormatter)
 
     parser.add_argument('--val-path', default=None, type=str,
@@ -81,11 +80,7 @@ def main(args=None):
     if args is None:
         args = parse_args(sys.argv[1:])
     logging.basicConfig(format='%(asctime)s - %(message)s', level=logging._nameToLevel[args.log_level.upper()])
-    # text or binary input data format?
-    if args.text_data:
-        train_big_data.main(args)
-    else:
-        train_binary_data.main(args)
+    train_binary_data.main(args)
 
 
 # main

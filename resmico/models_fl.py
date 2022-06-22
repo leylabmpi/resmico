@@ -163,16 +163,14 @@ class Resmico(object):
             x = concatenate([maxP, avgP])
 
         elif self.net_type == 'lstm':
-            if not config.text_data:
-                mask = Input(shape=(None,), name='mask', dtype='bool')
+            mask = Input(shape=(None,), name='mask', dtype='bool')
             x = Bidirectional(LSTM(8, return_sequences=True), merge_mode="concat")(inlayer, mask=mask)
             x = Bidirectional(LSTM(8, return_sequences=True, dropout=self.dropout), merge_mode="ave")(x)
             x = Bidirectional(LSTM(16, return_sequences=False, dropout=self.dropout), merge_mode="concat")(x)
             self.convoluted_size = lambda x, pad: x
             
         elif self.net_type == 'gru':
-            if not config.text_data:
-                mask = Input(shape=(None,), name='mask', dtype='bool')
+            mask = Input(shape=(None,), name='mask', dtype='bool')
             x = Bidirectional(GRU(8, return_sequences=True), merge_mode="ave")(inlayer, mask=mask)
             x = Bidirectional(GRU(16, return_sequences=False, dropout=self.dropout), merge_mode="concat")(x)
             
@@ -213,9 +211,8 @@ class Resmico(object):
             # if we don't mask the zero-padded values, the convoluted size can be anything
             tmp_model = Model(inputs=inlayer, outputs=x)  # dummy model used only in next line
             self.convoluted_size = construct_convolution_lambda(tmp_model) if config.mask_padding else lambda x, pad: 1
-            if not config.text_data:
-                mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
-                mask = Input(shape=(mask_size,), name='mask', dtype='bool')
+            mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
+            mask = Input(shape=(mask_size,), name='mask', dtype='bool')
 
             x = GlobalAveragePooling1D()(x, mask=mask if config.mask_padding else None)
         
@@ -227,9 +224,9 @@ class Resmico(object):
             
             tmp_model = Model(inputs=inlayer, outputs=x)  # dummy model used only in next line
             self.convoluted_size = construct_convolution_lambda(tmp_model) if config.mask_padding else lambda x, pad: 1
-            if not config.text_data:
-                mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
-                mask = Input(shape=(mask_size,), name='mask', dtype='bool')
+            
+            mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
+            mask = Input(shape=(mask_size,), name='mask', dtype='bool')
             x = GlobalAveragePooling1D()(x, mask=mask if config.mask_padding else None)
             
         elif self.net_type in ['cnn_resnet', 'cnn_resnet_argmax', 'cnn_resnet_avg', 'cnn_resnet_brnn']:
@@ -252,9 +249,9 @@ class Resmico(object):
             # if we don't mask the zero-padded values, the convoluted size can be anything
             tmp_model = Model(inputs=inlayer, outputs=x)  # dummy model used only in next line
             self.convoluted_size = construct_convolution_lambda(tmp_model) if config.mask_padding else lambda x, pad: 1
-            if not config.text_data:
-                mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
-                mask = Input(shape=(mask_size,), name='mask', dtype='bool')
+            
+            mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
+            mask = Input(shape=(mask_size,), name='mask', dtype='bool')
 
             if self.net_type == 'cnn_resnet':
                 avgP = GlobalAveragePooling1D()(x, mask=mask if config.mask_padding else None)
@@ -310,9 +307,9 @@ class Resmico(object):
                 # this is needed only to avoid errors, mask is not used later
             tmp_model = Model(inputs=inlayer, outputs=x)  # dummy model used only in next line
             self.convoluted_size = construct_convolution_lambda(tmp_model) if config.mask_padding else lambda x, pad: 1
-            if not config.text_data:
-                mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
-                mask = Input(shape=(mask_size,), name='mask', dtype='bool')
+            
+            mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
+            mask = Input(shape=(mask_size,), name='mask', dtype='bool')
             ###
             x = MaxPooling1D(pool_size=597, padding='valid')(x)
             x = Flatten()(x)
@@ -332,9 +329,9 @@ class Resmico(object):
                 # this is needed only to avoid errors, mask is not used later
             tmp_model = Model(inputs=inlayer, outputs=x)  # dummy model used only in next line
             self.convoluted_size = construct_convolution_lambda(tmp_model) if config.mask_padding else lambda x, pad: 1
-            if not config.text_data:
-                mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
-                mask = Input(shape=(mask_size,), name='mask', dtype='bool')
+            
+            mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
+            mask = Input(shape=(mask_size,), name='mask', dtype='bool')
             ###
             x = AveragePooling1D(pool_size=1205, padding='valid')(x)
             x = Flatten()(x)
@@ -347,10 +344,7 @@ class Resmico(object):
 
         # need to clip the gradient for cnn_resnet_avg, otherwise we get NaNs in the weights
         optimizer = tf.keras.optimizers.Adam(lr=self.lr_init, clipnorm=1.0, clipvalue=0.5)
-        if not config.text_data:
-            inputs = [inlayer, mask]
-        else:
-            inputs = inlayer
+        inputs = [inlayer, mask]
         self.net = Model(inputs=inputs, outputs=x)
         self.net.compile(loss='binary_crossentropy',
                          optimizer=optimizer,
@@ -901,184 +895,7 @@ class BinaryDatasetEval(BinaryDataset):
             utils.update_progress(batch_idx + 1, self.__len__(), 'Evaluating: ',
                                   f' {(timer() - start):5.2f}s  {stack_time:5.2f}s')
         return (x, mask), np.zeros(batch_size, dtype=np.bool)
-
-
-class GeneratorBigD(tf.keras.utils.Sequence):
-    def __init__(self, data_dict, max_len, batch_size,
-                 shuffle_data=True, fraq_neg=1, rnd_seed=None, nprocs=4):
-        self.batch_size = batch_size
-        self.data_dict = data_dict
-        self.shuffle_data = shuffle_data
-        self.rnd_seed = rnd_seed
-        self.nprocs = nprocs
-        self.time_load = 0
-
-        self.count_epoch = -1
-
-        if self.rnd_seed:
-            np.random.seed(self.rnd_seed)
-            tf.random.set_seed(self.rnd_seed)
-
-        if self.shuffle_data:
-            all_labels = utils.read_all_labels(self.data_dict)
-            self.inds_pos = np.arange(len(all_labels))[np.array(all_labels) == 1]
-            self.inds_neg = np.arange(len(all_labels))[np.array(all_labels) == 0]
-            self.fraq_neg = fraq_neg  # downsampling
-            self.num_neg = int(self.fraq_neg * len(self.inds_neg))
-            self.size = self.num_neg + len(self.inds_pos)
-            self.on_epoch_end()
-        else:
-            self.indices = np.arange(len(self.data_dict))
-            self.size = len(self.indices)
-
-        logging.info('init generator')
-
-    def on_epoch_end(self):
-        """
-        Reshuffle when epoch ends
-        """
-        self.count_epoch += 1
-
-        if self.shuffle_data:
-            if self.count_epoch % 1 == 0:  # todo: this IF was implemented to update negative class every n epochs
-                logging.info('self.count_epoch: {}'.format(self.count_epoch))
-                logging.info("downsample over-represented class by  {}".format(self.fraq_neg))
-                np.random.shuffle(self.inds_neg)
-                self.indices = np.concatenate((self.inds_pos, self.inds_neg[:self.num_neg]))
-
-            logging.info("shuffle")
-            np.random.shuffle(self.indices)
-            # we do not shuffle and do not downsample for test and validation data
-
-        # logging.info("len(self.indices) {}".format(len(self.indices)))
-        # logging.info("self.indices[:10] {}".format(self.indices[:10]))
-
-    def generate(self, indices_tmp):
-        """
-        Generate new mini-batch
-        """
-
-        sample_keys = np.array(list(self.data_dict.keys()))[indices_tmp]
-        # files to process
-        files_dict = itertoolz.groupby(lambda t: t[1],
-                                       list(map(lambda s: (s, self.data_dict[s]), sample_keys)))  # itertoolz.
-        # for every file, associate a random number, which can be used to construct random number to sample a range
-
-        file_seeds = np.random.randint(0, 1000000, len(files_dict.items()))
-
-        file_items = [(k, v, s) for (k, v), s in zip(files_dict.items(), file_seeds)]
-
-        # start_load = time.time()
-        X, y = utils.file_reading(file_items, self.max_len)
-
-        # duration_load = time.time() - start_load
-        # logging.info("time to read one batch {} {}".format(len(indices_tmp), duration_load))
-
-        max_contig_len = max(list(map(len, [x_i for x_i in X])))
-        mb_max_len = min(max_contig_len, self.max_len)  # todo: fixed length NN self.max_len
-        n_feat = X[0].shape[1]
-        x_mb = np.zeros((len(indices_tmp), mb_max_len, n_feat))
-
-        for i, x_i in enumerate(X):
-            x_mb[i, 0:x_i.shape[0]] = x_i
-
-        y_mb = y
-        return np.array(x_mb), np.array(y_mb)
-
-    def __len__(self):
-        return int(np.ceil(self.size / self.batch_size))
-
-    def __getitem__(self, index):
-        """
-        Get new mb
-        """
-        start_time = time.time()
-        if self.batch_size * (index + 1) < len(self.indices):
-            indices_tmp = \
-                self.indices[self.batch_size * index: self.batch_size * (index + 1)]
-        else:
-            indices_tmp = \
-                self.indices[self.batch_size * index:]
-
-        # logging.info("generate batch {}".format(index))
-        x_mb, y_mb = self.generate(indices_tmp)
-        if index % 50 == 0:  # to see some progress
-            logging.info("new batch {}".format(index))
-            # print("--- {:.1f} seconds ---".format(time.time() - start_time))
-        # if index == 111:
-        #     logging.info("index {}".format(index))
-        #     logging.info("x_mb[:2] {}".format(x_mb[:2]))
-        #     logging.info("y_mb[:10] {}".format(y_mb[:10]))
-        return x_mb, y_mb
-
-
-class GeneratorPredLong(tf.keras.utils.Sequence):
-    def __init__(self, data_dict, batch_list, window, step,
-                 nprocs):  # data_dict contains all data, because indexes are global
-        self.data_dict = data_dict
-        self.batch_list = batch_list
-        self.window = window
-        self.step = step
-        # self.n_feat = 28 #todo: features_sel
-        self.all_lens = utils.read_all_lens(data_dict)
-        self.indices = np.arange(len(batch_list))
-        self.nprocs = nprocs
-
-    def generate(self, ind):
-        sample_keys = np.array(list(self.data_dict.keys()))[self.batch_list[ind]]
-        files_dict = itertoolz.groupby(lambda t: t[1], list(
-            map(lambda s: (s, self.data_dict[s]), sample_keys)))  # itertoolz.
-        # attention: grouping can change order, it is important that indices are sorted
-        X = utils.load_full_contigs(files_dict)
-
-        batch_size = 0
-        for cont_ind in self.batch_list[ind]:
-            batch_size += 1 + utils.n_moves_window(self.all_lens[cont_ind], self.window, self.step)
-
-        x_mb = utils.gen_sliding_mb(X, batch_size, self.window, self.step)
-        return x_mb
-
-    def __len__(self):
-        return len(self.batch_list)
-
-    def __getitem__(self, index):
-        x_mb = self.generate(index)
-        if index % 50 == 0:  # to see some progress
-            logging.info("new batch {}".format(index))
-        return x_mb
-
-
-class GeneratorFullLen(tf.keras.utils.Sequence):
-    def __init__(self, data_dict, batch_list, nprocs):  # data_dict contains all data, because indexes are global
-        self.data_dict = data_dict
-        self.batch_list = batch_list
-        self.all_lens = utils.read_all_lens(data_dict)
-        self.indices = np.arange(len(batch_list))
-        self.nprocs = nprocs
-
-    def generate(self, ind):
-        sample_keys = np.array(list(self.data_dict.keys()))[self.batch_list[ind]]
-        files_dict = itertoolz.groupby(lambda t: t[1], list(
-            map(lambda s: (s, self.data_dict[s]), sample_keys)))  # itertoolz.
-        X = utils.load_full_contigs(files_dict)
-
-        max_len = max([self.all_lens[cont_ind] for cont_ind in self.batch_list[ind]])
-        n_feat = X[0].shape[1]
-        x_mb = np.zeros((len(self.batch_list[ind]), max_len, n_feat))
-
-        for i, xi in enumerate(X):
-            x_mb[i, 0:xi.shape[0]] = xi  # padding is happenning here
-        return x_mb
-
-    def __len__(self):
-        return len(self.batch_list)
-
-    def __getitem__(self, index):
-        x_mb = self.generate(index)
-        if index % 50 == 0:  # to see some progress
-            logging.info("new batch {}".format(index))
-        return x_mb
-
+    
 
 class Generator_v1(tf.keras.utils.Sequence):
     def __init__(self, data_dict, batch_list, window, step,
