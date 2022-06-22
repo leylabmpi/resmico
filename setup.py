@@ -53,9 +53,9 @@ setup(
     version='1.0.13',
     description=desc,
     long_description=desc + '\n See README for more information.',
-    author='Nick Youngblut, Daniel Danciu',
+    author='Nick Youngblut, Olga Mineeva, Daniel Danciu',
     author_email='nyoungb2@gmail.com',
-    data_files=[('ResMiCo', ['resmico/model/resmico.h5', 'resmico/model/stats_cov.json'])],
+    package_data=[('resmico', ['resmico/model/resmico.h5', 'resmico/model/stats_cov.json'])],
     entry_points={
         'console_scripts': [
             'resmico = resmico.__main__:main'
