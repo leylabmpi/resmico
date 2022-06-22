@@ -29,7 +29,7 @@ def parse_args(test_args=None, subparsers=None):
                                          formatter_class=argparse.RawTextHelpFormatter)
 
     # default trained model
-    pkg_model = resource_filename('ResMiCo', 'resmico/model/resmico.h5')
+    pkg_model = resource_filename('resmico', 'model/resmico.h5')
 
     parser.add_argument('--model', default=pkg_model, type=str,
                         help='Location of the saved deep learning model')
