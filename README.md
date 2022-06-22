@@ -94,6 +94,12 @@ mamba activate resmico_env
 pip install resmico
 ```
 
+## Working directory
+
+```
+mkdir -p tutorial && cd tutorial
+```
+
 ## Get example dataset
 
 Training data

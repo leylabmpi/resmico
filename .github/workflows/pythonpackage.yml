@@ -73,4 +73,8 @@ jobs:
       working-directory: ${{runner.workspace}}/ResMiCo/ResMiCo-SM
       shell: bash -l {0}
       run: |
+        wget wget http://ftp.tue.mpg.de/ebio/projects/ResMiCo/genomes_n10.tar.gz
+        wget http://ftp.tue.mpg.de/ebio/projects/ResMiCo/genomes_n10.md5
+        md5sum --check genomes_n10.md5
+        tar -pzxvf genomes_n10.tar.gz && rm -f genomes_n10.tar.gz
         snakemake --use-conda -j 1 --force --quiet --dry-run

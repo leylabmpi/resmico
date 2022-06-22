@@ -3,7 +3,7 @@
 genomes_file: genomes_n10/genomes.tsv
 
 # Output directory
-output_dir: tests/output/n10/
+output_dir: genomes_n10/resmic-sm_output/
 
 # Temporary output directory (use /dev/shm/ for shared memory)
 tmp_dir: resmico-sm_TMP/

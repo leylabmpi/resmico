@@ -15,13 +15,22 @@ Snakemake will install all other dependencies via conda.
 ### ResMiCo-SM
 
 ```
-git clone  --recurse-submodules git@github.com:leylabmpi/ResMiCo.git
+git clone --recurse-submodules git@github.com:leylabmpi/ResMiCo.git
 cd ResMiCo/ResMiCo-SM/
 ```
 
 Note: snakemake should run on a local machine without further configuration, but running snakemake on a HPC/cloud setup with require some more configuration. See the snakemake docs for [cluster execution](https://snakemake.readthedocs.io/en/stable/executing/cluster.html) or [cloud execution](https://snakemake.readthedocs.io/en/stable/executing/cloud.html).
 
 ## Input
+
+### Example input data
+
+```
+wget wget http://ftp.tue.mpg.de/ebio/projects/ResMiCo/genomes_n10.tar.gz
+wget http://ftp.tue.mpg.de/ebio/projects/ResMiCo/genomes_n10.md5
+md5sum --check genomes_n10.md5
+tar -pzxvf genomes_n10.tar.gz && rm -f genomes_n10.tar.gz
+```
 
 ### Genomes table
 
