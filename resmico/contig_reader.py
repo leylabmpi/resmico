@@ -177,7 +177,7 @@ class ContigReader:
     Reads contig data from binary files written by ResMiCo-SM.
     """
 
-    def __init__(self, input_dirs: str, feature_names: List[str], process_count: int, is_chunked: bool,
+    def __init__(self, input_dirs: str, feature_names: List[str], process_count: int,
                  no_cython: bool = False, stats_file: str = '', min_len: int = 0, min_avg_coverage: int = 0,
                  feature_file_match: str = ''):
         """
@@ -185,7 +185,6 @@ class ContigReader:
             - input_dir: location on disk where the feature data is stored
             - feature_names: feature names to use in training
             - process_count: number of processes to use for loading data in parallel
-            - is_chunked: if True, we are loading data from contig chunks (toc_chunked rather than toc)
             - no_cython: whether to read data from disk using pure Python or using Cython bindings
             - stats_file: if present, specifies a stats file to read the statistics for each feature from
             - min_len: exclude all contigs shorter than min_len
@@ -201,7 +200,6 @@ class ContigReader:
 
         self.feature_names = feature_names
         self.process_count = process_count
-        self.is_chunked = is_chunked
         self.no_cython = no_cython
         
         # just temp attributes for measuring performance
@@ -387,9 +385,6 @@ class ContigReader:
         for fname in file_list:
             toc_file = fname[:-len('stats')] + 'toc'
             contig_fname = fname[:-len('stats')] + 'features_binary'
-            if self.is_chunked:
-                contig_fname += '_chunked'
-                toc_file += '_chunked'
             offset = 0
             with open(toc_file) as f:
 #                 logging.info(f'FILE: {toc_file}')
@@ -432,7 +427,6 @@ class ContigReader:
                     if contig_info.misassembly:
                         contig_count_misassembled += 1
                     contig_count += 1
-
         logging.info(
             f'Found {contig_count} contigs, {contig_count_misassembled} misassembled, {excluded_count} excluded, '
             f'{total_len} total length, {statistics.median(contig_lengths)} median length, '
@@ -443,9 +437,6 @@ class ContigReader:
     def read_file(self, fname):
         toc_file = fname[:-len('stats')] + 'toc'
         contig_fname = fname[:-len('stats')] + 'features_binary'
-        if self.is_chunked:
-            contig_fname += '_chunked'
-            toc_file += '_chunked'
         offset = 0
         result = []
         with open(toc_file) as f, open(contig_fname) as binary_file:

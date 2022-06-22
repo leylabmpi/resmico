@@ -60,7 +60,7 @@ class TestReadContig(unittest.TestCase):
         old_result = contig_reader._read_contig_data(input_file, reader.feature_names)
 
         c_reader = contig_reader.ContigReader(os.path.split(INFILE)[0],
-                                              reader.feature_names, 1, False)
+                                              reader.feature_names, 1)
         for fname in reader.float_feature_names:
             c_reader.means[fname] = 0
             c_reader.stdevs[fname] = 1
@@ -78,7 +78,7 @@ class TestReadContig(unittest.TestCase):
         old_result = contig_reader._read_contig_data(input_file, reader.feature_names)
 
         ctg_reader = contig_reader.ContigReader(os.path.split(INFILE)[0],
-                                                reader.feature_names, 1, False)
+                                                reader.feature_names, 1)
         for fname in reader.float_feature_names:
             ctg_reader.means[fname] = 0
             ctg_reader.stdevs[fname] = 2
@@ -96,8 +96,7 @@ class TestReadContig(unittest.TestCase):
                                                 [reader.feature_names[0],
                                                  reader.feature_names[1],
                                                  reader.feature_names[3]],
-                                                process_count=1,
-                                                is_chunked=False)
+                                                process_count=1)
 
         self.assertEqual(2, len(ctg_reader.contigs))
 
@@ -117,8 +116,7 @@ class TestReadContig(unittest.TestCase):
                                                 [reader.feature_names[0],
                                                  reader.feature_names[1],
                                                  reader.feature_names[3]],
-                                                process_count=1,
-                                                is_chunked=False)
+                                                process_count=1)
         
         result = ctg_reader.read_contigs(ctg_reader.contigs)
 

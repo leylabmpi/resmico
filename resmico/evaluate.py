@@ -27,7 +27,7 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
         convoluted_size = lambda len, pad: 0
 
     logging.info('Loading contig data...')
-    reader = contig_reader.ContigReader(args.feature_files_path, args.features, args.n_procs, args.chunks,
+    reader = contig_reader.ContigReader(args.feature_files_path, args.features, args.n_procs,
                                         args.no_cython, args.stats_file, args.min_len,
                                         min_avg_coverage=args.min_avg_coverage)
 

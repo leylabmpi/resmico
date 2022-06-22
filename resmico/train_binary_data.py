@@ -43,7 +43,7 @@ def main(args):
                                              write_images=True)
 
     logging.info('Loading contig data...')
-    reader = contig_reader.ContigReader(args.feature_files_path, args.features, args.n_procs, args.chunks,
+    reader = contig_reader.ContigReader(args.feature_files_path, args.features, args.n_procs,
                                         args.no_cython, args.stats_file, min_len=args.min_contig_len,
                                         min_avg_coverage=args.min_avg_coverage,
                                         feature_file_match=args.feature_file_match)

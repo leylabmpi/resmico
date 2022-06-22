@@ -48,7 +48,7 @@ def main():
     args.features = ['coverage', 'seq_window_perc_gc', 'seq_window_entropy']
 
     logging.info('Loading contig metadata data...')
-    reader = contig_reader.ContigReader(args.feature_files_path, args.features, args.n_procs, args.chunks,
+    reader = contig_reader.ContigReader(args.feature_files_path, args.features, args.n_procs,
                                         args.no_cython)
 
     logging.info(f'Loaded metadata for {len(reader.contigs)} contigs. ')
