@@ -6,7 +6,7 @@ def add_common_args(parser: argparse.ArgumentParser):
     Adds arguments common to both training and evaluation to parser.
     """
     # default stats for n9k-train training dataset
-    pkg_stats = resource_filename('resmico', 'model/stats_cov.json')
+    pkg_stats = resource_filename('ResMiCo', 'resmico/model/stats_cov.json')
     parser.add_argument('--feature-files-path', default='.', type=str,
                         help='Path to the feature files produced by ResMiCo-SM. 2 options available:'
                              ' 1) Provide the base path, and subdirectories will be searched.'
