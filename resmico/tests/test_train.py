@@ -15,7 +15,6 @@ def test_train(tmpdir, script_runner):
     save_path = tmpdir.mkdir('save_dir')
     input_path = os.path.join(data_dir, 'n10', 'features')
     ret = script_runner.run('resmico', 'train',
-                            '--n-folds', '2',
                             '--n-epochs', '2',            
                             '--save-path', str(save_path),
                             '--feature-files-path', input_path)
