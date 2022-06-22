@@ -1,5 +1,5 @@
 import argparse
-
+from pkg_resources import resource_filename
 
 def add_common_args(parser: argparse.ArgumentParser):
     """
