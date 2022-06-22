@@ -38,7 +38,7 @@ def parse_args(curr_args=None, subparsers=None):
                         help='Batch size (default: %(default)s)')
     parser.add_argument('--dropout', default=0, type=float,
                         help='Rate of dropout (default: %(default)s)')
-    parser.add_argument('--lr-init', default=0.001, type=float,
+    parser.add_argument('--lr-init', default=0.0001, type=float,
                         help='Initial learning rate')
     parser.add_argument('--fraq-neg', default=1., type=float,
                         help='Portion of samples to keep in overrepresented class (default: %(default)s)')

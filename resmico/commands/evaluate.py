@@ -35,26 +35,12 @@ def parse_args(test_args=None, subparsers=None):
                         help='Location of the saved deep learning model')
     parser.add_argument('--batch-size', default=100, type=int,
                         help='Batch size (default: %(default)s)')
-    parser.add_argument('--sdepth', default=None, type=str,
-                        help='Use only data with this sequencing depth (default: %(default)s)')
-    parser.add_argument('--rich', default=None, type=str,
-                        help='Use only data with this comunity richness (default: %(default)s)')
-    parser.add_argument('--filter10', action='store_true', default=False,
-                        help='Use True if want to train on 1-9 reps')
-    parser.add_argument('--rep10', action='store_true', default=False,
-                        help='use only rep 10 (validation set)')
-    parser.add_argument('--method-pred', default='chunks', type=str,
-                        help='How to predict: random, fulllength, chunks')
     parser.add_argument('--min-len', default=1000, type=int,
                         help='Definition of -long- contig. If want predict for all use(default: %(default)s)')
     parser.add_argument('--mem-lim', default=500000, type=int,
                         help='Max contig that fits in one batch (default: %(default)s)')
     parser.add_argument('--window', default=5000, type=int,
                         help='Window size for chunks method, size of piece for random method (default: %(default)s)')
-    parser.add_argument('--v1', action='store_true', default=False,
-                        help='use deepmased model')
-    parser.add_argument('--longdir', action='store_true', default=False,
-                        help='Six variable parameters in simulation (default: %(default)s)')
     parser.add_argument('--embeddings', action='store_true', default=False,
                         help='Produce embeddings (default: %(default)s)')
     parser.add_argument('--emb-ind', default=0, type=int,
