@@ -8,21 +8,6 @@ from resmico.commands import arguments
 
 def parse_args(curr_args=None, subparsers=None):
     desc = 'Train a new model using resmico'
-    epi = """DESCRIPTION:
-    #-- Recommended training flow --#
-    * Partition your data into train & test, and just use
-      the train data for the following 
-    * Select a grid search of hyper-parameters to consider
-      (learning rate, number of layers, etc).
-    * Train with kfold = 5 (for example) for each combination of 
-      hyper-parameters.
-    * For each combination of hyper-parameters, check scores.pkl, 
-      which contains the cross validation scores, and select the 
-      hyper-parameters leading to the highest average CV
-    * Re-launch the whole training with `--n-folds -1` and the best 
-      hyper-parameters (this is now one single run). 
-
-    """
     if subparsers:
         parser = subparsers.add_parser('train', description=desc, epilog=epi,
                                        formatter_class=argparse.RawTextHelpFormatter)
@@ -34,9 +19,8 @@ def parse_args(curr_args=None, subparsers=None):
                         help='Path to validation data (default: %(default)s)')
     parser.add_argument('--early-stop', action='store_true', default=False,
                         help='Early stopping. Can be used only if val-path provided (default: %(default)s)')
-    parser.add_argument('--net-type', default='cnn_resnet', type=str,
-                        help='Type of NN: lstm, cnn_globpool, cnn_resnet, cnn_lstm, fixlen_cnn_resnet'
-                             ' (default: %(default)s)')
+    parser.add_argument('--net-type', default='cnn_resnet_avg', type=str,
+                        help='ResMiCo NN type: cnn_resnet_avg')
     parser.add_argument('--num-blocks', default=4, type=int,
                         help='Number of residual blocks (3 or 4, 5, 6) (default: %(default)s)')
     parser.add_argument('--filters', default=16, type=int,
@@ -49,14 +33,12 @@ def parse_args(curr_args=None, subparsers=None):
                         help='N of conv layers (default: %(default)s)')
     parser.add_argument('--n-fc', default=1, type=int,
                         help='N of fully connected layers (default: %(default)s)')
-    parser.add_argument('--n-epochs', default=10, type=int,
+    parser.add_argument('--n-epochs', default=50, type=int,
                         help='N of training epochs (default: %(default)s)')
     parser.add_argument('--batch-size', default=6, type=int,
                         help='Batch size (default: %(default)s)')
     parser.add_argument('--dropout', default=0, type=float,
                         help='Rate of dropout (default: %(default)s)')
-    parser.add_argument('--n-folds', default=-1, type=int,
-                        help='How many folds for CV. Use "-1" to skip & pool all data for training (default: %(default)s)')
     parser.add_argument('--lr-init', default=0.001, type=float,
                         help='Initial learning rate')
     parser.add_argument('--fraq-neg', default=1., type=float,
