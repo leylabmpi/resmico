@@ -36,10 +36,6 @@ def add_common_args(parser: argparse.ArgumentParser):
                         help='Number of parallel processes (default: %(default)s)')
     parser.add_argument('--max-len', default=10000, type=int,
                         help='Max contig length, otherwise chunks of this size are cutted')
-    parser.add_argument('--save-path', default='.', type=str,
-                        help='Directory where to save output (default: %(default)s)')
-    parser.add_argument('--save-name', default='resmico', type=str,
-                        help='Prefix for name in the save_path (default: %(default)s)')
     parser.add_argument('--features', nargs='+', help='Features to use for training', default=[
         'num_query_A',
         'num_query_C', 
