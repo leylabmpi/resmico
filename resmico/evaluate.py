@@ -155,12 +155,9 @@ def main(args):
     if args.verify_insert_size:
         verify_insert_size(args)
         exit()
-    if args.v1:
-        custom_obj = {'metr': utils.class_recall_0}
-    else:
-        # TOOD: remove GlobalMaskedMaxPooling1D, once annotation kicks in
-        custom_obj = {'class_recall_0': utils.class_recall_0, 'class_recall_1': utils.class_recall_1,
-                      'GlobalMaskedMaxPooling1D': Models.GlobalMaskedMaxPooling1D}
+    # TODO: remove GlobalMaskedMaxPooling1D, once annotation kicks in
+    custom_obj = {'class_recall_0': utils.class_recall_0, 'class_recall_1': utils.class_recall_1,
+                  'GlobalMaskedMaxPooling1D': Models.GlobalMaskedMaxPooling1D}
     # model loading
     if not os.path.exists(args.model):
         raise IOError(f'Cannot find {args.model}')
