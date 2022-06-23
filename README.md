@@ -1,5 +1,7 @@
 [![ResMiCo](https://github.com/leylabmpi/ResMiCo/actions/workflows/pythonpackage.yml/badge.svg)](https://github.com/leylabmpi/ResMiCo/actions/workflows/pythonpackage.yml)
 
+![overview](https://user-images.githubusercontent.com/2468572/175315122-1ec3e6e3-419f-4154-af31-21b9dcb2e38f.png)
+
 # Introduction
 
 ResMiCo is a deep learning model capable of detecting metagenome assembly errors. 
@@ -8,6 +10,7 @@ genomes. ResMiCo's output is a number betwen 0 and 1 representing the likelihood
 particular genome was misassembled.
 
 The tool is divided into two main parts:
+
 
 * **ResMiCo-SM**
   * A snakemake pipeline for:
