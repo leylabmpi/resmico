@@ -15,7 +15,7 @@ def parse_args(curr_args=None, subparsers=None):
                                          formatter_class=argparse.RawTextHelpFormatter)
     parser_g1 = parser.add_argument_group('Training-specific arguments')
     parser_g1.add_argument('--early-stop', action='store_true', default=False,
-                           help='Use early stopping? (default: %(default)s)')
+                           help='Use early stopping (default: %(default)s)')
     parser_g1.add_argument('--net-type', default='cnn_resnet_avg', type=str,
                            help='ResMiCo NN type (default: %(default)s)')
     parser_g1.add_argument('--num-blocks', default=4, type=int,
@@ -32,7 +32,7 @@ def parse_args(curr_args=None, subparsers=None):
                            help='N of fully connected layers (default: %(default)s)')
     parser_g1.add_argument('--n-epochs', default=50, type=int,
                            help='N of training epochs (default: %(default)s)')
-    parser_g1.add_argument('--batch-size', default=6, type=int,
+    parser_g1.add_argument('--batch-size', default=16, type=int,
                            help='Batch size (default: %(default)s)')
     parser_g1.add_argument('--dropout', default=0, type=float,
                            help='Rate of dropout (default: %(default)s)')
@@ -41,16 +41,16 @@ def parse_args(curr_args=None, subparsers=None):
     parser_g1.add_argument('--fraq-neg', default=1., type=float,
                            help='Portion of samples to keep in overrepresented class (default: %(default)s)')
     parser_g1.add_argument('--cache', dest='cache', action='store_true',
-                           help='Cache the train & validation data in memory for quicker access? (default: %(default)s)')
+                           help='Cache the train & validation data in memory for quicker access (default: %(default)s)')
     parser_g1.add_argument('--cache-validation', dest='cache_validation', action='store_true',
-                           help='Cache the validation data in memory for quicker access? (default: %(default)s)')
+                           help='Cache the validation data in memory for quicker access (default: %(default)s)')
     parser_g1.add_argument('--cache-train', dest='cache_train', action='store_true',
-                           help='Cache the train data in memory for quicker access? (default: %(default)s)')
+                           help='Cache the train data in memory for quicker access (default: %(default)s)')
     parser_g1.add_argument('--log-progress', default=False,
-                           help='Show a progressbar for training/evaluation progress? (default: %(default)s)',
+                           help='Show a progressbar for training/evaluation progress (default: %(default)s)',
                            dest='log_progress', action='store_true')
     parser_g1.add_argument('--num-translations', default=1, type=int,
-                           help='How many variations to select for each sample? (default: %(default)s)\n'
+                           help='How many variations to select for each sample (default: %(default)s)\n'
                            'For positive samples, the variation will be around the breaking point)')
     parser_g1.add_argument('--max-translation-bases', default=0, type=int,
                            help='Maximum number of bases to translate around the breaking point\n'

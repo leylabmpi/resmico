@@ -26,15 +26,15 @@ def add_common_args(parser: argparse.ArgumentParser):
                            help='Prefix for name in the save_path (default: %(default)s)')
     parser_g1.add_argument('--n-procs', default=1, type=int,
                            help='Number of parallel processes (default: %(default)s)')
-    parser_g1.add_argument('--gpu-eval-mem-gb', default=3.0, type=float,
+    parser_g1.add_argument('--gpu-eval-mem-gb', default=1.0, type=float,
                            help='Amount of GPU memory used for validation data.\n'
                            'The amount will be divided per GPU (default: %(default)s)')
     parser_g1.add_argument('--max-len', default=20000, type=int,
-                           help='Max contig length; larger contigs are are split (default: %(default)s)')
+                           help='Max contig length; larger contigs are split (default: %(default)s)')
     parser_g1.add_argument('--min-avg-coverage', default=1.0, type=float,
                            help='Minimum average coverage for a contig to be considered during evaluation\n'
                            'or training (default: %(default)s)')
-    parser_g1.add_argument('--features', nargs='+', help='Features to use for training (default: %(default)s)',
+    parser_g1.add_argument('--features', nargs='+', help='Features used by resmico (default: %(default)s)',
                            default=[
                                'num_query_A',
                                'num_query_C', 
