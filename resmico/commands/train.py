@@ -58,8 +58,6 @@ def parse_args(curr_args=None, subparsers=None):
     parser_g1.add_argument('--weight-factor', default=0, type=int,
                            help='Factor by which contigs are weighted based on their length (default: %(default)s).\n'
                            'w = min(1, contig_len/weight-factor). 0==no weighting')
-    parser_g1.add_argument('--min-contig-len', default=1000, type=int,
-                           help='Ignore contigs with length smaller than this value (default: %(default)s)')
 
     arguments.add_common_args(parser)
 

@@ -12,7 +12,7 @@ from tensorflow.keras.models import Model
 from sklearn.metrics import recall_score, average_precision_score
 
 from resmico import contig_reader
-from resmico import models_fl as Models  # to use contigs of variable length
+from resmico import models_fl as Models
 from resmico import utils
 
 
@@ -26,7 +26,7 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
 
     logging.info('Loading contig data...')
     reader = contig_reader.ContigReader(args.feature_files_path, args.features, args.n_procs,
-                                        args.no_cython, args.stats_file, args.min_len,
+                                        args.no_cython, args.stats_file, args.min_contig_len,
                                         min_avg_coverage=args.min_avg_coverage)
 
     if args.val_ind_f:

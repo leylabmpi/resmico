@@ -95,7 +95,7 @@ def main(args):
     train_data_tf = train_data_tf.with_options(options)
 
     np.seterr(all='raise')
-    eval_data = Models.BinaryDatasetEval(reader, eval_idx, args.features, args.max_len, args.max_len-500, #args.max_len // 2
+    eval_data = Models.BinaryDatasetEval(reader, eval_idx, args.features, args.max_len, args.max_len-500,
                                          int(args.gpu_eval_mem_gb * 1e9 * 0.8), args.cache_validation or args.cache,
                                          args.log_progress, resmico.convoluted_size, resmico.fixed_length)
 

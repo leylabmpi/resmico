@@ -31,6 +31,8 @@ def add_common_args(parser: argparse.ArgumentParser):
                            'The amount will be divided per GPU (default: %(default)s)')
     parser_g1.add_argument('--max-len', default=20000, type=int,
                            help='Max contig length; larger contigs are split (default: %(default)s)')
+    parser_g1.add_argument('--min-contig-len', default=1000, type=int,
+                           help='Ignore contigs with length smaller than this value (default: %(default)s)')
     parser_g1.add_argument('--min-avg-coverage', default=1.0, type=float,
                            help='Minimum average coverage for a contig to be considered during evaluation\n'
                            'or training (default: %(default)s)')

@@ -35,8 +35,6 @@ def parse_args(test_args=None, subparsers=None):
                         help='Location of the saved deep learning model (default: %(default)s)')
     parser_g1.add_argument('--batch-size', default=100, type=int,
                         help='Batch size (default: %(default)s)')
-    parser_g1.add_argument('--min-len', default=1000, type=int,
-                        help='Definition of -long- contig. If want predict for all use (default: %(default)s)')
     parser_g1.add_argument('--embeddings', action='store_true', default=False,
                         help='Produce embeddings for an intermidiate layer (default: %(default)s)')
     parser_g1.add_argument('--emb-ind', default=0, type=int,
