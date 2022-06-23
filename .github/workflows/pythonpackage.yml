@@ -70,6 +70,17 @@ jobs:
       working-directory: ${{runner.workspace}}/ResMiCo/resmico/tests
       run: |
         pytest -s --hide-run-results --script-launch-mode=subprocess
+    - name: resmico readme example
+      shell: bash -l {0}
+      working-directory: ${{runner.workspace}}/ResMiCo/
+      run: |
+        mkdir tutorial && cd tutorial
+        wget http://ftp.tue.mpg.de/ebio/projects/ResMiCo/UHGG-n9_features.tar.gz
+        wget http://ftp.tue.mpg.de/ebio/projects/ResMiCo/UHGG-n9_features.md5
+        md5sum --check UHGG-n9_features.md5
+        tar -pzxvf UHGG-n9_features.tar.gz && rm -f UHGG-n9_features.*
+        resmico evaluate --save-path predictions --save-name default-model --feature-files-path UHGG-n9_features/
+        resmico filter --outdir filtered-contigs predictions/default-model.csv UHGG-n9_features/fasta/*fna.gz
     - name: resmico-sm tests
       working-directory: ${{runner.workspace}}/ResMiCo/ResMiCo-SM
       shell: bash -l {0}

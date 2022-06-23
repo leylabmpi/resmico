@@ -11,9 +11,10 @@ The tool is divided into two main parts:
 
 * **ResMiCo-SM**
   * A snakemake pipeline for:
-    * creating feature tables from real-world assemblies (contigs and/or MAGs, along with associated Illumina paired-end reads)
+    * creating feature tables from real-world assemblies
+	  * input: >=1 fasta of contigs, along with associated Illumina paired-end reads
     * generating train/test datasets from reference genomes
-
+  * See the [ResMiCo-SM README](./ResMiCo-SM/README.md)
 * **ResMiCo (DL)**
   * A python package for misassembly detection via deep learning
 
@@ -42,19 +43,18 @@ It outputs `.csv` table with ResMiCo `score` for each contig.
 
 If using ResMiCo in your work, please cite:
 > TODO
-
-
-
   
 
 
 # General usage
 
-## ResMiCo-SM
+## ResMiCo-SM: create feature files
+
+Use ResMiCo-SM for creating feature files from real data or simulate new data.
 
 See the [ResMiCo-SM README](./ResMiCo-SM/README.md)
 
-## ResMiCo (DL)
+## ResMiCo (DL): predict misassemblies
 
 Main interface: `resmico -h`
 
@@ -109,7 +109,7 @@ pytest -s --hide-run-results --script-launch-mode=subprocess ./resmico/tests/
 mkdir tutorial && cd tutorial
 ```
 
-## Get example dataset
+## Get the example dataset
 
 Training data
 
@@ -131,47 +131,41 @@ tar -pzxvf UHGG-n9_features.tar.gz && rm -f UHGG-n9_features.*
 
 ## Predict using a pre-trained model
 
-Using the "standard" resmico model from the Mineeva et al., 2022 manuscript.
+Using the "default" resmico model from the Mineeva et al., 2022 manuscript.
 Prediction on the example test data.
 
 ```
 resmico evaluate --n-procs 4 \
   --save-path predictions \
-  --save-name standard-model \
+  --save-name default-model \
   --feature-files-path UHGG-n9_features/
 ```
 
 ## Filter out contigs predicted to be misassembled
 
+Filter out contigs with prediction scores below a specific cutoff.
+
 ```
-resmico filter --score-cutoff 0.03 \
+resmico filter \
   --outdir filtered-contigs \
-  predictions/standard-model.csv \
+  predictions/default-model.csv \
   UHGG-n9_features/fasta/*fna.gz
 ```
 
 > You may need to adjust the `--score-cutoff` in order to filter some contigs
 
 
-## Training on example train data
+## Training on the example train data
+
+Train a new model with the example train dataset.
 
 ```
 resmico train --log-progress --n-procs 4 --n-epochs 2 \
-  --save-path model --stats-file=''\
+  --save-path model-n10 --stats-file='' \
   --save-name genomes-n10 \
   --feature-files-path genomes-n10_features
 ```
 
-## Predict using the newly created model
+# Tutorials
 
-Prediction on the example test data.
-
-```
-MODEL_PATH=/path/to/the/trained/model/it/will/differ/every/time/model.h5
-resmico evaluate --binary-data --n-procs 4 \
-  --model $MODEL_PATH --stats-file=genomes-n10_features/stats.json\
-  --save-path predictions \
-  --save-name UHGG-n9  \
-  --feature-files-path UHGG-n9_features
-```
-
+See the [wiki](https://github.com/leylabmpi/ResMiCo/wiki)

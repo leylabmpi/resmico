@@ -85,8 +85,11 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
     
     duration = time.time() - start
     logging.info(f'Prediction done in {duration:.0f}s.')
-    out_file = args.save_path + '/' + args.save_name + '.csv'
-    
+
+    # saving output
+    if not os.path.isdir(args.save_path):
+        os.makedirs(args.save_path)
+    out_file = os.path.join(args.save_path, args.save_name + '.csv')    
     if args.embeddings:
         middle_output = Model(inputs=model.input, outputs=model.layers[args.emb_ind].output)
         eval_data_emb = middle_output.predict(x=predict_data_tf,
