@@ -68,13 +68,13 @@ wors, so we only recommend running on CPU for testing.
 
 See `resmico evaluate -h` 
 
-### Training a new model
-
-See `resmico train -h` 
-
 ### Filtering out contigs predicted to be misassembled
 
 See `resmico filter -h`
+
+### Training a new model
+
+See `resmico train -h` 
 
 
 # Example
@@ -97,7 +97,7 @@ pip install resmico
 ## Working directory
 
 ```
-mkdir -p tutorial && cd tutorial
+mkdir tutorial && cd tutorial
 ```
 
 ## Get example dataset
@@ -108,7 +108,7 @@ Training data
 wget http://ftp.tue.mpg.de/ebio/projects/ResMiCo/genomes-n10_features.tar.gz
 wget http://ftp.tue.mpg.de/ebio/projects/ResMiCo/genomes-n10_features.md5
 md5sum --check genomes-n10_features.md5
-tar -pzxvf genomes-n10_features.tar.gz
+tar -pzxvf genomes-n10_features.tar.gz && rm -f genomes-n10_features.*
 ```
 
 Test data
@@ -117,8 +117,32 @@ Test data
 wget http://ftp.tue.mpg.de/ebio/projects/ResMiCo/UHGG-n9_features.tar.gz
 wget http://ftp.tue.mpg.de/ebio/projects/ResMiCo/UHGG-n9_features.md5
 md5sum --check UHGG-n9_features.md5
-tar -pzxvf UHGG-n9_features.tar.gz
+tar -pzxvf UHGG-n9_features.tar.gz && rm -f UHGG-n9_features.*
 ```
+
+## Predict using a pre-trained model
+
+Using the "standard" resmico model from the Mineeva et al., 2022 manuscript.
+Prediction on the example test data.
+
+```
+resmico evaluate --n-procs 4 \
+  --save-path predictions \
+  --save-name standard-model \
+  --feature-files-path UHGG-n9_features/
+```
+
+## Filter out contigs predicted to be misassembled
+
+```
+resmico filter --score-cutoff 0.03 \
+  --outdir filtered-contigs \
+  predictions/standard-model.csv \
+  UHGG-n9_features/fasta/*fna.gz
+```
+
+> You may need to adjust the `--score-cutoff` in order to filter some contigs
+
 
 ## Training on example train data
 
@@ -143,28 +167,3 @@ resmico evaluate --binary-data --n-procs 4 \
   --feature-file-table UHGG-n9_features/feature_files.tsv
 ```
 
-## Filter out contigs predicted to be misassembled
-
-```
-resmico filter --score-cutoff 0.03 \
-  --outdir filtered-contigs \
-  predictions/UHGG-n9.csv \
-  UHGG-n9_features/fasta/*fna.gz
-```
-
-> You may need to adjust the `--score-cutoff` in order to filter some contigs
-
-## Predict using an pre-trained model
-
-Using the "standard" resmico model from the Mineeva et al., 2022 manuscript.
-Prediction on the example test data.
-
-```
-MODEL_PATH=/path/to/model/if/not/default/see/github/resmico.h5
-resmico evaluate --binary-data --n-procs 4 \
-  --model $MODEL_PATH \
-  --save-path predictions \
-  --save-name UHGG-n9 \
-  --feature-files-path UHGG-n9_features/ \
-  --feature-file-table UHGG-n9_features/feature_files.tsv
-```

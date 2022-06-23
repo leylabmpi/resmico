@@ -42,10 +42,9 @@ def parse_args(test_args=None, subparsers=None):
     parser.add_argument('--error-on-missing', action='store_true', default=False,
                         help='Error if a contig does not have a prediction? (default: %(default)s)')
     parser.add_argument('--max-length', default=0, type=int, 
-                        help='Only apply filtering to contigs < cutoff. '
-                             'Longer contigs are retained, regardless of the prediction score. '
-                             'If <1, no cutoff applied. '
-                             '(default: %(default)s)')
+                        help='Only apply filtering to contigs < max-length.\n'
+                             'Longer contigs are retained, regardless of the prediction score.\n'
+                             'If <1, no cutoff applied. (default: %(default)s)')
     parser.add_argument('--n-proc', default=1, type=int, 
                         help='Number of parallel processes (default: %(default)s)')
     # test args
