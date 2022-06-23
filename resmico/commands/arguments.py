@@ -19,7 +19,8 @@ def add_common_args(parser: argparse.ArgumentParser):
                            'Example: use "0.005" to select file paths containing "0.005".\n'
                            'Use "" to match all paths (default: %(default)s)')
     parser_g1.add_argument('--stats-file', default=pkg_stats,
-                           help='File containing the feature means/stdevs of the training set\n(default: %(default)s)')
+                           help='File containing the feature means/stdevs of the training set.\n'
+                           'Set to an empty string when training on a new data set. \n(default: %(default)s)')
     parser_g1.add_argument('--save-path', default='.', type=str,
                            help='Directory where to save output (default: %(default)s)')
     parser_g1.add_argument('--save-name', default='resmico', type=str,
