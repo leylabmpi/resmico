@@ -1,6 +1,8 @@
 [![ResMiCo](https://github.com/leylabmpi/ResMiCo/actions/workflows/pythonpackage.yml/badge.svg)](https://github.com/leylabmpi/ResMiCo/actions/workflows/pythonpackage.yml)
 
-## Introduction
+![overview](https://user-images.githubusercontent.com/2468572/175315122-1ec3e6e3-419f-4154-af31-21b9dcb2e38f.png)
+
+# Introduction
 
 ResMiCo is a deep learning model capable of detecting metagenome assembly errors. 
 ResMiCo's input is summary data derived from re-aligning reads against the putative 
@@ -8,6 +10,7 @@ genomes. ResMiCo's output is a number betwen 0 and 1 representing the likelihood
 particular genome was misassembled.
 
 The tool is divided into two main parts:
+
 
 * **ResMiCo-SM**
   * A snakemake pipeline for:
@@ -18,7 +21,7 @@ The tool is divided into two main parts:
 * **ResMiCo (DL)**
   * A python package for misassembly detection via deep learning
 
-## Installation
+# Installation
 
 It is possible to install this project using `pip`:
 ```bash
@@ -30,21 +33,11 @@ or `conda`, using the ``bioconda`` channel:
 conda install -c bioconda resmico
 ```
 
-## Find misassembled contigs in your data with ResMiCo
-1. > TODO: generate features for your data. Required files and command
-2. Make predictions with ResMiCo
-```
-resmico evaluate --feature-files-path YOURDATAPATH/
-```
-It outputs `.csv` table with ResMiCo `score` for each contig.
-
-
-## Citation
+# Citation
 
 If using ResMiCo in your work, please cite:
 > TODO
   
-
 
 # General usage
 
@@ -90,6 +83,7 @@ mamba activate resmico_env
 ```
 pip install resmico
 ```
+
 ## Running tests
 
 Install `pytest` and `pytest-console-scripts`. For example:
@@ -103,6 +97,7 @@ Run tests
 ```
 pytest -s --hide-run-results --script-launch-mode=subprocess ./resmico/tests/
 ```
+
 ## Working directory
 
 ```
@@ -153,7 +148,6 @@ resmico filter \
 ```
 
 > You may need to adjust the `--score-cutoff` in order to filter some contigs
-
 
 ## Training on the example train data
 
