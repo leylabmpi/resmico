@@ -3,4 +3,5 @@ channels:
 - bioconda
 dependencies:
 - pigz
+- python
 - bioconda::nonpareil

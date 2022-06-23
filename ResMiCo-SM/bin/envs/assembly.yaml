@@ -3,5 +3,6 @@ channels:
 - bioconda
 dependencies:
 - pigz
+- python
 - bioconda::megahit=1.1.3
 - bioconda::spades=3.15
