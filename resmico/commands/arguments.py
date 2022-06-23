@@ -29,7 +29,7 @@ def add_common_args(parser: argparse.ArgumentParser):
     parser_g1.add_argument('--gpu-eval-mem-gb', default=3.0, type=float,
                            help='Amount of GPU memory used for validation data.\n'
                            'The amount will be divided per GPU (default: %(default)s)')
-    parser_g1.add_argument('--max-len', default=10000, type=int,
+    parser_g1.add_argument('--max-len', default=20000, type=int,
                            help='Max contig length; larger contigs are are split (default: %(default)s)')
     parser_g1.add_argument('--min-avg-coverage', default=1.0, type=float,
                            help='Minimum average coverage for a contig to be considered during evaluation\n'
@@ -54,9 +54,6 @@ def add_common_args(parser: argparse.ArgumentParser):
                            help='Validation data indices (default: %(default)s)')
     parser_g1.add_argument('--seed', default=12, type=int,
                            help='Seed used for numpy.random and tf (default: %(default)s)')
-    parser_g1.add_argument('--mask-padding', default=False,
-                           help='If enabled, values affected by padding will be masked out in the convolution output',
-                           dest='mask_padding', action='store_true')
     parser_g1.add_argument('--log-level', default='INFO',
                            choices = ['CRITICAL', 'FATAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG'],
                            help='Logging level (default: %(default)s)')

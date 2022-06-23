@@ -410,18 +410,10 @@ class TestResmico(unittest.TestCase):
         args.lr_init = 1e-3
         self.args = args
 
-    # def test_convolved_output_size_no_masking(self):
-    #     self.args.mask_padding = False
-    #     model = models_fl.Resmico(self.args)
-    #     for is_padding in [False, True]:
-    #         for i in range(100, 10):
-    #             self.assertEqual(i, model.convoluted_size(i, is_padding))
-
-    # def test_convolved_output_size(self):
-    #     self.args.mask_padding = True
-    #     model = models_fl.Resmico(self.args)
-    #     self.assertIsNotNone(model.convoluted_size)
-    #     self.assertEqual(19, model.convoluted_size(512, False))
-    #     self.assertEqual(83, model.convoluted_size(1024, False))
-    #     # (((1071-9-8-5)//2-4-31-4)//2-4-31-4)//2-4-8
-    #     self.assertEqual(89, model.convoluted_size(1071, True))
+    def test_convolved_output_size(self):
+        model = models_fl.Resmico(self.args)
+        self.assertIsNotNone(model.convoluted_size)
+        self.assertEqual(19, model.convoluted_size(512, False))
+        self.assertEqual(83, model.convoluted_size(1024, False))
+        # (((1071-9-8-5)//2-4-31-4)//2-4-31-4)//2-4-8
+        self.assertEqual(89, model.convoluted_size(1071, True))

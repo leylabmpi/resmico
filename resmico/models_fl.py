@@ -210,11 +210,11 @@ class Resmico(object):
             # for a convolutional layer with padding='same', otherwise for padding='valid'
             # if we don't mask the zero-padded values, the convoluted size can be anything
             tmp_model = Model(inputs=inlayer, outputs=x)  # dummy model used only in next line
-            self.convoluted_size = construct_convolution_lambda(tmp_model) if config.mask_padding else lambda x, pad: 1
+            self.convoluted_size = construct_convolution_lambda(tmp_model)
             mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
             mask = Input(shape=(mask_size,), name='mask', dtype='bool')
 
-            x = GlobalAveragePooling1D()(x, mask=mask if config.mask_padding else None)
+            x = GlobalAveragePooling1D()(x, mask=mask)
         
         elif self.net_type == 'transformer':
         
@@ -223,11 +223,11 @@ class Resmico(object):
             x = utils.transformer_encoder(x, head_size=32, num_heads=1, dropout=0.1)
             
             tmp_model = Model(inputs=inlayer, outputs=x)  # dummy model used only in next line
-            self.convoluted_size = construct_convolution_lambda(tmp_model) if config.mask_padding else lambda x, pad: 1
+            self.convoluted_size = construct_convolution_lambda(tmp_model)
             
             mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
             mask = Input(shape=(mask_size,), name='mask', dtype='bool')
-            x = GlobalAveragePooling1D()(x, mask=mask if config.mask_padding else None)
+            x = GlobalAveragePooling1D()(x, mask=mask)
             
         elif self.net_type in ['cnn_resnet', 'cnn_resnet_argmax', 'cnn_resnet_avg', 'cnn_resnet_brnn']:
             x = BatchNormalization()(inlayer)
@@ -248,31 +248,24 @@ class Resmico(object):
             # for a convolutional layer with padding='same', otherwise for padding='valid'
             # if we don't mask the zero-padded values, the convoluted size can be anything
             tmp_model = Model(inputs=inlayer, outputs=x)  # dummy model used only in next line
-            self.convoluted_size = construct_convolution_lambda(tmp_model) if config.mask_padding else lambda x, pad: 1
+            self.convoluted_size = construct_convolution_lambda(tmp_model)
             
             mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
             mask = Input(shape=(mask_size,), name='mask', dtype='bool')
 
             if self.net_type == 'cnn_resnet':
-                avgP = GlobalAveragePooling1D()(x, mask=mask if config.mask_padding else None)
-                if config.mask_padding:
-                    # the mask marks the convoluted positions that were not affected by padding
-                    maxP = GlobalMaskedMaxPooling1D()(x, mask=mask)
-                else:
-                    maxP = GlobalMaxPooling1D()(x)
+                avgP = GlobalAveragePooling1D()(x, mask=mask)
+                maxP = GlobalMaskedMaxPooling1D()(x, mask=mask)
                 x = concatenate([maxP, avgP])
             elif self.net_type == 'cnn_resnet_argmax':
-                # avgP = GlobalAveragePooling1D()(x, mask=mask if config.mask_padding else None)
-                # argMaxP = ArgMaxSumPooling()(x, mask=(mask if config.mask_padding else None))
-                # x = concatenate([argMaxP, avgP])
-                x = ArgMaxSumPooling()(x, mask=(mask if config.mask_padding else None))  # shape (batch_size, steps)
+                x = ArgMaxSumPooling()(x, mask=(mask))  # shape (batch_size, steps)
                 x = utils.residual_block(x, downsample=False, filters=16, kernel_size=self.ker_size)
                 x = GlobalMaxPooling1D()(x)
             elif self.net_type == 'cnn_resnet_brnn':
                 x = Bidirectional(LSTM(16, return_sequences=False), 
                                   merge_mode="concat")(x, mask=mask)
             else:  # cnn_resnet_avg
-                x = GlobalAveragePooling1D()(x, mask=mask if config.mask_padding else None)
+                x = GlobalAveragePooling1D()(x, mask=mask)
 
         elif self.net_type == 'fixlen_cnn_resnet':
             x = BatchNormalization()(inlayer)
@@ -306,7 +299,7 @@ class Resmico(object):
                 num_filters *= 2
                 # this is needed only to avoid errors, mask is not used later
             tmp_model = Model(inputs=inlayer, outputs=x)  # dummy model used only in next line
-            self.convoluted_size = construct_convolution_lambda(tmp_model) if config.mask_padding else lambda x, pad: 1
+            self.convoluted_size = lambda x, pad: 1
             
             mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
             mask = Input(shape=(mask_size,), name='mask', dtype='bool')
@@ -328,8 +321,7 @@ class Resmico(object):
                 num_filters *= 2
                 # this is needed only to avoid errors, mask is not used later
             tmp_model = Model(inputs=inlayer, outputs=x)  # dummy model used only in next line
-            self.convoluted_size = construct_convolution_lambda(tmp_model) if config.mask_padding else lambda x, pad: 1
-            
+            self.convoluted_size = lambda x, pad: 1
             mask_size = self.convoluted_size(self.max_len, True) if self.fixed_length else None
             mask = Input(shape=(mask_size,), name='mask', dtype='bool')
             ###
