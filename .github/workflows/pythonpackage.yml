@@ -10,7 +10,7 @@ jobs:
       DATADIR: data
     strategy:
       matrix:
-        python-version: [3.6]
+        python-version: [3.9]
         build_type: [Release]
         compiler: [g++-9]
         include:
@@ -70,11 +70,22 @@ jobs:
       working-directory: ${{runner.workspace}}/ResMiCo/resmico/tests
       run: |
         pytest -s --hide-run-results --script-launch-mode=subprocess
-    - name: resmico readme example
+    - name: resmico readme example1
       shell: bash -l {0}
       working-directory: ${{runner.workspace}}/ResMiCo/
       run: |
-        mkdir tutorial && cd tutorial
+        mkdir example1 && cd example1
+        wget http://ftp.tue.mpg.de/ebio/projects/ResMiCo/UHGG-n9_bam2feat.tar.gz
+        wget http://ftp.tue.mpg.de/ebio/projects/ResMiCo/UHGG-n9_bam2feat.md5
+        md5sum --check UHGG-n9_bam2feat.md5
+        tar -pzxvf UHGG-n9_bam2feat.tar.gz && rm -f UHGG-n9_bam2feat.*
+        resmico bam2feat --outdir features UHGG-n9_bam2feat/map.tsv
+        resmico evaluate --save-path predictions --save-name default-model --feature-files-path features
+    - name: resmico readme example2
+      shell: bash -l {0}
+      working-directory: ${{runner.workspace}}/ResMiCo/
+      run: |
+        mkdir example2 && cd example2
         wget http://ftp.tue.mpg.de/ebio/projects/ResMiCo/UHGG-n9_features.tar.gz
         wget http://ftp.tue.mpg.de/ebio/projects/ResMiCo/UHGG-n9_features.md5
         md5sum --check UHGG-n9_features.md5

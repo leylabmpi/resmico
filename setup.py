@@ -67,7 +67,7 @@ setup(
     license="MIT license",
     packages=find_packages(),
     package_data={'resmico': ['reader.pyx', 'contig_reader.hpp', 'contig_reader.cpp',
-                             'model/resmico.h5', 'model/stats_cov.json']},
+                              'bam2feat', 'model/resmico.h5', 'model/stats_cov.json']},
     package_dir={'resmico': 'resmico'},
     python_requires='>=3.8',
     setup_requires=[

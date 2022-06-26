@@ -28,12 +28,15 @@ def _decode(x):
         pass
     return x
 
-def parse_predictions(infile, delim=','):
+def parse_predictions(infile, delim=',', name_regex=None):
     """
     Parsing contig prediction scores
     """
     logging.info('Parsing predictions table...')
-    regex = re.compile(r'_CONTIG[0-9]+$')   
+    if name_regex is not None:
+        regex = re.compile(name_regex)
+    else:
+        regex = None
     header = dict()
     predictions = dict()
     with _open(infile) as inF:
@@ -49,7 +52,9 @@ def parse_predictions(infile, delim=','):
                         raise KeyError(f'Cannot find required column: "{col}"')
                 continue
             # body
-            contig_id = regex.sub('', os.path.split(line[header['cont_name']])[1])
+            contig_id = os.path.split(line[header['cont_name']])[1]
+            if regex is not None:
+                contig_id = regex.sub('', contig_id)
             score = float(line[header['score']])
             contig_len = float(line[header['length']])
             predictions[contig_id] = [score, contig_len]
@@ -105,7 +110,7 @@ def parse_fasta_list(fasta_list):
     return fasta_files
 
 def _filter_fasta(fasta_file, predictions, outdir, pred_score_cutoff, add_score=False,
-                 error_on_missing=False, max_length=0):
+                  error_on_missing=False, min_length=0, max_length=0):
     """
     Filtering fasta based on contig prediction scores
     """    
@@ -143,7 +148,11 @@ def _filter_fasta(fasta_file, predictions, outdir, pred_score_cutoff, add_score=
                         raise ValueError(msg.format(contig_id))
                     pred_score = 0
                 # status
-                if max_length > 0 and contig_len > max_length:
+                if min_length > 0 and contig_len < max_length:
+                    # retaining short contigs, regardless of score
+                    stats['kept'] += 1
+                    pred_score = 0                    
+                elif max_length > 0 and contig_len > max_length:
                     # retaining long contigs, regardless of score
                     stats['kept'] += 1
                     pred_score = 0
@@ -179,7 +188,8 @@ def set_logger(level):
         handler.setLevel(level)
         
 def filter_fasta(fasta_files, predictions, outdir, pred_score_cutoff,
-                 add_score=False, error_on_missing=False, max_length=0, n_proc=1):
+                 add_score=False, error_on_missing=False,
+                 min_length=0, max_length=0, n_proc=1):
     """
     Filter >=1 fasta based on prediction scores
     """
@@ -191,6 +201,7 @@ def filter_fasta(fasta_files, predictions, outdir, pred_score_cutoff,
                    pred_score_cutoff = pred_score_cutoff,
                    add_score = add_score,
                    error_on_missing = error_on_missing,
+                   min_length = min_length,
                    max_length = max_length)
     if n_proc < 2:
         res = map(func, fasta_files)
@@ -209,11 +220,13 @@ def main(args):
     # checks
     score_cutoff_check(args.score_cutoff)
     # predictions
-    predictions = parse_predictions(args.prediction_table, args.score_delim)
+    predictions = parse_predictions(args.prediction_table,
+                                    args.score_delim,
+                                    args.name_regex)
     # fasta filter
     filter_fasta(args.fasta, predictions, args.outdir, args.score_cutoff,
-                 args.add_score, args.error_on_missing, args.max_length,
-                 args.n_proc)
+                 args.add_score, args.error_on_missing, args.min_length,
+                 args.max_length, args.n_proc)
 
 if __name__ == '__main__':
     pass

@@ -2,6 +2,7 @@
 import sys
 import argparse
 
+from resmico.commands import bam2feat
 from resmico.commands import train
 from resmico.commands import evaluate
 from resmico.commands import filter_contigs
@@ -16,7 +17,7 @@ def main(args=None):
     desc = 'ResMiCo: mis-assembly detection with deep learning'
     epi = """DESCRIPTION:
     Usage: resmico <subcommand> <subcommand_params>
-    subcommand is one of: train, evaluate, filter
+    subcommand is one of: bam2feat, train, evaluate, filter
     Example: resmico train -h
 
     For general info, see https://github.com/leylabmpi/resmico/
@@ -27,6 +28,9 @@ def main(args=None):
 
     # subparsers
     subparsers = parser.add_subparsers()
+    # bam2feat
+    b2f = bam2feat.parse_args(subparsers=subparsers)
+    b2f.set_defaults(func=bam2feat.main)
     # train
     trainer = train.parse_args(subparsers=subparsers)
     trainer.set_defaults(func=train.main)

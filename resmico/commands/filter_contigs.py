@@ -13,9 +13,9 @@ def get_desc():
 def parse_args(test_args=None, subparsers=None):
     desc = get_desc()
     epi = """DESCRIPTION:
-    Filter out contigs predicted to be misassembled. 
-    Contigs must be fasta-formatted.
-    Filtered contig fasta files will be written to the designed output directory.
+    Filter out contigs predicted to be misassembled based on the resmico prediction score.
+    Contigs must be fasta-formatted, with contig names matching those in the prediction score table.
+    Filtered contig fasta files will be written to the designated output directory.
     Make sure to adjust the --score-cutoff as needed!
     """
     if subparsers:
@@ -34,17 +34,27 @@ def parse_args(test_args=None, subparsers=None):
     parser.add_argument('--outdir', default='resmico-filter', type=str, 
                         help='Output directory (default: %(default)s)')
     parser.add_argument('--score-cutoff', default=0.8, type=float, 
-                        help='Prediction score cutoff for filtering: >=[score] will be filtered (default: %(default)s)')
+                        help='Prediction score cutoff for filtering: >=[score] will be filtered'
+                        ' (default: %(default)s)')
     parser.add_argument('--score-delim', default=',', type=str, 
                         help='Delimiter for predictions table (default: %(default)s)')
     parser.add_argument('--add-score', action='store_true', default=False,
-                        help='Add prediction score to sequence header "score=<score>"? (default: %(default)s)')
+                        help='Add prediction score to sequence header "score=<score>"?'
+                        ' (default: %(default)s)')
     parser.add_argument('--error-on-missing', action='store_true', default=False,
                         help='Error if a contig does not have a prediction? (default: %(default)s)')
+    parser.add_argument('--min-length', default=0, type=int, 
+                        help='Only apply filtering to contigs > max-length.\n'
+                             'Shorter contigs are retained, regardless of the prediction score.\n'
+                             'If <1, no cutoff applied. (default: %(default)s)')
     parser.add_argument('--max-length', default=0, type=int, 
                         help='Only apply filtering to contigs < max-length.\n'
                              'Longer contigs are retained, regardless of the prediction score.\n'
                              'If <1, no cutoff applied. (default: %(default)s)')
+    parser.add_argument('--name-regex', default=None, type=str,
+                        help='regex to remove text from the fasta sequence IDs'
+                        ' (default: %(default)s).\n'
+                        'For example: "_CONTIG[0-9]+$"')
     parser.add_argument('--n-proc', default=1, type=int, 
                         help='Number of parallel processes (default: %(default)s)')
     # test args
