@@ -80,7 +80,7 @@ jobs:
         md5sum --check UHGG-n9_bam2feat.md5
         tar -pzxvf UHGG-n9_bam2feat.tar.gz && rm -f UHGG-n9_bam2feat.*
         resmico bam2feat --outdir features UHGG-n9_bam2feat/map.tsv
-        resmico evaluate --save-path predictions --save-name default-model --feature-files-path features
+        resmico evaluate --min-avg-coverage 0.01 --save-path predictions --save-name default-model --feature-files-path features
     - name: resmico readme example2
       shell: bash -l {0}
       working-directory: ${{runner.workspace}}/ResMiCo/

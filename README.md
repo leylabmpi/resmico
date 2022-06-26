@@ -2,6 +2,33 @@
 
 ![overview](https://user-images.githubusercontent.com/2468572/175315122-1ec3e6e3-419f-4154-af31-21b9dcb2e38f.png)
 
+# Table of Contents
+
+- [Introduction](#introduction)
+- [Citation](#citation)
+- [Installation](#installation)
+  * [Running the ResMiCo package tests](#running-the-resmico-package-tests)
+- [General usage](#general-usage)
+  * [ResMiCo-SM snakemake pipeline](#resmico-sm-snakemake-pipeline)
+  * [ResMiCo package](#resmico-package)
+    + [Creating feature tables](#creating-feature-tables)
+    + [Predicting with existing model](#predicting-with-existing-model)
+    + [Filtering out misassembled contigs](#filtering-out-misassembled-contigs)
+    + [Training a new model](#training-a-new-model)
+- [Example 1: predicting misassemblies with the "default" model](#example-1--predicting-misassemblies-with-the--default--model)
+  * [Working directory](#working-directory)
+  * [Get the example dataset](#get-the-example-dataset)
+  * [Convert BAM files to feature tables](#convert-bam-files-to-feature-tables)
+  * [Predict misassemblies](#predict-misassemblies)
+  * [Filter contigs](#filter-contigs)
+- [Example2: Training & using a new model](#example2--training---using-a-new-model)
+  * [Working directory](#working-directory-1)
+  * [Get the example dataset](#get-the-example-dataset-1)
+  * [Filter out contigs predicted to be misassembled](#filter-out-contigs-predicted-to-be-misassembled)
+  * [Training on the example train data](#training-on-the-example-train-data)
+  * [Predict using the "default" model](#predict-using-the--default--model)
+- [Tutorials](#tutorials)
+
 # Introduction
 
 ResMiCo is a deep learning model capable of detecting metagenome assembly errors. 
@@ -73,7 +100,7 @@ slower than on a GPU, so we only recommend running on CPUs for testing.
 
 ### Creating feature tables
 
-See `resmico bam2feat`
+See `resmico bam2feat -h`
 
 ### Predicting with existing model
 
