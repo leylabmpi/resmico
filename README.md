@@ -66,6 +66,11 @@ or `mamba` (or `conda`), using the ``bioconda`` channel:
 mamba install -c bioconda resmico
 ```
 
+> WARNING: the bioconda recipe is currently set to an old version of
+resmico. That old version does not match the current user interface
+(e.g., lacks `resmico bam2feat`). So, we do not recommend using
+the bioconda recipe for installing resmico at this time.
+
 ## Running the ResMiCo package tests 
 
 Install `pytest` and `pytest-console-scripts`. For example:
