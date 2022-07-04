@@ -50,7 +50,7 @@ The tool is divided into two main parts:
 # Citation
 
 If using ResMiCo in your work, please cite:
-> TODO
+[ResMiCo: increasing the quality of metagenome-assembled genomes with deep learning](https://www.biorxiv.org/content/10.1101/2022.06.23.497335v1.abstract)
 
 # Installation
 
