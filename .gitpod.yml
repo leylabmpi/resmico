@@ -5,7 +5,8 @@ github:
     addCheck: true
     addComment: true
     addBadge: false
-image: condaforge/mambaforge
+image:
+  file: .gitpod.Dockerfile
 tasks:
   - name: mamba env create and package install
     init: |
