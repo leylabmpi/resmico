@@ -38,7 +38,8 @@ extensions = [Extension('resmico.reader',
 
 
 class get_numpy_include(object):
-    """Returns Numpy's include path with lazy import.
+    """
+    Returns Numpy's include path with lazy import.
     """
 
     def __str__(self):

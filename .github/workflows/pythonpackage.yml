@@ -46,15 +46,8 @@ jobs:
         mamba-version: "*"
         python-version: ${{ matrix.python-version }}
         channels: conda-forge,bioconda
+        environment-file: environment.yml
         activate-environment: resmico
-    - name: conda env setup
-      shell: bash -l {0}
-      run: |
-        conda info -a
-        mamba env update -f conda_env.yaml python=${{ matrix.python-version }}
-        conda list
-        conda activate /usr/share/miniconda3/envs/resmico
-        conda config --set channel_priority strict
     - name: cython contig reader
       shell: bash -l {0}
       working-directory: ${{runner.workspace}}/ResMiCo/resmico
