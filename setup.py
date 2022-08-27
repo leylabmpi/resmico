@@ -15,6 +15,7 @@ install_reqs = [
     'pytest',
     'snakemake>=5.31.1',
     'tables',
+    'pysam',
     'tensorflow',
     'tensorboard<2.9.0',
     'toolz',
