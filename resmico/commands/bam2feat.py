@@ -20,6 +20,8 @@ def parse_args(test_args=None, subparsers=None):
     Mineeva et al., 2022 manuscript.
     --n-proc sets the per-BAM parallelization.
     --n-threads sets the per-command (eg., samtools) parallelization.
+
+    Note: the bam file(s) will be sorted and indexed prior to creating the feature table
     """
     if subparsers:
         parser = subparsers.add_parser('bam2feat', description=desc, epilog=epi,

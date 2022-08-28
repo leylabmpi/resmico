@@ -165,6 +165,8 @@ resmico bam2feat --outdir features UHGG-n9_bam2feat/map.tsv
 the "default" model from Mineeva et al., 2022, which is 
 critical for getting accurate predictions.
 
+> Note: bam2feat will sort and index the bam file(s)
+
 ## Predict misassemblies
 
 ```
