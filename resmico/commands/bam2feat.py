@@ -13,8 +13,8 @@ def get_desc():
 def parse_args(test_args=None, subparsers=None):
     desc = get_desc()
     epi = """DESCRIPTION:
-    Convert >=1 contig fasta and associated mapped paired-end reads (BAM file)
-    to >=1 resmico feature table.
+    Convert 1 or more contig fasta file and associated mapped paired-end
+    reads (BAM file) to one or more 1 resmico feature table.
     The input_table maps the fasta and BAM files.
     The defaults are the same as used to generate all training/test data in the
     Mineeva et al., 2022 manuscript.

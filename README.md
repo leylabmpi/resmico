@@ -143,7 +143,16 @@ MAG contigs.
 
 So, the input consists of fasta files (contigs) and BAM files (mapped reads).
 
-A simple tab-delimited table is used to map the fastsa & BAM files.
+A simple tab-delimited table is used to map the fasta & BAM files.
+
+**Map file format:**
+
+    * A tab-delim table with the columns (any order is allowed): 
+      * `Taxon` => name associated with the fasta file of contigs
+      * `Fasta` => path to the fasta file of contigs
+      * `Sample` => name associated with the BAM file 
+      * `BAM` => path to the BAM file of reads mapped to the contigs in `Fasta`
+
 See the `map.tsv` file for an example.
 
 ```
