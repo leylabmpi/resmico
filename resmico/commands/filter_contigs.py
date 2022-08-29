@@ -29,8 +29,9 @@ def parse_args(test_args=None, subparsers=None):
                         help='A table that includes per-contig misassembly predictions. '
                              'The table should be formatted as the output from "resmico predict"')
     parser.add_argument('fasta',  metavar='fasta', type=str, nargs='+',
-                        help='>=1 fasta file containing the associated contigs.'
-                        ' Alternatively, a list of fasta files (1 per line) can be provided.')
+                        help='>=1 fasta file containing the associated contigs.\n'
+                        'Alternatively, a list of fasta files (1 per line) can be provided.\n'
+                        'The contig names must match those in the prediction_table')
     parser.add_argument('--outdir', default='resmico-filter', type=str, 
                         help='Output directory (default: %(default)s)')
     parser.add_argument('--score-cutoff', default=0.8, type=float, 
@@ -44,7 +45,7 @@ def parse_args(test_args=None, subparsers=None):
     parser.add_argument('--error-on-missing', action='store_true', default=False,
                         help='Error if a contig does not have a prediction? (default: %(default)s)')
     parser.add_argument('--min-length', default=0, type=int, 
-                        help='Only apply filtering to contigs > max-length.\n'
+                        help='Only apply filtering to contigs > min-length.\n'
                              'Shorter contigs are retained, regardless of the prediction score.\n'
                              'If <1, no cutoff applied. (default: %(default)s)')
     parser.add_argument('--max-length', default=0, type=int, 
@@ -56,7 +57,7 @@ def parse_args(test_args=None, subparsers=None):
                         ' (default: %(default)s).\n'
                         'For example: "_CONTIG[0-9]+$"')
     parser.add_argument('--n-proc', default=1, type=int, 
-                        help='Number of parallel processes (default: %(default)s)')
+                        help='Number of fasta files to process in parallel (default: %(default)s)')
     # test args
     if test_args:
         args = parser.parse_args(test_args)
