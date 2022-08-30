@@ -19,10 +19,14 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install setuptools wheel twine numpy Cython
+    - name: Build manylinux Python wheels
+      uses: RalfG/python-wheels-manylinux-build@v0.5.0-manylinux2014_x86_64
+      with:
+        python-versions: 'cp36-cp36m'
+        build-requirements: 'cython numpy'
     - name: Build and publish
       env:
         TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
         TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
       run: |
-        python setup.py sdist bdist_wheel
-        twine upload dist/*
+        twine upload dist/*-manylinux*.whl
