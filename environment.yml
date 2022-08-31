@@ -17,6 +17,7 @@ dependencies:
 - snakemake=5.31.1
 - tensorflow=2.8.1
 - tensorboard
+- protobuf=3.20
 - toolz=0.11.2
 - samtools
 - pysam=0.19.1

@@ -16,6 +16,7 @@ install_reqs = [
     'snakemake==5.31.1',
     'tables',
     'pysam==0.19.1',
+    'protobuf==3.20',
     'tensorflow==2.8.1',
     'tensorboard<2.9.0',
     'scikit-learn==1.1.1',
