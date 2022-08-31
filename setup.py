@@ -6,6 +6,7 @@ import numpy
 
 # dependencies
 install_reqs = [
+    'python==3.9',
     'cmake>=3.13',
     'ipython',
     'keras==2.8.0',

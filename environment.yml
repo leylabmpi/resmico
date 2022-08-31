@@ -4,9 +4,10 @@ channels:
 - bioconda
 dependencies:
 - pip
+- python=3.9
+- ipython
 - cmake>=3.13
 - cython=0.29.30
-- ipython
 - keras=2.8.0
 - pandas=1.4.2
 - pathos=0.2.9
