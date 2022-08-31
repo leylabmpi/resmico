@@ -164,7 +164,7 @@ tar -pzxvf UHGG-n9_bam2feat.tar.gz && rm -f UHGG-n9_bam2feat.*
 
 ## Convert BAM files to feature tables
 
-Create a feature table for each BAM file:
+Create a feature table for each sorted BAM file:
 
 ```
 resmico bam2feat --outdir features UHGG-n9_bam2feat/map.tsv
@@ -173,8 +173,6 @@ resmico bam2feat --outdir features UHGG-n9_bam2feat/map.tsv
 > Note: the parameters are the same as used for creating
 the "default" model from Mineeva et al., 2022, which is 
 critical for getting accurate predictions.
-
-> Note: bam2feat will sort and index the bam file(s)
 
 ## Predict misassemblies
 

@@ -212,11 +212,16 @@ def _run_bam2feat(x, exe, outdir, tmpdir, args):
     # index bam
     bam_bai = index_bam(bam_sub, exe['samtools'], args.n_threads)
     # bam2feat
-    outdir_feat = os.path.join(outdir, x[2], x[3])
+    if args.outdir_flat:
+        outdir_feat = outdir
+    else:
+        outdir_feat = os.path.join(outdir, x[2], x[3])
     if not os.path.isdir(outdir_feat):
         os.makedirs(outdir_feat)
+    logging.info(f'Outdir: {outdir_feat}')
     bam2feat(bam_sub, ref_tmp, outdir_feat, exe['bam2feat'], args)
     # clean up
+    logging.info(f'Cleaning up Temp Dir: {tmpdir}')
     shutil.rmtree(tmpdir, ignore_errors=True)
     return [x[3], x[2], outdir_feat]
     
