@@ -34,6 +34,8 @@ def parse_args(test_args=None, subparsers=None):
                         'The contig names must match those in the prediction_table')
     parser.add_argument('--outdir', default='resmico-filter', type=str, 
                         help='Output directory (default: %(default)s)')
+    parser.add_argument('--outfile', default=None, type=str, 
+                        help='Output file name. If None, then the input file name will be used (default: %(default)s)')
     parser.add_argument('--score-cutoff', default=0.8, type=float, 
                         help='Prediction score cutoff for filtering: >=[score] will be filtered'
                         ' (default: %(default)s)')

@@ -110,12 +110,15 @@ def parse_fasta_list(fasta_list):
     return fasta_files
 
 def _filter_fasta(fasta_file, predictions, outdir, pred_score_cutoff, add_score=False,
-                  error_on_missing=False, min_length=0, max_length=0):
+                  error_on_missing=False, min_length=0, max_length=0, outfile=None):
     """
     Filtering fasta based on contig prediction scores
     """    
     logging.info(f'Filtering fasta: {fasta_file}')
-    outfile = os.path.join(outdir, os.path.split(fasta_file)[1])
+    if outfile is None:
+        outfile = os.path.join(outdir, os.path.split(fasta_file)[1])
+    else:
+        outfile = os.path.join(outdir, os.path.split(outfile)[1])
     if outfile == fasta_file:
         msg = 'Input path cannot equal output path: {} <=> {}'
         raise ValueError(msg.format(fasta_file, outfile))
@@ -189,7 +192,7 @@ def set_logger(level):
         
 def filter_fasta(fasta_files, predictions, outdir, pred_score_cutoff,
                  add_score=False, error_on_missing=False,
-                 min_length=0, max_length=0, n_proc=1):
+                 min_length=0, max_length=0, n_proc=1, outfile=None):
     """
     Filter >=1 fasta based on prediction scores
     """
@@ -202,7 +205,8 @@ def filter_fasta(fasta_files, predictions, outdir, pred_score_cutoff,
                    add_score = add_score,
                    error_on_missing = error_on_missing,
                    min_length = min_length,
-                   max_length = max_length)
+                   max_length = max_length,
+                   outfile = outfile)
     if n_proc < 2:
         res = map(func, fasta_files)
     else:
@@ -226,7 +230,7 @@ def main(args):
     # fasta filter
     filter_fasta(args.fasta, predictions, args.outdir, args.score_cutoff,
                  args.add_score, args.error_on_missing, args.min_length,
-                 args.max_length, args.n_proc)
+                 args.max_length, args.n_proc, args.outfile)
 
 if __name__ == '__main__':
     pass
