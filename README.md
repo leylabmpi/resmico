@@ -54,19 +54,15 @@ If using ResMiCo in your work, please cite:
 
 # Installation
 
-It is possible to install this project using `pip`:
+Currently, please use `pip` to install, but install the dependencies via mamba (or conda):
 
 ```bash
+mamba env create -n resmico_env -f $RESMICO_BASE_DIR/environment.yml
+mamba activate resmico_env
 pip install resmico
 ```
 
-or `mamba` (or `conda`), using the ``bioconda`` channel:
-
-```bash
-mamba install -c bioconda resmico
-```
-
-> WARNING: the bioconda recipe is currently set to an old version of
+> WARNING: the resmico bioconda recipe is currently set to an old version of
 resmico. That old version does not match the current user interface
 (e.g., lacks `resmico bam2feat`). So, we do not recommend using
 the bioconda recipe for installing resmico at this time.
