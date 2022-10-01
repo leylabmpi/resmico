@@ -4,30 +4,7 @@
 
 # Table of Contents
 
-- [Introduction](#introduction)
-- [Citation](#citation)
-- [Installation](#installation)
-  * [Running the ResMiCo package tests](#running-the-resmico-package-tests)
-- [General usage](#general-usage)
-  * [ResMiCo-SM snakemake pipeline](#resmico-sm-snakemake-pipeline)
-  * [ResMiCo package](#resmico-package)
-    + [Creating feature tables](#creating-feature-tables)
-    + [Predicting with existing model](#predicting-with-existing-model)
-    + [Filtering out misassembled contigs](#filtering-out-misassembled-contigs)
-    + [Training a new model](#training-a-new-model)
-- [Example 1: predicting misassemblies with the "default" model](#example-1--predicting-misassemblies-with-the--default--model)
-  * [Working directory](#working-directory)
-  * [Get the example dataset](#get-the-example-dataset)
-  * [Convert BAM files to feature tables](#convert-bam-files-to-feature-tables)
-  * [Predict misassemblies](#predict-misassemblies)
-  * [Filter contigs](#filter-contigs)
-- [Example2: Training & using a new model](#example2--training---using-a-new-model)
-  * [Working directory](#working-directory-1)
-  * [Get the example dataset](#get-the-example-dataset-1)
-  * [Filter out contigs predicted to be misassembled](#filter-out-contigs-predicted-to-be-misassembled)
-  * [Training on the example train data](#training-on-the-example-train-data)
-  * [Predict using the "default" model](#predict-using-the--default--model)
-- [Tutorials](#tutorials)
+Use the automatically generated TOC (top-left button in GitHub).
 
 # Introduction
 
@@ -265,3 +242,25 @@ resmico evaluate --n-procs 4 \
 # Tutorials
 
 See the [wiki](https://github.com/leylabmpi/ResMiCo/wiki)
+
+# Notes
+
+## Benchmarking 
+
+### Model evaluation
+
+Benchmarking `resmico evaluate` on the `CAMI2-gut` dataset:
+
+* One GPU (NVIDIA RTX A5000): 108 +/- 0.7 contigs per second
+* One CPU (AMD Epyc): 38.7 +/- 10.3 contigs per second
+
+CAMI2-gut metagenome assembly stats:
+
+* No. of metagemes: 10 
+* No. of contigs per sample (1000's): 18 +/- 6.4
+* Avg. contig length (kbp): 4.1 +/- 0.9
+
+### Training 
+
+> We highly recommend using multiple GPUs for model training on large datasets, as done in the ResMiCo paper.
+  Training on CPUs with such large datasets is not feasbile.
