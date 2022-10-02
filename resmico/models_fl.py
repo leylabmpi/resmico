@@ -670,7 +670,7 @@ class BinaryDatasetTrain(BinaryDataset):
 class BinaryDatasetEval(BinaryDataset):
     def __init__(self, reader: ContigReader, indices: List[int], feature_names: List[str], window: int, step: int,
                  total_memory_bytes: int, cache_results: bool, show_progress: bool, convoluted_size,
-                 pad_to_max_len: bool, batch_size: int):
+                 pad_to_max_len: bool, batch_size=300: int):
 
         """
         Arguments:
