@@ -4,30 +4,7 @@
 
 # Table of Contents
 
-- [Introduction](#introduction)
-- [Citation](#citation)
-- [Installation](#installation)
-  * [Running the ResMiCo package tests](#running-the-resmico-package-tests)
-- [General usage](#general-usage)
-  * [ResMiCo-SM snakemake pipeline](#resmico-sm-snakemake-pipeline)
-  * [ResMiCo package](#resmico-package)
-    + [Creating feature tables](#creating-feature-tables)
-    + [Predicting with existing model](#predicting-with-existing-model)
-    + [Filtering out misassembled contigs](#filtering-out-misassembled-contigs)
-    + [Training a new model](#training-a-new-model)
-- [Example 1: predicting misassemblies with the "default" model](#example-1--predicting-misassemblies-with-the--default--model)
-  * [Working directory](#working-directory)
-  * [Get the example dataset](#get-the-example-dataset)
-  * [Convert BAM files to feature tables](#convert-bam-files-to-feature-tables)
-  * [Predict misassemblies](#predict-misassemblies)
-  * [Filter contigs](#filter-contigs)
-- [Example2: Training & using a new model](#example2--training---using-a-new-model)
-  * [Working directory](#working-directory-1)
-  * [Get the example dataset](#get-the-example-dataset-1)
-  * [Filter out contigs predicted to be misassembled](#filter-out-contigs-predicted-to-be-misassembled)
-  * [Training on the example train data](#training-on-the-example-train-data)
-  * [Predict using the "default" model](#predict-using-the--default--model)
-- [Tutorials](#tutorials)
+Use the automatically generated TOC (top-left button in GitHub).
 
 # Introduction
 
@@ -54,19 +31,15 @@ If using ResMiCo in your work, please cite:
 
 # Installation
 
-It is possible to install this project using `pip`:
+Currently, please use `pip` to install, but install the dependencies via mamba (or conda):
 
 ```bash
+mamba env create -n resmico_env -f $RESMICO_BASE_DIR/environment.yml
+mamba activate resmico_env
 pip install resmico
 ```
 
-or `mamba` (or `conda`), using the ``bioconda`` channel:
-
-```bash
-mamba install -c bioconda resmico
-```
-
-> WARNING: the bioconda recipe is currently set to an old version of
+> WARNING: the resmico bioconda recipe is currently set to an old version of
 resmico. That old version does not match the current user interface
 (e.g., lacks `resmico bam2feat`). So, we do not recommend using
 the bioconda recipe for installing resmico at this time.
@@ -143,7 +116,16 @@ MAG contigs.
 
 So, the input consists of fasta files (contigs) and BAM files (mapped reads).
 
-A simple tab-delimited table is used to map the fastsa & BAM files.
+A simple tab-delimited table is used to map the fasta & BAM files.
+
+**Map file format:**
+
+    * A tab-delim table with the columns (any order is allowed): 
+      * `Taxon` => name associated with the fasta file of contigs
+      * `Fasta` => path to the fasta file of contigs
+      * `Sample` => name associated with the BAM file 
+      * `BAM` => path to the BAM file of reads mapped to the contigs in `Fasta`
+
 See the `map.tsv` file for an example.
 
 ```
@@ -155,7 +137,7 @@ tar -pzxvf UHGG-n9_bam2feat.tar.gz && rm -f UHGG-n9_bam2feat.*
 
 ## Convert BAM files to feature tables
 
-Create a feature table for each BAM file:
+Create a feature table for each sorted BAM file:
 
 ```
 resmico bam2feat --outdir features UHGG-n9_bam2feat/map.tsv
@@ -260,3 +242,25 @@ resmico evaluate --n-procs 4 \
 # Tutorials
 
 See the [wiki](https://github.com/leylabmpi/ResMiCo/wiki)
+
+# Notes
+
+## Benchmarking 
+
+### Model evaluation
+
+Benchmarking `resmico evaluate` on the `CAMI2-gut` dataset:
+
+* One GPU (NVIDIA RTX A5000): 108 +/- 0.7 contigs per second
+* One CPU (AMD Epyc): 38.7 +/- 10.3 contigs per second
+
+CAMI2-gut metagenome assembly stats:
+
+* No. of metagemes: 10 
+* No. of contigs per sample (1000's): 18 +/- 6.4
+* Avg. contig length (kbp): 4.1 +/- 0.9
+
+### Training 
+
+> We highly recommend using multiple GPUs for model training on large datasets, as done in the ResMiCo paper.
+  Training on CPUs with such large datasets is not feasbile.

@@ -182,7 +182,7 @@ class ContigReader:
                  feature_file_match: str = ''):
         """
         Arguments:
-            - input_dir: location on disk where the feature data is stored
+            - input_dirs: location on disk where the feature data is stored
             - feature_names: feature names to use in training
             - process_count: number of processes to use for loading data in parallel
             - no_cython: whether to read data from disk using pure Python or using Cython bindings
@@ -230,7 +230,10 @@ class ContigReader:
         else:
             logging.info('Looking for stats/toc files...')
             for input_dir in input_dirs.split(','):
-                fl = list(glob(input_dir + '/**/stats', recursive=True))
+                fl = list(glob(os.path.join(input_dir, '**/stats'), recursive=True))
+                fx = os.path.join(input_dir, 'stats')
+                if os.path.isfile(fx) and not fx in fl:
+                    fl.append(fx)
                 if feature_file_match:
                     count = len(fl)
                     fl = [f for f in fl if feature_file_match in f]

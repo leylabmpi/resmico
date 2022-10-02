@@ -13,7 +13,7 @@ def add_common_args(parser: argparse.ArgumentParser):
                            '2 options are available:\n'
                            '  1) Provide the base path, and subdirectories will be searched.\n'
                            '  2) Provide a file that lists all stats files.\n'
-                           '     Note: assocaited files (eg., toc files) must be in the same directories.\n')
+                           '     Note: associated files (eg., toc files) must be in the same directories.\n')
     parser_g1.add_argument('--feature-file-match', default='', type=str,
                            help='String that paths to feature files must match.\n'
                            'Example: use "0.005" to select file paths containing "0.005".\n'

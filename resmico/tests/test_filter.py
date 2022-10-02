@@ -31,3 +31,13 @@ def test_filter_list(tmpdir, script_runner):
                             pred_file, contig_files)
     assert ret.success, ret.print()
 
+def test_filter_outfile(tmpdir, script_runner):
+    save_path = tmpdir.mkdir('save_dir')
+    pred_file = os.path.join(data_dir, 'UHGG-n9', 'resmico_predictions.csv')
+    contig_files = os.path.join(data_dir, 'UHGG-n9', 'contig_files.txt')
+    ret = script_runner.run('resmico', 'filter',
+                            '--score-cutoff', '0.02',
+                            '--outdir', str(save_path),
+                            '--outfile', 'contigs-filtered.fna',
+                            pred_file, contig_files)
+    assert ret.success, ret.print()

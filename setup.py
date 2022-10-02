@@ -8,16 +8,19 @@ import numpy
 install_reqs = [
     'cmake>=3.13',
     'ipython',
-    'keras',
+    'keras==2.8.0',
     'numpy>=1.17.0',
-    'pandas',
-    'pathos',
-    'pytest',
-    'snakemake>=5.31.1',
+    'pandas==1.4.2',
+    'pathos==0.2.9',
+    'pytest==7.1.2',
+    'snakemake==5.31.1',
     'tables',
-    'tensorflow',
+    'pysam==0.19.1',
+    'protobuf==3.20',
+    'tensorflow==2.8.1',
     'tensorboard<2.9.0',
-    'toolz',
+    'scikit-learn==1.1.1',
+    'toolz==0.11.2'
 ]
 
 compile_args = ['-std=c++11']
@@ -51,7 +54,7 @@ class get_numpy_include(object):
 desc = 'Increasing the quality of metagenome-assembled genomes with deep learning'
 setup(
     name='resmico',
-    version='1.1.0',
+    version='1.1.1',
     description=desc,
     long_description=desc + '\n See README for more information.',
     author='Nick Youngblut, Olga Mineeva, Daniel Danciu',
