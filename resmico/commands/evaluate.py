@@ -33,7 +33,7 @@ def parse_args(test_args=None, subparsers=None):
     parser_g1 = parser.add_argument_group('Evaluation-specific arguments')
     parser_g1.add_argument('--model', default=pkg_model, type=str,
                         help='Location of the saved deep learning model (default: %(default)s)')
-    parser_g1.add_argument('--batch-size', default=100, type=int,
+    parser_g1.add_argument('--batch-size', default=300, type=int,
                         help='Batch size (default: %(default)s)')
     parser_g1.add_argument('--embeddings', action='store_true', default=False,
                         help='Produce embeddings for an intermidiate layer (default: %(default)s)')

@@ -11,14 +11,21 @@ from collections import defaultdict
 import multiprocessing as mp
 import tables
 import pathos
+import time
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import average_precision_score
+from sklearn.metrics import average_precision_score, recall_score
+from sklearn.model_selection import train_test_split
+from sklearn.isotonic import IsotonicRegression
 from tensorflow.keras import backend as K
+import tensorflow as tf
 from tensorflow.keras.callbacks import Callback
 from tensorflow.keras.layers import Conv1D, ReLU, BatchNormalization, Add, Cropping1D, AveragePooling1D
 from tensorflow.keras.layers import Masking, LayerNormalization, MultiHeadAttention, Dropout
+
+from resmico import contig_reader
+from resmico import models_fl as Models
 
 def class_recall_0(y_true, y_pred):
     label = 0
@@ -266,3 +273,134 @@ def sma(arr, window_size=2):
         moving_averages.append(window_average)
         i += 1
     return moving_averages
+
+def prob_score_aggr(arr):
+    arr = np.array(arr)
+    arr = 1-arr
+    return 1 - np.prod(arr)
+
+def calib_prob_score_aggr(scores, model):  
+    return prob_score_aggr(model.predict(scores))
+
+def test_calibprob_vc_max(model: tf.keras.Model, num_gpus: int, args):
+    start = time.time()
+
+    is_fixed_length = model.layers[0].input_shape[0][1] is not None  
+    convoluted_size = Models.construct_convolution_lambda(model)
+#     else:  # when not padding, the convoluted size is unused
+#         convoluted_size = lambda len, pad: 0
+
+    logging.info('Loading contig data...')
+    reader = contig_reader.ContigReader(args.feature_files_path, args.features, args.n_procs,
+                                        args.no_cython, args.stats_file, args.min_contig_len,
+                                        min_avg_coverage=args.min_avg_coverage)
+
+    if args.val_ind_f:
+        eval_idx = list(pd.read_csv(args.val_ind_f)['val_ind'])
+        logging.info(f'Using {len(eval_idx)} indices in {args.val_ind_f} for prediction')
+    else:
+        logging.info('Should be done on the validation set')
+
+    #split into validation and calibration
+    calib_idx, eval_idx = train_test_split(eval_idx, test_size=0.5, random_state=args.seed)
+    #for calibration part filter < 20k length
+    short_calib = []
+    for ind in calib_idx:
+        if reader.contigs[ind].length < 20000:
+             short_calib.append(ind)
+    calib_idx = short_calib
+
+    
+    #create predictions
+    calib_data = Models.BinaryDatasetEval(reader, calib_idx, args.features, args.max_len, max(250, args.max_len), 
+                                        int(args.gpu_eval_mem_gb * 1e9 * 0.8), cache_results=False,
+                                        show_progress=True, convoluted_size=convoluted_size,
+                                        pad_to_max_len=is_fixed_length, batch_size=args.batch_size)
+    calib_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in calib_data.indices])
+    data_iter = lambda: (s for s in calib_data)
+    calib_data_tf = tf.data.Dataset.from_generator(
+        data_iter,
+        output_signature=(
+            (tf.TensorSpec(shape=(None, None, len(calib_data.expanded_feature_names)), dtype=tf.float32),
+             tf.TensorSpec(shape=(None, None), dtype=tf.bool)),
+            tf.TensorSpec(shape=(None), dtype=tf.bool)
+        ))
+
+    calib_data_tf = calib_data_tf.prefetch(4 * num_gpus)
+    options = tf.data.Options()
+    options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
+    calib_data_tf = calib_data_tf.with_options(options)  # avoids Tensorflow ugly console barf
+    calib_data_flat_y = model.predict(x=calib_data_tf,
+                                     workers=args.n_procs,
+                                     use_multiprocessing=True,
+                                     max_queue_size=max(args.n_procs, 10),
+                                     verbose=0)
+    calib_data_predicted_score = calib_data.group(calib_data_flat_y, max) #it is anyway only one score
+    auc_calib = average_precision_score(calib_data_y, calib_data_predicted_score)
+    recall1_calib = recall_score(calib_data_y, calib_data_predicted_score > 0.5, pos_label=1)
+    recall0_calib = recall_score(calib_data_y, calib_data_predicted_score > 0.5, pos_label=0)
+    logging.info(f'Prediction scores for calib: aucPR: {auc_calib} - recall1: {recall1_calib} - recall0: {recall0_calib}')
+    
+    #fit isotonic regression
+    iso_reg = IsotonicRegression(y_min=0, y_max=1, out_of_bounds='clip').fit(calib_data_predicted_score, calib_data_y)
+    
+    #for valid part predict with normal model
+    predict_data = Models.BinaryDatasetEval(reader, eval_idx, args.features, args.max_len, max(250, args.max_len), 
+                                            int(args.gpu_eval_mem_gb * 1e9 * 0.8), cache_results=False,
+                                            show_progress=True, convoluted_size=convoluted_size,
+                                            pad_to_max_len=is_fixed_length, batch_size=args.batch_size)
+
+    eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in predict_data.indices])
+    # convert the slow Keras predict_data of type Sequence to a tf.data object
+    data_iter = lambda: (s for s in predict_data)
+    predict_data_tf = tf.data.Dataset.from_generator(
+        data_iter,
+        output_signature=(
+            # first dimension is batch size, second is contig length, third is number of features
+            (tf.TensorSpec(shape=(None, None, len(predict_data.expanded_feature_names)), dtype=tf.float32),
+             # first dimension is batch size, second is contig length (no third dimension,
+             # as all features are masked the same way)
+             tf.TensorSpec(shape=(None, None), dtype=tf.bool)),
+            tf.TensorSpec(shape=(None), dtype=tf.bool)
+        ))
+    predict_data_tf = predict_data_tf.prefetch(4 * num_gpus)
+    options = tf.data.Options()
+    options.experimental_distribute.auto_shard_policy = tf.data.experimental.AutoShardPolicy.DATA
+    predict_data_tf = predict_data_tf.with_options(options)  # avoids Tensorflow ugly console barf
+    eval_data_flat_y = model.predict(x=predict_data_tf,
+                                     workers=args.n_procs,
+                                     use_multiprocessing=True,
+                                     max_queue_size=max(args.n_procs, 10),
+                                     verbose=0)
+    #aggregate with max
+    eval_data_predicted_max = predict_data.group(eval_data_flat_y, max)
+    auc_val = average_precision_score(eval_data_y, eval_data_predicted_max)
+    recall1_val = recall_score(eval_data_y, eval_data_predicted_max > 0.5, pos_label=1)
+    recall0_val = recall_score(eval_data_y, eval_data_predicted_max > 0.5, pos_label=0)
+    logging.info(f'Eval data with max: aucPR: {auc_val} - recall1: {recall1_val} - recall0: {recall0_val}')
+    
+    #aggregate with isotonic + prob
+    eval_data_calib_prob = predict_data.group(eval_data_flat_y, 'calib_prob', model=iso_reg)
+    auc_calib_prob = average_precision_score(eval_data_y, eval_data_calib_prob)
+    recall1_calib_prob = recall_score(eval_data_y, eval_data_calib_prob > 0.5, pos_label=1)
+    recall0_calib_prob = recall_score(eval_data_y, eval_data_calib_prob > 0.5, pos_label=0)
+    logging.info(f'Eval data with calib_prob: aucPR: {auc_calib_prob} - recall1: {recall1_calib_prob} - recall0: {recall0_calib_prob}')
+    
+    duration = time.time() - start
+    logging.info(f'Prediction done in {duration:.0f}s.')
+
+    # saving output
+    if not os.path.isdir(args.save_path):
+        os.makedirs(args.save_path)
+    out_file = os.path.join(args.save_path, args.save_name + '.csv')    
+   
+
+    with open(out_file, 'w') as outF:
+        outF.write('cont_name,length,label,calib_prob,max\n')
+        for idx in range(len(eval_idx)):
+            contig = reader.contigs[predict_data.indices[idx]]
+            outF.write(f'{os.path.join(os.path.dirname(contig.file), contig.name)},{contig.length},'
+                       f'{contig.misassembly},{eval_data_calib_prob[idx]},'
+                       f'{eval_data_predicted_max[idx]}\n')
+
+    logging.info(f'Predictions saved to: {out_file}')

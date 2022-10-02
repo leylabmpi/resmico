@@ -41,10 +41,10 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
         logging.info(f'Using all indices for prediction')
         eval_idx = np.arange(len(reader))
 
-    predict_data = Models.BinaryDatasetEval(reader, eval_idx, args.features, args.max_len, max(250, args.max_len - 500),
+    predict_data = Models.BinaryDatasetEval(reader, eval_idx, args.features, args.max_len, max(250, args.max_len-500), 
                                             int(args.gpu_eval_mem_gb * 1e9 * 0.8), cache_results=False,
                                             show_progress=True, convoluted_size=convoluted_size,
-                                            pad_to_max_len=is_fixed_length)
+                                            pad_to_max_len=is_fixed_length, batch_size=args.batch_size)
 
     eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in predict_data.indices])
 
@@ -76,7 +76,7 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
     eval_data_predicted_mean = predict_data.group(eval_data_flat_y, np.mean)
     eval_data_predicted_std = predict_data.group(eval_data_flat_y, np.std)
     eval_data_predicted_max = predict_data.group(eval_data_flat_y, max)
-    eval_data_predicted_score = predict_data.group(eval_data_flat_y, max) #'sma'
+    eval_data_predicted_score = predict_data.group(eval_data_flat_y, max) #'sma' 'prob'
 
     auc_val = average_precision_score(eval_data_y, eval_data_predicted_score)
     recall1_val = recall_score(eval_data_y, eval_data_predicted_score > 0.5, pos_label=1)
@@ -170,8 +170,9 @@ def main(args):
     logging.info('Model loaded')
     # predict
     predict_bin_data(model, strategy.num_replicas_in_sync, args)
+#     utils.test_calibprob_vc_max(model, strategy.num_replicas_in_sync, args)
     # exit
-    atexit.register(strategy._extended._collective_ops._pool.close)
+#     atexit.register(strategy._extended._collective_ops._pool.close)
 
 
 if __name__ == '__main__':

@@ -97,7 +97,8 @@ def main(args):
     np.seterr(all='raise')
     eval_data = Models.BinaryDatasetEval(reader, eval_idx, args.features, args.max_len, args.max_len-500,
                                          int(args.gpu_eval_mem_gb * 1e9 * 0.8), args.cache_validation or args.cache,
-                                         args.log_progress, resmico.convoluted_size, resmico.fixed_length)
+                                         args.log_progress, resmico.convoluted_size, 
+                                         resmico.fixed_length, batch_size=args.batch_size)
 
     eval_data_y = np.array([0 if reader.contigs[idx].misassembly == 0 else 1 for idx in eval_data.indices])
 
@@ -130,7 +131,7 @@ def main(args):
                         workers=args.n_procs,
                         use_multiprocessing=True,
                         max_queue_size=max(args.n_procs, 10),
-                        callbacks=[tb_logs],
+#                         callbacks=[tb_logs],
                         verbose=2)
 
         duration = time.time() - start

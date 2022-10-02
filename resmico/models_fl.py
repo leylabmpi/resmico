@@ -670,7 +670,7 @@ class BinaryDatasetTrain(BinaryDataset):
 class BinaryDatasetEval(BinaryDataset):
     def __init__(self, reader: ContigReader, indices: List[int], feature_names: List[str], window: int, step: int,
                  total_memory_bytes: int, cache_results: bool, show_progress: bool, convoluted_size,
-                 pad_to_max_len: bool):
+                 pad_to_max_len: bool, batch_size: int):
 
         """
         Arguments:
@@ -696,7 +696,8 @@ class BinaryDatasetEval(BinaryDataset):
         # creates batches of contigs such that the total memory used by features in each batch is < total_memory_bytes
         # chunk_counts[batch_count][idx] represents the number of chunks for the contig number #idx
         # in the batch #batch_count
-        self.batch_list, self.chunk_counts = self._create_batch_list(reader.contigs, self.indices, total_memory_bytes)
+        self.batch_list, self.chunk_counts = self._create_batch_list(reader.contigs, self.indices, 
+                                                                     total_memory_bytes, batch_size)
 
         # flattened ground truth for each eval contig
         self.y = [0 if self.reader.contigs[i].misassembly == 0 else 1 for b in self.batch_list for i in b]
@@ -706,7 +707,8 @@ class BinaryDatasetEval(BinaryDataset):
         if cache_results:
             self.data = [None] * len(self.batch_list)
 
-    def _create_batch_list(self, contig_data: List[ContigInfo], indices: List[int], total_memory_bytes: int):
+    def _create_batch_list(self, contig_data: List[ContigInfo], indices: List[int], 
+                           total_memory_bytes: int, batch_size: int):
         """ Divide the validation indices into mini-batches of total size < #total_memory_bytes """
         # there seems to be an overhead for each position; 10 is just a guess to avoid running out of memory
         # on the GPU
@@ -723,7 +725,7 @@ class BinaryDatasetEval(BinaryDataset):
             curr_chunk_count = 1 + max(0, math.ceil((contig_len - self.window) / self.step))
             batch_chunk_count += curr_chunk_count
             # check if the new contig still fits in memory; create a new batch if not
-            if len(current_indices) > 300 or current_indices and batch_chunk_count * self.window * bytes_per_base > total_memory_bytes:
+            if len(current_indices) > batch_size or current_indices and batch_chunk_count * self.window * bytes_per_base > total_memory_bytes:
                 logging.debug(f'Added {len(counts)} contigs with {sum(counts)} chunks to evaluation batch')
                 batch_list.append(current_indices)
                 current_indices = []
@@ -738,7 +740,7 @@ class BinaryDatasetEval(BinaryDataset):
 
         return batch_list, chunk_counts
 
-    def group(self, y, method=max):
+    def group(self, y, method=max, model=None):
         """
         Groups results for contigs chunked into multiple windows (because they were too long)
         by selecting the maximum value for each window
@@ -765,11 +767,15 @@ class BinaryDatasetEval(BinaryDataset):
         for batch in self.chunk_counts:
             for chunk_count in batch:
                 scores = y[j:j + chunk_count]
-                if method=='arr':
+                if method == 'arr':
                     grouped_y.append(scores.reshape(-1))
-                elif method=='sma':
-                    scores=utils.sma(scores, 2)
+                elif method == 'sma':
+                    scores = utils.sma(scores, 2)
                     grouped_y[i] = max(scores)
+                elif method == 'prob':
+                    grouped_y[i] = utils.prob_score_aggr(scores)
+                elif method == 'calib_prob':
+                    grouped_y[i] = utils.calib_prob_score_aggr(scores, model)
                 else:
                     grouped_y[i] = method(scores)
                 i += 1
