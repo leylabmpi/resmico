@@ -270,7 +270,6 @@ def write_feat_table(feat_files, outdir):
 
 
 def main(args):
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s', )
     logging.info('Starting bam2feat...')
     # check that bam2feat is available
     exe = {'bam2feat': resource_filename('resmico', 'bam2feat'),
@@ -290,4 +289,4 @@ def main(args):
 
 
 if __name__ == '__main__':
-    main()
+    pass
