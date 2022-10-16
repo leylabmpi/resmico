@@ -110,6 +110,9 @@ std::vector<Stats> pileup_bam(const std::string &reference,
         if (al.RefID != ref_id) {
             return result; // all data for the given contig was processed
         }
+        if (!al.IsMapped()) {
+            continue;
+        }
 
         al.BuildCharData();
 
@@ -199,7 +202,7 @@ std::vector<Stats> pileup_bam(const std::string &reference,
                 char tp;
                 al.GetTagType(("AS"), tp);
                 bool succ = false;
-                switch(tp) {
+                switch (tp) {
                     case 'c':
                         int8_t al_score;
                         succ = al.GetTag("AS", al_score);

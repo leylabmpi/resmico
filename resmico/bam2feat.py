@@ -1,8 +1,4 @@
-# import
-## batteries
 import os
-import re
-import sys
 import bz2
 import gzip
 import shutil
@@ -12,23 +8,23 @@ import multiprocessing as mp
 from pkg_resources import resource_filename
 from functools import partial
 from distutils.spawn import find_executable
-from subprocess import Popen, PIPE, CalledProcessError
-## 3rd party
+from subprocess import Popen, PIPE
+
 import pysam
-## package
+
 from resmico import utils
+
 
 # functions
 def _open(infile, mode='rb'):
-    """
-    Openning of input, regardless of compression
-    """
+    """Openning of input, regardless of compression."""
     if infile.endswith('.bz2'):
         return bz2.open(infile, mode)
     elif infile.endswith('.gz'):
         return gzip.open(infile, mode)
     else:
         return open(infile)
+
 
 def _decode(x):
     """
@@ -39,6 +35,7 @@ def _decode(x):
     except AttributeError:
         pass
     return x
+
 
 def file_exists(F, base_dir):
     """
@@ -52,16 +49,15 @@ def file_exists(F, base_dir):
             F = FF
     return F
 
+
 def parse_input(infile):
-    """
-    Parsing tab-delimited input table
-    """
+    """Parsing tab-delimited input table."""
     base_dir = os.path.split(infile)[0]
     header = dict()
     idx = []
     with open(infile) as inF:
-        for i,line in enumerate(inF):
-            line = line.rstrip().split('\t')                
+        for i, line in enumerate(inF):
+            line = line.rstrip().split('\t')
             if line[0] == '':
                 # blank line
                 continue
@@ -69,8 +65,8 @@ def parse_input(infile):
                 raise ValueError('The input table must have >=4 columns!')
             if i == 0:
                 # header
-                header = {x.lower():ii for ii,x in enumerate(line)}
-                for k,v in {'Fasta' : 'fasta', 'BAM' : 'bam'}.items():
+                header = {x.lower(): ii for ii, x in enumerate(line)}
+                for k, v in {'Fasta': 'fasta', 'BAM': 'bam'}.items():
                     try:
                         _ = header[v]
                     except KeyError:
@@ -83,7 +79,8 @@ def parse_input(infile):
             fasta = file_exists(line[header['fasta']], base_dir)
             bam = file_exists(line[header['bam']], base_dir)
             idx.append([bam, fasta, sample, taxon])
-    return idx            
+    return idx
+
 
 def run_cmd(cmd):
     """
@@ -101,7 +98,8 @@ def run_cmd(cmd):
             print(line)
         raise ValueError('Return code: {}'.format(rc))
     return rc
-    
+
+
 def uncomp_ref(fasta_file, tmpdir):
     """
     Uncompressing reference genome (if needed)
@@ -113,6 +111,7 @@ def uncomp_ref(fasta_file, tmpdir):
             outF.write(_decode(line))
     return outfile
 
+
 def faidx_ref(fasta_file, exe):
     """
     Indexing a reference via `samtools faidx`
@@ -123,8 +122,10 @@ def faidx_ref(fasta_file, exe):
     run_cmd(cmd)
     return outfile
 
+
 def get_basename(F):
     return os.path.splitext(os.path.split(F)[1])[0]
+
 
 def index_bam(bam_file, exe, n_threads):
     """
@@ -133,6 +134,7 @@ def index_bam(bam_file, exe, n_threads):
     cmd = [exe, 'index', '-@', n_threads, bam_file]
     run_cmd(cmd)
     return bam_file + '.bai'
+
 
 def sort_bam(bam_file, exe, tmpdir, n_threads):
     """
@@ -146,6 +148,7 @@ def sort_bam(bam_file, exe, tmpdir, n_threads):
     run_cmd(cmd)
     return outfile
 
+
 def subsample_bam(bam_file, fasta_file, tmpdir, max_coverage, max_insert_size=30000):
     """
     Subsample the per-contig coverage from the bam file
@@ -156,7 +159,7 @@ def subsample_bam(bam_file, fasta_file, tmpdir, max_coverage, max_insert_size=30
     output = pysam.AlignmentFile(outfile, 'wb', template=bam)
     # getting contig lengths
     logging.info('  Subsampling reads...')
-    contig_cov = {contig : 0 for contig in bam.references}
+    contig_cov = {contig: 0 for contig in bam.references}
     for contig in bam.references:
         logging.info(f'    Processing contig: {contig}')
         contig_len = len(fasta.fetch(contig))
@@ -172,9 +175,10 @@ def subsample_bam(bam_file, fasta_file, tmpdir, max_coverage, max_insert_size=30
             # keeping read & tracking added coverage
             contig_cov[read.reference_name] = contig_cov[read.reference_name] + added_cov
             output.write(read)
-        mean_cov = round(contig_cov[contig],2)
+        mean_cov = round(contig_cov[contig], 2)
         logging.info(f'    Final mean coverage: {mean_cov}')
     return outfile
+
 
 def bam2feat(bam_file, fasta_file, outdir, exe, args):
     """
@@ -185,6 +189,7 @@ def bam2feat(bam_file, fasta_file, outdir, exe, args):
            '--o', outdir, '--bam_file', bam_file, '--fasta_file', fasta_file]
     run_cmd(cmd)
     return outdir
+
 
 def _run_bam2feat(x, exe, outdir, tmpdir, args):
     """
@@ -224,11 +229,12 @@ def _run_bam2feat(x, exe, outdir, tmpdir, args):
     logging.info(f'Cleaning up Temp Dir: {tmpdir}')
     shutil.rmtree(tmpdir, ignore_errors=True)
     return [x[3], x[2], outdir_feat]
-    
+
+
 def run_bam2feat(bam_fasta, exe, args):
     """
     Main pipeline interface for bam2feat, including input file processing
-    """    
+    """
     # seed
     random.seed(args.seed)
     # outdir
@@ -249,6 +255,7 @@ def run_bam2feat(bam_fasta, exe, args):
         res = pool.map(func, bam_fasta)
     return [x for x in res]
 
+
 def write_feat_table(feat_files, outdir):
     """
     Writing tab-delim feature file table 
@@ -261,25 +268,26 @@ def write_feat_table(feat_files, outdir):
             outF.write('\t'.join(line) + '\n')
     logging.info(f'Feature file table written: {outfile}')
 
+
 def main(args):
-    """
-    Main interface
-    """
-    # check that bam2feat is availabe
-    exe = {'bam2feat' : resource_filename('resmico', 'bam2feat'),
-           'samtools' : 'samtools'}
-    for k,v in exe.items():
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s', )
+    logging.info('Starting bam2feat...')
+    # check that bam2feat is available
+    exe = {'bam2feat': resource_filename('resmico', 'bam2feat'),
+           'samtools': 'samtools'}
+    for k, v in exe.items():
         if find_executable(v) is None:
             raise OSError(f'Cannot find executable: {k}')
     # parse input table
+    logging.info(f'Parsing input table: {args.input_table}')
     bam_fasta = parse_input(args.input_table)
     # run bam2feat in parallel
     feat_files = run_bam2feat(bam_fasta, exe, args)
     # writing table
     write_feat_table(feat_files, args.outdir)
     # clean up
-    shutil.rmtree(args.tmpdir, ignore_errors=True)    
-    
+    shutil.rmtree(args.tmpdir, ignore_errors=True)
+
 
 if __name__ == '__main__':
-    pass
+    main()
