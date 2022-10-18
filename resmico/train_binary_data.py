@@ -131,7 +131,7 @@ def main(args):
                         workers=args.n_procs,
                         use_multiprocessing=True,
                         max_queue_size=max(args.n_procs, 10),
-#                         callbacks=[tb_logs],
+                        callbacks=[tb_logs],
                         verbose=2)
 
         duration = time.time() - start
