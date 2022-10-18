@@ -7,11 +7,13 @@ import atexit
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+from tensorflow.keras.models import load_model
 from tensorflow.keras import backend as K
 from sklearn.metrics import recall_score, average_precision_score
 
 from resmico import contig_reader
 from resmico import models_fl as Models
+from resmico import utils
 
 
 def main(args):
@@ -34,6 +36,13 @@ def main(args):
 
     with strategy.scope():
         resmico = Models.Resmico(args)
+        if os.path.exists(args.model_checkpoint):
+            logging.info(f'Loading model: {args.model_checkpoint}')
+#             custom_obj = {'class_recall_0': utils.class_recall_0, 'class_recall_1': utils.class_recall_1,
+#                   'GlobalMaskedMaxPooling1D': Models.GlobalMaskedMaxPooling1D}
+            resmico.net.load_weights(args.model_checkpoint)
+            logging.info('Model loaded')
+            
     resmico.print_summary()
 
     # tensorboard logs
@@ -131,7 +140,7 @@ def main(args):
                         workers=args.n_procs,
                         use_multiprocessing=True,
                         max_queue_size=max(args.n_procs, 10),
-                        callbacks=[tb_logs],
+#                         callbacks=[tb_logs],
                         verbose=2)
 
         duration = time.time() - start

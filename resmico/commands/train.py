@@ -58,6 +58,8 @@ def parse_args(curr_args=None, subparsers=None):
     parser_g1.add_argument('--weight-factor', default=0, type=int,
                            help='Factor by which contigs are weighted based on their length (default: %(default)s).\n'
                            'w = min(1, contig_len/weight-factor). 0==no weighting')
+    parser_g1.add_argument('--model-checkpoint', default='', type=str,
+                           help='Path to the trained model to continue the training')
 
     arguments.add_common_args(parser)
 
