@@ -101,7 +101,13 @@ std::vector<Stats> pileup_bam(const std::string &reference,
     }
 
     uint32_t contig_len = reader.GetReferenceData()[ref_id].RefLength;
-    assert(contig_len == reference.size());
+    if (contig_len != reference.size()) {
+        logger()->error(
+                "Invalid data for contig {}. The BAM file claims the reference length is "
+                "{}, but the actual length in the fasta file is {}",
+                reference_name, contig_len, reference.size());
+        std::exit(1);
+    }
     std::vector<Stats> result(contig_len);
 
     // iterate through all alignments, only keeping ones with high map quality
