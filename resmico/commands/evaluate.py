@@ -37,6 +37,8 @@ def parse_args(test_args=None, subparsers=None):
                         help='Batch size (default: %(default)s)')
     parser_g1.add_argument('--embeddings', action='store_true', default=False,
                         help='Produce embeddings for an intermidiate layer (default: %(default)s)')
+    parser_g1.add_argument('--emb-num', default=10000, type=int,
+                        help='Number of randomly selected contigs (default: %(default)s)')
     parser_g1.add_argument('--emb-ind', default=0, type=int,
                         help='Layer index to produce embedding (default: %(default)s)')
     parser_g1.add_argument('--verify-insert-size', action='store_true', default=False,
