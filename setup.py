@@ -31,6 +31,9 @@ if platform.system() != 'Darwin':
 
 sourcefiles = ['resmico/reader.pyx', 'resmico/contig_reader.cpp']
 
+with open("README.md", 'r') as f:
+    long_description = f.read()
+
 extensions = [Extension('resmico.reader',
                         sourcefiles,
                         language="c++",
@@ -54,9 +57,10 @@ class get_numpy_include(object):
 desc = 'Increasing the quality of metagenome-assembled genomes with deep learning'
 setup(
     name='resmico',
-    version='1.1.1',
+    version='1.2.1',
     description=desc,
-    long_description=desc + '\n See README for more information.',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     author='Nick Youngblut, Olga Mineeva, Daniel Danciu',
     author_email='nyoungb2@gmail.com',
     entry_points={

@@ -2,10 +2,6 @@
 
 ![overview](https://user-images.githubusercontent.com/2468572/175315122-1ec3e6e3-419f-4154-af31-21b9dcb2e38f.png)
 
-# Table of Contents
-
-Use the automatically generated TOC (top-left button in GitHub).
-
 # Introduction
 
 ResMiCo is a deep learning model capable of detecting metagenome assembly errors. 
