@@ -21,7 +21,10 @@ extensions = [Extension('reader',
                         )]
 
 setup(
-    ext_modules=cythonize(extensions, include_path=['.', numpy.get_include()], annotate=True,
-                          compiler_directives={'language_level': "3"}),
+    ext_modules=cythonize(extensions,
+                          include_path=['.', numpy.get_include()],
+                          annotate=True,
+                          compiler_directives={'language_level': "3"}
+                          ),
     include_dirs=['.', numpy.get_include()],
 )

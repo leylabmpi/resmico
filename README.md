@@ -2,10 +2,6 @@
 
 ![overview](https://user-images.githubusercontent.com/2468572/175315122-1ec3e6e3-419f-4154-af31-21b9dcb2e38f.png)
 
-# Table of Contents
-
-Use the automatically generated TOC (top-left button in GitHub).
-
 # Introduction
 
 ResMiCo is a deep learning model capable of detecting metagenome assembly errors. 
@@ -30,14 +26,47 @@ If using ResMiCo in your work, please cite:
 [ResMiCo: increasing the quality of metagenome-assembled genomes with deep learning](https://www.biorxiv.org/content/10.1101/2022.06.23.497335v1.abstract)
 
 # Installation
-
-Currently, please use `pip` to install, but install the dependencies via mamba (or conda):
-
+## Using pip (easyest, but works only on specific platforms)
+Resmico depends on tensorflow, pandas and numpy, each of which coming with its own host of 
+dependency nightmares. We have created pip wheels for python 3.8, 3.9 and 3.10 for both Mac OS (x86) and relatively recent Linux versions 
+(using glibc >= 2.31). :
 ```bash
-mamba env create -n resmico_env -f $RESMICO_BASE_DIR/environment.yml
-mamba activate resmico_env
 pip install resmico
 ```
+**Note**: resmico depends on tensorflow, so it won't work on Mac machines with Apple silicon.
+
+If you encounter the following error:
+```
+ERROR: Could not find a version that satisfies the requirement ResMiCo (from versions: none)
+ERROR: No matching distribution found for ResMiCo
+```
+you may need to upgrade your pip version. Try running:
+```bash
+pip install --upgrade pip
+```
+If you encounter
+```
+ERROR: Ignored the following versions that require a different python version: 1.0.12 Requires-Python >=3.8; 1.0.13 Requires-Python >=3.8; 1.1.0 Requires-Python >=3.8; 1.1.1 Requires-Python >=3.8; 1.2.0 Requires-Python >=3.8; 1.2.1 Requires-Python >=3.8; 1.2.2 Requires-Python >=3.8
+ERROR: Could not find a version that satisfies the requirement ResMiCo (from versions: none)
+ERROR: No matching distribution found for ResMiCo
+```
+you need to create an environment with a Python version >=3.8 using e.g. conda:
+```bash
+conda create -n resmico python=3.8
+conda activate resmico
+```
+
+
+## From source using pip
+If none of the pip wheels is compatible with your system, you can still install resmico relatively easily by installing
+the dependencies via conda (or mamba) and using `pip` to install resmico:
+```bash
+git clone https://github.com/leylabmpi/resmico
+conda env create -n resmico -f resmico/environment.yml
+conda activate resmico
+pip install resmico
+```
+
 
 > WARNING: the resmico bioconda recipe is currently set to an old version of
 resmico. That old version does not match the current user interface
