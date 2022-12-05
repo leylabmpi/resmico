@@ -41,8 +41,10 @@ def parse_args(test_args=None, subparsers=None):
                         help='Number of randomly selected contigs (default: %(default)s)')
     parser_g1.add_argument('--emb-ind', default=0, type=int,
                         help='Layer index to produce embedding (default: %(default)s)')
-    parser_g1.add_argument('--verify-insert-size', action='store_true', default=False,
-                        help='Check if the insert size distribution is similar to the n9k-train dataset (default: %(default)s)')
+    parser_g1.add_argument('--dont-verify-insert-size', action='store_true', default=False,
+                        help='Do not check if the insert size distribution is similar to the n9k-train dataset. Use if you checked once and want to save some time. (default: %(default)s)')
+    parser_g1.add_argument('--verify-percent', default=10, type=int,
+                        help='Percent of contigs to use to check insert size distribution quantiles (default: %(default)s)')
     arguments.add_common_args(parser)
 
     # running test args
