@@ -6,6 +6,7 @@ import atexit
 
 import numpy as np
 import pandas as pd
+import random
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 from tensorflow.keras.models import Model
@@ -122,12 +123,13 @@ def predict_bin_data(model: tf.keras.Model, num_gpus: int, args):
 
 def verify_insert_size(args):
     
-    logging.info('Loading contig data...')
-    reader = contig_reader.ContigReader(args.feature_files_path, ['mean_insert_size_Match'], args.n_procs, args.chunks,
-                                        args.no_cython, args.stats_file, args.min_len,
+    logging.info('Loading contig data to verify the range of insert size distribution ...')
+    reader = contig_reader.ContigReader(args.feature_files_path, ['mean_insert_size_Match'], args.n_procs,
+                                        args.no_cython, args.stats_file, args.min_contig_len,
                                         min_avg_coverage=args.min_avg_coverage)
 
-    contig_data = [reader.contigs[i] for i in range(0, len(reader), 10)] ##10% of the data
+    contig_data = [reader.contigs[i] for i in random.sample(list(np.arange(len(reader))),
+                                                            int(args.verify_percent/100*len(reader)))]
     
     features_data = reader.read_contigs(contig_data, return_raw=True)
 
@@ -136,26 +138,25 @@ def verify_insert_size(args):
         insert_size_data.extend(cont['mean_insert_size_Match'])
 
         
-    low_train, high_train = 178, 372 #0.05 and 0.95 quantiles of the n9k-train dataset
+    low_train, high_train = 117, 493 #0.02 and 0.98 quantiles of the n9k-train dataset
      
-    lowq = np.nanquantile(insert_size_data, 0.06)
-    hiq = np.nanquantile(insert_size_data, 0.94)
+    lowq = np.nanquantile(insert_size_data, 0.05)
+    hiq = np.nanquantile(insert_size_data, 0.95)
     if lowq >= low_train and  hiq <= high_train:
-        if np.nanquantile(insert_size_data, 0.05) >= low_train and np.nanquantile(insert_size_data, 0.95) <= high_train:
+        if np.nanquantile(insert_size_data, 0.04) >= low_train and np.nanquantile(insert_size_data, 0.96) <= high_train:
             logging.info('The insert size distribution lies inside the training one. It is safe to apply ResMiCo.')
         else:
             logging.info('The insert size distribution lies close to the border of the training one. ResMiCo can be applied.')
     else:
-        logging.info('The insert size distribution is dissimilar to the training data. ResMiCo predictions are not reliable.')
+         raise TypeError('The insert size distribution of given data is dissimilar to the training data. ResMiCo predictions are not reliable. If you still want to make predictions, use --dont-verify-insert-size argument.')
         
 def main(args):
     """
     Main interface
     """
     # insert size assessment
-    if args.verify_insert_size:
+    if not args.dont_verify_insert_size:
         verify_insert_size(args)
-        exit()
     # TODO: remove GlobalMaskedMaxPooling1D, once annotation kicks in
     custom_obj = {'class_recall_0': utils.class_recall_0, 'class_recall_1': utils.class_recall_1,
                   'GlobalMaskedMaxPooling1D': Models.GlobalMaskedMaxPooling1D}

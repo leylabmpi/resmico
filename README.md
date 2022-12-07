@@ -183,12 +183,15 @@ resmico evaluate \
   --min-avg-coverage 0.01 \
   --save-path predictions \
   --save-name default-model \
+  --dont-verify-insert-size \
   --feature-files-path features
 ```
 
 > Note: `--min-avg-coverage` is set to "0.01" here due to the
 abnormally low coverage in these small example BAM files.
-**DO NOT** use such a low coverage cutoff with real data.
+**DO NOT** use such a low coverage cutoff with real data. In the experiments shown in the paper, it was set to 1.
+
+> Note: use `--dont-verify-insert-size` if you have already checked the insert size distribution range of your data once (inclusion criteria) and want to save some time at this run.
 
 ## Filter contigs
 
