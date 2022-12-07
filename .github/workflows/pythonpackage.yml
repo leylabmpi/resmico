@@ -23,20 +23,20 @@ jobs:
     - name: Checkout submodules
       run: git submodule update --init --recursive
     - name: bam2feat Create build dir
-      run: mkdir ${{runner.workspace}}/ResMiCo/ResMiCo-SM/feature_extractor/build
+      run: mkdir ${{runner.workspace}}/resmico/ResMiCo-SM/feature_extractor/build
     - name: bam2feat Configure CMake
-      working-directory: ${{runner.workspace}}/ResMiCo/ResMiCo-SM/feature_extractor/build
+      working-directory: ${{runner.workspace}}/resmico/ResMiCo-SM/feature_extractor/build
       shell: bash
       run: |
         export CC=$(which ${{ matrix.cc }})
         export CXX=$(which ${{ matrix.cxx }})
         cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
     - name: bam2feat Build
-      working-directory: ${{runner.workspace}}/ResMiCo/ResMiCo-SM/feature_extractor/build
+      working-directory: ${{runner.workspace}}/resmico/ResMiCo-SM/feature_extractor/build
       shell: bash
       run: make -j
     - name: bam2feat Test
-      working-directory: ${{runner.workspace}}/ResMiCo/ResMiCo-SM/feature_extractor/build
+      working-directory: ${{runner.workspace}}/resmico/ResMiCo-SM/feature_extractor/build
       shell: bash
       run: ./tests
     - uses: conda-incubator/setup-miniconda@v2
@@ -50,22 +50,22 @@ jobs:
         activate-environment: resmico
     - name: cython contig reader
       shell: bash -l {0}
-      working-directory: ${{runner.workspace}}/ResMiCo/resmico
+      working-directory: ${{runner.workspace}}/resmico/resmico
       run: |
         python setup.py build_ext --inplace
     - name: pip install
       shell: bash -l {0}
-      working-directory: ${{runner.workspace}}/ResMiCo/
+      working-directory: ${{runner.workspace}}/resmico/
       run: |
         pip install .
     - name: resmico tests
       shell: bash -l {0}
-      working-directory: ${{runner.workspace}}/ResMiCo/resmico/tests
+      working-directory: ${{runner.workspace}}/resmico/resmico/tests
       run: |
         pytest -s --hide-run-results --script-launch-mode=subprocess
     - name: resmico readme example1
       shell: bash -l {0}
-      working-directory: ${{runner.workspace}}/ResMiCo/
+      working-directory: ${{runner.workspace}}/resmico/
       run: |
         mkdir example1 && cd example1
         wget http://ftp.tue.mpg.de/ebio/projects/ResMiCo/UHGG-n9_bam2feat.tar.gz
@@ -76,7 +76,7 @@ jobs:
         resmico evaluate --min-avg-coverage 0.01 --save-path predictions --save-name default-model --feature-files-path features
     - name: resmico readme example2
       shell: bash -l {0}
-      working-directory: ${{runner.workspace}}/ResMiCo/
+      working-directory: ${{runner.workspace}}/resmico/
       run: |
         mkdir example2 && cd example2
         wget http://ftp.tue.mpg.de/ebio/projects/ResMiCo/UHGG-n9_features.tar.gz
@@ -86,7 +86,7 @@ jobs:
         resmico evaluate --save-path predictions --save-name default-model --feature-files-path UHGG-n9_features/
         resmico filter --outdir filtered-contigs predictions/default-model.csv UHGG-n9_features/fasta/*fna.gz
     - name: resmico-sm tests
-      working-directory: ${{runner.workspace}}/ResMiCo/ResMiCo-SM
+      working-directory: ${{runner.workspace}}/resmico/ResMiCo-SM
       shell: bash -l {0}
       run: |
         wget http://ftp.tue.mpg.de/ebio/projects/ResMiCo/genomes_n10.tar.gz
