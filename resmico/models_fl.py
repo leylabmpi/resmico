@@ -639,7 +639,7 @@ class BinaryDatasetTrain(BinaryDataset):
         x = np.zeros((self.batch_size, max_len, len(features_data[0])), dtype=np.float32)
         # it's important to initialize the mask to all ones and then set to zero the padded values rather than the
         # other way around, otherwise we create a mask of all zeros for incomplete batches -> NaN in averaging
-        mask = np.ones((self.batch_size, self.convoluted_size(max_len, True)), dtype=np.bool)
+        mask = np.ones((self.batch_size, self.convoluted_size(max_len, True)), dtype=bool)
 
         contig_intervals = BinaryDatasetTrain.select_intervals(contig_data, max_len, self.translate_short_contigs,
                                                                self.max_translation_bases)
@@ -861,7 +861,7 @@ class BinaryDatasetEval(BinaryDataset):
         x = np.zeros((batch_size, max_len, len(self.expanded_feature_names)), dtype=np.float32)
         # the size of the convoluted output (the output that goes into the max/avg global pooling layer)
         # for the longest contig (including positions that needed partial padding)
-        mask = np.zeros((batch_size, self.convoluted_size(max_len, pad=True)), dtype=np.bool)
+        mask = np.zeros((batch_size, self.convoluted_size(max_len, pad=True)), dtype=bool)
         # traverse all contig features, break down into multiple contigs if too long, and create a numpy 3D array
         # of shape (batch_size, max_len, num_features) to be used for evaluation
         idx = 0
@@ -892,5 +892,5 @@ class BinaryDatasetEval(BinaryDataset):
         if self.show_progress:
             utils.update_progress(batch_idx + 1, self.__len__(), 'Evaluating: ',
                                   f' {(timer() - start):5.2f}s  {stack_time:5.2f}s')
-        return (x, mask), np.zeros(batch_size, dtype=np.bool)
+        return (x, mask), np.zeros(batch_size, dtype=bool)
     
