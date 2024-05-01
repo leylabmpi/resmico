@@ -148,6 +148,9 @@ If you need/want to compile a new version, see the README.md in `./feature_extra
     * `keep_genomes:`
       * Keep all metaquast info
   * `map:`
+    * `contig_frac`
+      * If `contig_frac > 1`, it acts as a length cutoff (`contig_length__bp >= contig_frac`).
+      * If `contig_frac between 0 and 1`, it acts as a subsampling mechanism: what fraction of contigs to randomly subsample and used as a reference for read mapping?
     * `samtools:`
       * Parameters provided to [samtools view](https://github.com/samtools/samtools)
     * `bowtie2:`
